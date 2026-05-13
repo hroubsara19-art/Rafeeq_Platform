@@ -228,15 +228,15 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   <div id="session-summary">
     <h3 style="font-size:1.05rem;font-weight:800;margin-bottom:.5rem;">
       <i class="fas fa-chart-line" style="color:var(--mint);margin-left:8px;"></i>
-      ظ…ظ„ط®طµ ط¬ظ„ط³ط© ط§ظ„ط§ظ†طھط¨ط§ظ‡
+      ملخص جلسة الانتباه
     </h3>
     <div class="sum-grid">
-      <div class="sum-item"><div class="sum-num" id="sum-score">â€”</div><div class="sum-lbl">ظ…طھظˆط³ط· ط§ظ„ط§ظ†طھط¨ط§ظ‡</div></div>
-      <div class="sum-item"><div class="sum-num" id="sum-count">â€”</div><div class="sum-lbl">ظ…ط±ط© طھط´طھطھ</div></div>
-      <div class="sum-item"><div class="sum-num" id="sum-time">â€”</div><div class="sum-lbl">ط¯ظ‚ط§ط¦ظ‚ ط§ظ„ط¬ظ„ط³ط©</div></div>
+      <div class="sum-item"><div class="sum-num" id="sum-score">—</div><div class="sum-lbl">متوسط الانتباه</div></div>
+      <div class="sum-item"><div class="sum-num" id="sum-count">—</div><div class="sum-lbl">مرات التشتت الملحوظ</div></div>
+      <div class="sum-item"><div class="sum-num" id="sum-time">—</div><div class="sum-lbl">دقائق الجلسة</div></div>
     </div>
     <a href="{% url 'student:view_lesson_student' lesson.pk %}" class="btn-finish">
-      <i class="fas fa-check-circle"></i> ط¥ظ†ظ‡ط§ط، ط§ظ„ط¬ظ„ط³ط©
+      <i class="fas fa-check-circle"></i> إنهاء الجلسة
     </a>
   </div>
 </div>
@@ -540,7 +540,7 @@ function stopTracking(){
 
 function showSummary(s){
     if (!s) return;
-    document.getElementById('sum-score').textContent = s.avg_attention     || 'â€”';
+    document.getElementById('sum-score').textContent = s.avg_attention     || '—';
     document.getElementById('sum-count').textContent = s.inattention_count || '0';
     document.getElementById('sum-time').textContent  = s.session_minutes   || '0';
     var el = document.getElementById('session-summary');
