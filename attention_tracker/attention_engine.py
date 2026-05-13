@@ -2,11 +2,10 @@
 attention_engine.py — نسخة محسّنة
 ═══════════════════════════════════════════════════════════════
 تجمع بين:
-  - منطق نسبة الأنف/الأذن من الكود القديم (بسيط وموثوق)
-  - EAR لكشف النعاس (جديد)
-  - Gaze Zone لكشف اتجاه النظر (جديد)
-  - focused_start_time: لا ينبّه إلا بعد ثبات التشتت
-  - cooldown بين التنبيهات
+  - منطق FocusBuddy: MediaPipe Pose لنسبة الأنف/الأذن الأفقية (0.65–1.35)
+  - EAR فوري < 0.20 من Face Mesh (كالنموذج المرجعي)
+  - Face Mesh احتياطي: نسبة أنف/أذن + نظر + نعاس متتابع
+  - توقيت تحذير 3 ث ثم تشتت ملحوظ 5 ث مع تبريد التنبيهات
 ═══════════════════════════════════════════════════════════════
 """
 
@@ -27,13 +26,18 @@ from PIL import Image
 # ثوابت
 # ══════════════════════════════════════════════════════════════
 
-# نسبة الأنف/الأذن (مأخوذة من الكود القديم — موثوقة)
+# نسبة الأنف/الأذن — Face Mesh (احتياطي إذا لم يظهر الجسم في الإطار)
 NOSE_EAR_RATIO_MIN  = 0.65   # أقل = التفات يمين
-NOSE_EAR_RATIO_MAX  = 1.40   # أكثر = التفات يسار
+NOSE_EAR_RATIO_MAX  = 1.35   # متماثل مع FocusBuddy (كان 1.40)
+
+# FocusBuddy: Pose أفقي |nose.x−ear.x| (نفس النموذج Tk)
+POSE_HEAD_RATIO_MIN = 0.65
+POSE_HEAD_RATIO_MAX = 1.35
 
 # EAR — نسبة انفتاح العين
-EAR_THRESHOLD       = 0.22
-EAR_CONSEC_FRAMES   = 12     # إطار متتالي تحت الحد → نعاس
+EAR_THRESHOLD       = 0.22   # للمسار التدريجي (مع عدّ الإطارات)
+FOCUSBUDDY_EAR_THRESHOLD = 0.20  # فوري كالنموذج المرجعي عند كشف التشتت الأساسي
+EAR_CONSEC_FRAMES   = 12     # إطار متتالي تحت الحد → نعاس (مسار دقّة إضافي)
 
 # Gaze — موقع البؤبؤ داخل العين
 GAZE_LEFT_RATIO     = 0.33
@@ -52,10 +56,10 @@ RIGHT_EYE  = [33,  160, 158, 133, 153, 144]
 LEFT_IRIS  = [474, 475, 476, 477]
 RIGHT_IRIS = [469, 470, 471, 472]
 
-# نقاط Pose للأنف والأذنين (MediaPipe Pose landmarks)
-NOSE_IDX      = 0    # Face Mesh: طرف الأنف
-LEFT_EAR_IDX  = 234  # Face Mesh: تقريب الأذن اليسرى
-RIGHT_EAR_IDX = 454  # Face Mesh: تقريب الأذن اليمنى
+# نقاط Face Mesh للأنف/الأذن (احتياطي)
+NOSE_IDX      = 0
+LEFT_EAR_IDX  = 234
+RIGHT_EAR_IDX = 454
 
 
 # ══════════════════════════════════════════════════════════════
@@ -113,6 +117,24 @@ def compute_nose_ear_ratio(lm, w: int, h: int) -> float:
     right_dist = _dist(nose, r_ear)
 
     return left_dist / right_dist if right_dist > 0 else 1.0
+
+
+def compute_pose_focusbuddy_ratio(pose_results) -> tuple[Optional[float], bool]:
+    """
+    نفس منطق FocusBuddy: |nose.x−left_ear.x| / |nose.x−right_ear.x| على Pose.
+    يعيد (النسبة، هل_التشتت_بالوضعية).
+    """
+    if not pose_results or not pose_results.pose_landmarks:
+        return None, False
+    lm = pose_results.pose_landmarks.landmark
+    nose, le, re = lm[0], lm[3], lm[4]
+    left_dist = abs(nose.x - le.x)
+    right_dist = abs(nose.x - re.x)
+    if right_dist <= 1e-9:
+        return None, False
+    r = left_dist / right_dist
+    bad = r < POSE_HEAD_RATIO_MIN or r > POSE_HEAD_RATIO_MAX
+    return r, bad
 
 
 def compute_gaze(lm, w: int, h: int) -> str:
@@ -257,29 +279,69 @@ class AttentionTracker:
 
         return alert, distract_dur, warning, significant
 
-    def _process(self, lm, w: int, h: int) -> AttentionState:
+    def _process_focusbuddy(
+        self,
+        pose_results,
+        face_lm,
+        w: int,
+        h: int,
+    ) -> AttentionState:
+        """
+        دمج منطق FocusBuddy (Pose + EAR فوري) مع مسار دقّة إضافي عند الوجه المستقر.
+        """
         now = time.time()
+        ratio_pose, pose_distracted = compute_pose_focusbuddy_ratio(pose_results)
 
-        # ── EAR ───────────────────────────────────────────────
-        ear_l = compute_ear(lm, LEFT_EYE,  w, h)
-        ear_r = compute_ear(lm, RIGHT_EYE, w, h)
-        ear   = (ear_l + ear_r) / 2.0
+        ear = 0.35
+        face_ratio = 1.0
+        gaze_zone = "unknown"
+        if face_lm is not None:
+            ear_l = compute_ear(face_lm, LEFT_EYE, w, h)
+            ear_r = compute_ear(face_lm, RIGHT_EYE, w, h)
+            ear = (ear_l + ear_r) / 2.0
+            face_ratio = compute_nose_ear_ratio(face_lm, w, h)
+            gaze_zone = compute_gaze(face_lm, w, h)
 
-        if ear < EAR_THRESHOLD:
-            self._ear_counter += 1
+        drowsy_instant = bool(face_lm is not None and ear < FOCUSBUDDY_EAR_THRESHOLD)
+
+        if pose_distracted:
+            display_ratio = ratio_pose if ratio_pose is not None else face_ratio
+            score = 25
+            cause = "head_turn"
+            attentive = False
+            if ear < EAR_THRESHOLD:
+                self._ear_counter += 1
+            else:
+                self._ear_counter = 0
+            drowsy_long = self._ear_counter >= EAR_CONSEC_FRAMES
+            drowsy = drowsy_long or drowsy_instant
+        elif face_lm is not None and drowsy_instant:
+            display_ratio = face_ratio
+            score = 25
+            cause = "drowsy"
+            attentive = False
+            self._ear_counter = min(self._ear_counter + 1, EAR_CONSEC_FRAMES + 5)
+            drowsy = True
+        elif face_lm is None:
+            display_ratio = ratio_pose if ratio_pose is not None else 1.0
+            if ratio_pose is not None:
+                score, cause, attentive = 78, "none", True
+                self._ear_counter = 0
+                drowsy = False
+            else:
+                score, cause, attentive = 0, "no_face", False
+                self._ear_counter = 0
+                drowsy = False
         else:
-            self._ear_counter = 0
-        drowsy = self._ear_counter >= EAR_CONSEC_FRAMES
-
-        # ── Nose/Ear Ratio ────────────────────────────────────
-        ratio = compute_nose_ear_ratio(lm, w, h)
-
-        # ── Gaze ──────────────────────────────────────────────
-        gaze = compute_gaze(lm, w, h)
-
-        # ── Score ─────────────────────────────────────────────
-        score, cause = compute_score(ear, ratio, gaze, drowsy)
-        attentive    = score >= 70
+            if ear < EAR_THRESHOLD:
+                self._ear_counter += 1
+            else:
+                self._ear_counter = 0
+            drowsy_long = self._ear_counter >= EAR_CONSEC_FRAMES
+            score, cause = compute_score(ear, face_ratio, gaze_zone, drowsy_long)
+            attentive = score >= 70
+            display_ratio = face_ratio
+            drowsy = drowsy_long
 
         alert, distract_dur, warning, significant = self._track_distraction(
             attentive, cause, score, now
@@ -292,23 +354,29 @@ class AttentionTracker:
             self._score_buffer.pop(0)
 
         return AttentionState(
-            timestamp         = now,
-            student_name      = self.student_name,
-            attention_score   = score,
-            is_attentive      = attentive,
-            ear_value         = round(ear, 3),
-            is_drowsy         = drowsy,
-            nose_ear_ratio    = round(ratio, 3),
-            gaze_zone         = gaze,
-            distraction_cause = cause,
-            alert_message     = alert,
-            session_minutes   = round(session_min, 2),
-            inattention_count = self._inattention_count,
-            distraction_seconds = round(distract_dur, 1),
-            is_warning_distraction = warning,
-            is_significant_distraction = significant,
-            focus_status = "focused" if attentive else ("distracted" if significant else ("warning" if warning else "drifting")),
+            timestamp=now,
+            student_name=self.student_name,
+            attention_score=score,
+            is_attentive=attentive,
+            ear_value=round(ear, 3),
+            is_drowsy=drowsy,
+            nose_ear_ratio=round(display_ratio, 3),
+            gaze_zone=gaze_zone,
+            distraction_cause=cause,
+            alert_message=alert,
+            session_minutes=round(session_min, 2),
+            inattention_count=self._inattention_count,
+            distraction_seconds=round(distract_dur, 1),
+            is_warning_distraction=warning,
+            is_significant_distraction=significant,
+            focus_status="focused" if attentive else (
+                "distracted" if significant else ("warning" if warning else "drifting")
+            ),
         )
+
+    def _process(self, lm, w: int, h: int) -> AttentionState:
+        """مسار الكاميرا المحلية (بدون Pose) — نفس منطق الوجه فقط."""
+        return self._process_focusbuddy(None, lm, w, h)
 
     def __init__(self, student_name: str = "الطالب",
                  camera_index: int = 0,
@@ -318,7 +386,8 @@ class AttentionTracker:
         self.target_fps    = target_fps
         self._running      = False
         self.last_error    = None
-        self._face_mesh    = None  # ✅ نحتفظ بـ face_mesh
+        self._face_mesh    = None  # FaceMesh أو False عند التعطيل
+        self._pose         = None  # Pose أو False
         self._face_detector = None
 
         # حالة داخلية
@@ -349,6 +418,16 @@ class AttentionTracker:
                 min_detection_confidence = 0.6,
                 min_tracking_confidence  = 0.5,
             )
+            try:
+                mp_pose = mp.solutions.pose
+                self._pose = mp_pose.Pose(
+                    static_image_mode=False,
+                    model_complexity=1,
+                    min_detection_confidence=0.6,
+                    min_tracking_confidence=0.6,
+                )
+            except Exception:
+                self._pose = False
         return self._face_mesh
 
     def _process_basic_frame(self, rgb, w: int, h: int) -> Optional[dict]:
@@ -443,46 +522,24 @@ class AttentionTracker:
             else:
                 rgb = frame
 
-            # تهيئة face_mesh عند الحاجة
+            # تهيئة Face Mesh + Pose (منطق FocusBuddy المرجعي)
             face_mesh = self._init_face_mesh()
             if face_mesh is None:
                 return self._process_basic_frame(rgb, w, h)
-            
-            # معالجة الصورة
-            results = face_mesh.process(rgb)
-            
-            if not results.multi_face_landmarks:
-                now = time.time()
-                alert, distract_dur, warning, significant = self._track_distraction(
-                    False, "no_face", 0, now
-                )
-                session_min = (now - self._session_start) / 60.0 if self._session_start else 0.0
-                self._score_buffer.append(0)
-                if len(self._score_buffer) > 500:
-                    self._score_buffer.pop(0)
-                return asdict(AttentionState(
-                    timestamp=now,
-                    student_name=self.student_name,
-                    attention_score=0,
-                    is_attentive=False,
-                    ear_value=0.0,
-                    is_drowsy=False,
-                    nose_ear_ratio=1.0,
-                    gaze_zone="unknown",
-                    distraction_cause="no_face",
-                    alert_message=alert,
-                    session_minutes=round(session_min, 2),
-                    inattention_count=self._inattention_count,
-                    distraction_seconds=round(distract_dur, 1),
-                    is_warning_distraction=warning,
-                    is_significant_distraction=significant,
-                    focus_status="distracted" if significant else ("warning" if warning else "drifting"),
-                ))
-            
-            # معالجة وجه واحد
-            lm = results.multi_face_landmarks[0].landmark
-            state = self._process(lm, w, h)
-            
+
+            pose_results = None
+            if self._pose is not None and self._pose is not False:
+                try:
+                    pose_results = self._pose.process(rgb)
+                except Exception:
+                    pose_results = None
+
+            face_results = face_mesh.process(rgb)
+            face_lm = None
+            if face_results.multi_face_landmarks:
+                face_lm = face_results.multi_face_landmarks[0].landmark
+
+            state = self._process_focusbuddy(pose_results, face_lm, w, h)
             return asdict(state)
         
         except Exception as e:
