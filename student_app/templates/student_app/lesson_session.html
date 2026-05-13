@@ -365,39 +365,39 @@ function showCameraStatus(s){
     var t = document.getElementById('alert-toast'); if (!t) return;
     if (s === 'granted'){
         t.style.background = 'linear-gradient(135deg,#059669,#10b981)';
-        t.textContent = 'âœ… طھظ… طھظپط¹ظٹظ„ ط§ظ„ظƒط§ظ…ظٹط±ط§ â€” طھطھط¨ط¹ ط§ظ„ط§ظ†طھط¨ط§ظ‡ ظ†ط´ط·';
+        t.textContent = '✅ تم تفعيل الكاميرا — تتبع الانتباه نشط';
         t.style.display = 'block';
         setTimeout(function(){ t.style.display = 'none'; }, 4000);
     } else if (s === 'denied'){
         t.style.background = 'linear-gradient(135deg,#b45309,#d97706)';
-        t.innerHTML = 'âڑ ï¸ڈ ط±ظڈظپط¶ ط¥ط°ظ† ط§ظ„ظƒط§ظ…ظٹط±ط§ â€” <a href="#" onclick="openCameraSettings()" style="color:#fff;text-decoration:underline;font-weight:700;">ط§ظ†ظ‚ط± ظ‡ظ†ط§ ظ„ط¥ط¹ط§ط¯ط© ط§ظ„طھظپط¹ظٹظ„</a>';
+        t.innerHTML = '⚠️ رُفض إذن الكاميرا — <a href="#" onclick="openCameraSettings()" style="color:#fff;text-decoration:underline;font-weight:700;">انقر هنا لإعادة التفعيل</a>';
         t.style.display = 'block';
         setTimeout(function(){ t.style.display = 'none'; }, 10000);
     } else if (s === 'noCam'){
         t.style.background = 'linear-gradient(135deg,#475569,#64748b)';
-        t.textContent = 'ًں“· ظ„ط§ طھظˆط¬ط¯ ظƒط§ظ…ظٹط±ط§ â€” ظٹظ…ظƒظ†ظƒ ظ…طھط§ط¨ط¹ط© ط§ظ„ط¯ط±ط³ ط¹ط§ط¯ط©ظ‹';
+        t.textContent = 'لا توجد كاميرا — يمكنك متابعة الدرس عادةً';
         t.style.display = 'block';
         setTimeout(function(){ t.style.display = 'none'; }, 5000);
     } else if (s === 'insecure'){
         t.style.background = 'linear-gradient(135deg,#0369a1,#0284c7)';
-        t.textContent = 'ًں’، طھطھط¨ط¹ ط§ظ„ط§ظ†طھط¨ط§ظ‡ ظٹط­طھط§ط¬ ط§طھطµط§ظ„ ط¢ظ…ظ† (HTTPS) ط£ظˆ localhost â€” ظٹظ…ظƒظ†ظƒ ظ…طھط§ط¨ط¹ط© ط§ظ„ط¯ط±ط³ ط¹ط§ط¯ط©ظ‹';
+        t.textContent = 'تتبع الانتباه يحتاج اتصالاً آمناً (HTTPS) أو localhost — يمكنك متابعة الدرس عادةً';
         t.style.display = 'block';
         setTimeout(function(){ t.style.display = 'none'; }, 7000);
     }
 }
 
 function openCameraSettings(){
-    var ua = navigator.userAgent, msg = 'ظ„طھظپط¹ظٹظ„ ط§ظ„ظƒط§ظ…ظٹط±ط§:\n\n';
-    if (ua.indexOf('Chrome') !== -1){ msg += 'Chrome: ط§ظ†ظ‚ط± ط¹ظ„ظ‰ ط£ظٹظ‚ظˆظ†ط© ط§ظ„ظ‚ظپظ„ ًں”’ ظپظٹ ط´ط±ظٹط· ط§ظ„ط¹ظ†ظˆط§ظ†\nâ†’ ط§ط®طھط± "ط¥ط¹ط¯ط§ط¯ط§طھ ط§ظ„ظ…ظˆظ‚ط¹" â†’ ظپط¹ظ‘ظ„ ط§ظ„ظƒط§ظ…ظٹط±ط§'; }
-    else if (ua.indexOf('Firefox') !== -1){ msg += 'Firefox: ط§ظ†ظ‚ط± ط¹ظ„ظ‰ ط£ظٹظ‚ظˆظ†ط© ط§ظ„ظƒط§ظ…ظٹط±ط§ ظپظٹ ط´ط±ظٹط· ط§ظ„ط¹ظ†ظˆط§ظ†\nâ†’ ط£ط²ظ„ ط§ظ„ط­ط¸ط± ظˆط£ط¹ط¯ طھط­ظ…ظٹظ„ ط§ظ„طµظپط­ط©'; }
-    else if (ua.indexOf('Safari') !== -1){ msg += 'Safari: ط§ظ„ظ‚ط§ط¦ظ…ط© â†’ ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ â†’ ظ…ظˆط§ظ‚ط¹ ط§ظ„ظˆظٹط¨ â†’ ط§ظ„ظƒط§ظ…ظٹط±ط§\nâ†’ ظپط¹ظ‘ظ„ ظ„ظ‡ط°ط§ ط§ظ„ظ…ظˆظ‚ط¹'; }
-    else { msg += 'ط§ظ†ظ‚ط± ط¹ظ„ظ‰ ط£ظٹظ‚ظˆظ†ط© ط§ظ„ظƒط§ظ…ظٹط±ط§ ط£ظˆ ط§ظ„ظ‚ظپظ„ ظپظٹ ط´ط±ظٹط· ط§ظ„ط¹ظ†ظˆط§ظ† ظˆط£ط¹ط·ظگ ط§ظ„ط¥ط°ظ†.'; }
+    var ua = navigator.userAgent, msg = 'لتفعيل الكاميرا:\n\n';
+    if (ua.indexOf('Chrome') !== -1){ msg += 'Chrome: انقر على أيقونة القفل في شريط العنوان\n→ اختر "إعدادات الموقع" → فعّل الكاميرا'; }
+    else if (ua.indexOf('Firefox') !== -1){ msg += 'Firefox: انقر على أيقونة الكاميرا في شريط العنوان\n→ أزل الحظر وأعد تحميل الصفحة'; }
+    else if (ua.indexOf('Safari') !== -1){ msg += 'Safari: القائمة → الإعدادات → مواقع الويب → الكاميرا\n→ فعّل لهذا الموقع'; }
+    else { msg += 'انقر على أيقونة الكاميرا أو القفل في شريط العنوان وأعطِ الإذن.'; }
     alert(msg);
 }
 
 function hideAttentionBar(){
     var bar = document.getElementById('attention-bar');
-    if (bar){ bar.innerHTML = '<span style="color:var(--muted);font-size:.82rem;font-weight:600;margin:auto;">ًں“· طھطھط¨ط¹ ط§ظ„ط§ظ†طھط¨ط§ظ‡ ظ…ط¹ط·ظ‘ظ„ â€” ط§ظ„ط¬ظ„ط³ط© ط§ظ„طھط¹ظ„ظٹظ…ظٹط© ط¬ط§ط±ظٹط©</span>'; }
+    if (bar){ bar.innerHTML = '<span style="color:var(--muted);font-size:.82rem;font-weight:600;margin:auto;">تتبع الانتباه معطّل — الجلسة التعليمية جارية</span>'; }
     trackingActive = false;
 }
 
@@ -413,7 +413,7 @@ function startTracking(){
             /* âœ… ط¥طµظ„ط§ط­: ظ†طھط­ظ‚ظ‚ ط£ظ† ws_url طµط§ظ„ط­ ظ‚ط¨ظ„ ط§ظ„ط§طھطµط§ظ„ â€” ظ„ظ…ظ†ط¹ new WebSocket(null) */
             trackingActive = true;
             connectWebSocket(d.ws_url);
-            updateBar('attentive', 'ط§ظ„طھطھط¨ط¹ ظ†ط´ط· âœ…', 100);
+            updateBar('attentive', 'التتبع نشط ✅', 100);
         } else {
             hideAttentionBar();
         }
@@ -505,7 +505,7 @@ function stopTracking(){
     if (!trackingActive) return;
     trackingActive = false; stopFrameSending(); if (ws) ws.close();
     var btn = document.getElementById('stop-btn');
-    if (btn) btn.innerHTML = '<i class="fas fa-check"></i> طھظ…';
+    if (btn) btn.innerHTML = '<i class="fas fa-check"></i> تم';
     fetch("{% url 'student:attention_stop' %}", {
         method:'POST',
         headers:{'Content-Type':'application/json','X-CSRFToken':CSRF_TOKEN},
@@ -557,7 +557,7 @@ window.addEventListener('beforeunload', function(){ if (trackingActive) stopTrac
 
     var rawText   = JSON.parse(document.getElementById('dj-lesson-text').textContent  || '""');
     var imageList = JSON.parse(document.getElementById('dj-image-list').textContent   || '[]');
-    if (!rawText){ container.innerHTML = '<p style="color:#64748b;padding:1rem;">ظ„ط§ ظٹظˆط¬ط¯ ظ…ط­طھظˆظ‰.</p>'; return; }
+    if (!rawText){ container.innerHTML = '<p style="color:#64748b;padding:1rem;">لا يوجد محتوى.</p>'; return; }
 
     var paras = rawText.split(/\n\s*\n/).map(function(p){ return p.trim(); }).filter(Boolean);
 
