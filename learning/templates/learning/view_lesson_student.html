@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% load static %}
 
 {% block title %}{{ lesson.lessontitle }}{% endblock %}
@@ -26,7 +26,7 @@
 body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',sans-serif;}
 .lesson-wrap{max-width:860px;margin:0 auto;padding:1.5rem 1.25rem 5rem;}
 
-/* ══ شريط الانتباه ══ */
+/* â•گâ•گ ط´ط±ظٹط· ط§ظ„ط§ظ†طھط¨ط§ظ‡ â•گâ•گ */
 #attention-bar{
   position:sticky;top:0;z-index:100;
   background:var(--card);border-bottom:2px solid var(--border);
@@ -57,7 +57,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 }
 #stop-btn:hover{background:var(--sky);color:#fff;}
 
-/* ══ Toast ══ */
+/* â•گâ•گ Toast â•گâ•گ */
 #alert-toast{
   position:fixed;bottom:2rem;right:50%;transform:translateX(50%);
   background:linear-gradient(135deg,var(--sky-dk),var(--sky));
@@ -72,7 +72,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   100%{transform:translateX(50%) translateY(0);opacity:1;}
 }
 
-/* ══ رأس الدرس ══ */
+/* â•گâ•گ ط±ط£ط³ ط§ظ„ط¯ط±ط³ â•گâ•گ */
 .lesson-header{
   background:linear-gradient(135deg,var(--sky-dk),var(--sky));
   border-radius:1.25rem;padding:1.75rem 2rem;
@@ -83,7 +83,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 .lesson-meta{display:flex;gap:1.2rem;flex-wrap:wrap;font-size:.83rem;opacity:.9;}
 .lesson-meta span{display:flex;align-items:center;gap:.35rem;}
 
-/* ══ الصوت ══ */
+/* â•گâ•گ ط§ظ„طµظˆطھ â•گâ•گ */
 .audio-top-bar{
   background:linear-gradient(120deg,#0f172a,var(--sky-dk));
   border-radius:1rem;padding:1rem 1.25rem;margin-bottom:1.5rem;
@@ -105,7 +105,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 }
 .audio-top-bar .spd-btn:hover,.audio-top-bar .spd-btn.active{background:rgba(255,255,255,.3);}
 
-/* ══ بطاقات الخيارين ══ */
+/* â•گâ•گ ط¨ط·ط§ظ‚ط§طھ ط§ظ„ط®ظٹط§ط±ظٹظ† â•گâ•گ */
 .actions-grid{
   display:grid;grid-template-columns:1fr 1fr;
   gap:1.25rem;margin-bottom:1.5rem;
@@ -142,7 +142,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 .ac-test .ac-cta{background:#b45309;color:#fff;}
 .ac-test.disabled .ac-cta{background:var(--muted);color:#fff;cursor:not-allowed;}
 
-/* ══ محتوى الدرس ══ */
+/* â•گâ•گ ظ…ط­طھظˆظ‰ ط§ظ„ط¯ط±ط³ â•گâ•گ */
 .lesson-card{
   background:var(--card);border-radius:1.1rem;
   border:1.5px solid var(--border);
@@ -157,7 +157,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 }
 .lesson-section-body{padding:1.5rem;}
 
-/* فقرة + صورة */
+/* ظپظ‚ط±ط© + طµظˆط±ط© */
 .std-para-block{
   display:flex;gap:1.25rem;align-items:flex-start;
   padding:1.25rem;border-radius:12px;
@@ -187,7 +187,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   .std-para-img{width:100%;height:180px;}
 }
 
-/* ══ ملخص الانتباه ══ */
+/* â•گâ•گ ظ…ظ„ط®طµ ط§ظ„ط§ظ†طھط¨ط§ظ‡ â•گâ•گ */
 #session-summary{
   display:none;background:var(--card);border-radius:1.1rem;
   border:2px solid var(--mint);padding:1.5rem;margin-top:1.5rem;
@@ -215,21 +215,21 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 
   <div id="attention-bar">
     <div class="att-dot"></div>
-    <span class="att-label" id="att-label">جاري التهيئة…</span>
+    <span class="att-label" id="att-label">ط¬ط§ط±ظٹ ط§ظ„طھظ‡ظٹط¦ط©â€¦</span>
     <div class="score-wrap">
       <div class="score-bar"><div class="score-fill" id="score-fill" style="width:100%"></div></div>
-      <span class="score-num" id="score-num">—</span>
+      <span class="score-num" id="score-num">â€”</span>
     </div>
     <button id="stop-btn" onclick="stopTracking()">
-      <i class="fas fa-stop-circle"></i> إيقاف التتبع
+      <i class="fas fa-stop-circle"></i> ط¥ظٹظ‚ط§ظپ ط§ظ„طھطھط¨ط¹
     </button>
   </div>
 
   <div class="lesson-header">
     <h1>{{ lesson.lessontitle }}</h1>
     <div class="lesson-meta">
-      <span><i class="fas fa-book"></i> {{ lesson.subjectid.subjectname|default:"—" }}</span>
-      <span><i class="fas fa-chalkboard-teacher"></i> {{ lesson.teacherid.userid.fullname|default:"—" }}</span>
+      <span><i class="fas fa-book"></i> {{ lesson.subjectid.subjectname|default:"â€”" }}</span>
+      <span><i class="fas fa-chalkboard-teacher"></i> {{ lesson.teacherid.userid.fullname|default:"â€”" }}</span>
       <span><i class="fas fa-calendar-alt"></i> {{ lesson.createdat|date:"d M Y" }}</span>
     </div>
   </div>
@@ -237,14 +237,14 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   {% if audio_url %}
   <div class="audio-top-bar" id="audio-top">
     <div class="audio-icon"><i class="fas fa-headphones"></i></div>
-    <span class="audio-label">استمع للدرس</span>
+    <span class="audio-label">ط§ط³طھظ…ط¹ ظ„ظ„ط¯ط±ط³</span>
     <audio id="topAudio" controls>
       <source src="{{ audio_url }}" type="audio/mpeg">
     </audio>
     <div class="audio-speeds">
-      <button class="spd-btn" onclick="setSpeed(.75,this)">بطيء</button>
-      <button class="spd-btn active" onclick="setSpeed(1,this)">عادي</button>
-      <button class="spd-btn" onclick="setSpeed(1.25,this)">سريع</button>
+      <button class="spd-btn" onclick="setSpeed(.75,this)">ط¨ط·ظٹط،</button>
+      <button class="spd-btn active" onclick="setSpeed(1,this)">ط¹ط§ط¯ظٹ</button>
+      <button class="spd-btn" onclick="setSpeed(1.25,this)">ط³ط±ظٹط¹</button>
     </div>
   </div>
   {% endif %}
@@ -253,11 +253,11 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
     <div class="action-card ac-session">
       <div class="ac-icon"><i class="fas fa-eye"></i></div>
       <div>
-        <div class="ac-title">الجلسة التعليمية</div>
-        <div class="ac-desc">تعلّم هذا الدرس مع نظام تتبع الانتباه النشط.</div>
+        <div class="ac-title">ط§ظ„ط¬ظ„ط³ط© ط§ظ„طھط¹ظ„ظٹظ…ظٹط©</div>
+        <div class="ac-desc">طھط¹ظ„ظ‘ظ… ظ‡ط°ط§ ط§ظ„ط¯ط±ط³ ظ…ط¹ ظ†ط¸ط§ظ… طھطھط¨ط¹ ط§ظ„ط§ظ†طھط¨ط§ظ‡ ط§ظ„ظ†ط´ط·.</div>
       </div>
       <button class="ac-cta" onclick="document.getElementById('lesson-content').scrollIntoView({behavior:'smooth'})">
-        <i class="fas fa-play"></i> عرض الدرس
+        <i class="fas fa-play"></i> ط¹ط±ط¶ ط§ظ„ط¯ط±ط³
       </button>
     </div>
 
@@ -265,19 +265,19 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
     <a href="{% url 'student:take_test' lesson_test.testid %}" class="action-card ac-test">
       <div class="ac-icon"><i class="fas fa-file-alt"></i></div>
       <div>
-        <div class="ac-title">اختبار الدرس</div>
+        <div class="ac-title">ط§ط®طھط¨ط§ط± ط§ظ„ط¯ط±ط³</div>
         <div class="ac-desc">{{ lesson_test.testtitle }}</div>
       </div>
-      <span class="ac-cta"><i class="fas fa-pen"></i> ابدأ الاختبار</span>
+      <span class="ac-cta"><i class="fas fa-pen"></i> ط§ط¨ط¯ط£ ط§ظ„ط§ط®طھط¨ط§ط±</span>
     </a>
     {% else %}
     <div class="action-card ac-test disabled">
       <div class="ac-icon"><i class="fas fa-file-alt"></i></div>
       <div>
-        <div class="ac-title">اختبار الدرس</div>
-        <div class="ac-desc">لا يوجد اختبار مرتبط بهذا الدرس حالياً.</div>
+        <div class="ac-title">ط§ط®طھط¨ط§ط± ط§ظ„ط¯ط±ط³</div>
+        <div class="ac-desc">ظ„ط§ ظٹظˆط¬ط¯ ط§ط®طھط¨ط§ط± ظ…ط±طھط¨ط· ط¨ظ‡ط°ط§ ط§ظ„ط¯ط±ط³ ط­ط§ظ„ظٹط§ظ‹.</div>
       </div>
-      <span class="ac-cta"><i class="fas fa-clock"></i> قريباً</span>
+      <span class="ac-cta"><i class="fas fa-clock"></i> ظ‚ط±ظٹط¨ط§ظ‹</span>
     </div>
     {% endif %}
   </div>
@@ -286,7 +286,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
     {% if lesson.ai_generatedtext %}
     <div class="lesson-card">
       <div class="lesson-section-head">
-        <i class="fas fa-align-right"></i> محتوى الدرس
+        <i class="fas fa-align-right"></i> ظ…ط­طھظˆظ‰ ط§ظ„ط¯ط±ط³
       </div>
       <div class="lesson-section-body" id="lesson-paragraphs-container">
         </div>
@@ -295,14 +295,14 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   </div>
 
   <div id="session-summary">
-    <h3><i class="fas fa-chart-line" style="color:var(--mint);margin-left:8px;"></i>ملخص جلسة الانتباه</h3>
+    <h3><i class="fas fa-chart-line" style="color:var(--mint);margin-left:8px;"></i>ظ…ظ„ط®طµ ط¬ظ„ط³ط© ط§ظ„ط§ظ†طھط¨ط§ظ‡</h3>
     <div class="sum-grid">
-      <div class="sum-item"><div class="sum-num" id="sum-score">—</div><div class="sum-lbl">متوسط الانتباه</div></div>
-      <div class="sum-item"><div class="sum-num" id="sum-count">—</div><div class="sum-lbl">مرة تشتت</div></div>
-      <div class="sum-item"><div class="sum-num" id="sum-time">—</div><div class="sum-lbl">دقائق الجلسة</div></div>
+      <div class="sum-item"><div class="sum-num" id="sum-score">â€”</div><div class="sum-lbl">ظ…طھظˆط³ط· ط§ظ„ط§ظ†طھط¨ط§ظ‡</div></div>
+      <div class="sum-item"><div class="sum-num" id="sum-count">â€”</div><div class="sum-lbl">ظ…ط±ط© طھط´طھطھ</div></div>
+      <div class="sum-item"><div class="sum-num" id="sum-time">â€”</div><div class="sum-lbl">ط¯ظ‚ط§ط¦ظ‚ ط§ظ„ط¬ظ„ط³ط©</div></div>
     </div>
     <a href="{% url 'student:student_home' %}" class="btn-finish">
-      <i class="fas fa-check-circle"></i> إنهاء الدرس
+      <i class="fas fa-check-circle"></i> ط¥ظ†ظ‡ط§ط، ط§ظ„ط¯ط±ط³
     </a>
   </div>
 
@@ -316,7 +316,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 {{ image_list|default:"[]"|json_script:"dj-image-list" }}
 
 <script>
-/* ── بناء الفقرات + الصور بـ JS ── */
+/* â”€â”€ ط¨ظ†ط§ط، ط§ظ„ظپظ‚ط±ط§طھ + ط§ظ„طµظˆط± ط¨ظ€ JS â”€â”€ */
 (function buildParagraphs(){
   var container = document.getElementById('lesson-paragraphs-container');
   if(!container) return;
@@ -324,7 +324,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   var rawText   = JSON.parse(document.getElementById('dj-lesson-text').textContent || '""');
   var imageList = JSON.parse(document.getElementById('dj-image-list').textContent  || '[]');
 
-  if(!rawText){ container.innerHTML='<p style="color:#64748b;">لا يوجد محتوى.</p>'; return; }
+  if(!rawText){ container.innerHTML='<p style="color:#64748b;">ظ„ط§ ظٹظˆط¬ط¯ ظ…ط­طھظˆظ‰.</p>'; return; }
 
   var paragraphs = rawText.split(/\n\s*\n/).map(function(p){ return p.trim(); }).filter(Boolean);
 
@@ -336,7 +336,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
     var textHtml = '<div class="std-para-content"><div class="std-para-text">'
                  + escHtml(text).replace(/\n/g,'<br>') + '</div></div>';
     var imgHtml  = imgUrl
-      ? '<img src="' + imgUrl + '" class="std-para-img" alt="صورة ' + (i+1)
+      ? '<img src="' + imgUrl + '" class="std-para-img" alt="طµظˆط±ط© ' + (i+1)
         + '" onclick="window.open(this.src,\'_blank\')">'
       : '';
     block.innerHTML = numHtml + textHtml + imgHtml;
@@ -348,7 +348,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   }
 })();
 
-/* ── ضبط سرعة الصوت ── */
+/* â”€â”€ ط¶ط¨ط· ط³ط±ط¹ط© ط§ظ„طµظˆطھ â”€â”€ */
 function setSpeed(s, btn) {
   var audio = document.getElementById('topAudio');
   if(audio) audio.playbackRate = s;
@@ -357,8 +357,8 @@ function setSpeed(s, btn) {
   btn.classList.add('active');
 }
 
-/* ── تتبع الانتباه (تم تصحيح تداخل Django و JS) ── */
-// استخدام علامات التنصيص والدوال التحويلية يمنع أخطاء VS Code Property assignment expected
+/* â”€â”€ طھطھط¨ط¹ ط§ظ„ط§ظ†طھط¨ط§ظ‡ (طھظ… طھطµط­ظٹط­ طھط¯ط§ط®ظ„ Django ظˆ JS) â”€â”€ */
+// ط§ط³طھط®ط¯ط§ظ… ط¹ظ„ط§ظ…ط§طھ ط§ظ„طھظ†طµظٹطµ ظˆط§ظ„ط¯ظˆط§ظ„ ط§ظ„طھط­ظˆظٹظ„ظٹط© ظٹظ…ظ†ط¹ ط£ط®ط·ط§ط، VS Code Property assignment expected
 var LESSON_ID      = parseInt("{{ lesson.pk|escapejs }}") || 0;
 var SESSION_ID     = "lesson_" + LESSON_ID + "_student_0";
 var CSRF_TOKEN     = "{{ csrf_token|escapejs }}";
@@ -370,7 +370,7 @@ window.addEventListener('load', function(){ requestCameraAndStart(); });
 
 function requestCameraAndStart(){
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    updateBar('','المتصفح لا يدعم الكاميرا',0);
+    updateBar('','ط§ظ„ظ…طھطµظپط­ ظ„ط§ ظٹط¯ط¹ظ… ط§ظ„ظƒط§ظ…ظٹط±ط§',0);
     startTrackingWithoutCamera(); return;
   }
   navigator.mediaDevices.getUserMedia({video:true})
@@ -380,10 +380,10 @@ function requestCameraAndStart(){
     })
     .catch(function(err){
       if(err.name==='NotAllowedError'||err.name==='PermissionDeniedError'){
-        updateBar('','تم رفض الكاميرا — التتبع معطّل',0);
-        showAlert('⚠️ يمكنك متابعة الدرس بدون تتبع الانتباه.');
+        updateBar('','طھظ… ط±ظپط¶ ط§ظ„ظƒط§ظ…ظٹط±ط§ â€” ط§ظ„طھطھط¨ط¹ ظ…ط¹ط·ظ‘ظ„',0);
+        showAlert('âڑ ï¸ڈ ظٹظ…ظƒظ†ظƒ ظ…طھط§ط¨ط¹ط© ط§ظ„ط¯ط±ط³ ط¨ط¯ظˆظ† طھطھط¨ط¹ ط§ظ„ط§ظ†طھط¨ط§ظ‡.');
       } else {
-        updateBar('','مشكلة في الكاميرا',0);
+        updateBar('','ظ…ط´ظƒظ„ط© ظپظٹ ط§ظ„ظƒط§ظ…ظٹط±ط§',0);
       }
       startTrackingWithoutCamera();
     });
@@ -406,7 +406,7 @@ function startTracking(){
     if(data.ok){
       trackingActive=true;
       connectWebSocket(data.ws_url);
-      updateBar('attentive','التتبع نشط ✅',100);
+      updateBar('attentive','ط§ظ„طھطھط¨ط¹ ظ†ط´ط· âœ…',100);
     } else {
       startTrackingWithoutCamera();
     }
@@ -422,11 +422,12 @@ function connectWebSocket(wsUrl){
     var state=JSON.parse(e.data);
     if(state.error) return;
     updateBar(
-      state.is_attentive?'attentive':'distracted',
-      state.is_attentive?'منتبه ✅':'تشتت ⚠️',
+    var significant = !!state.is_significant_distraction;
+    updateBar(
+      state.is_attentive ? 'attentive' : (significant ? 'distracted' : ''),
+      state.is_attentive ? 'منتبه ✅' : (significant ? 'تشتت ملحوظ ⚠️' : 'وقت قصير للعودة للتركيز'),
       state.attention_score
     );
-    if(state.alert_message) showAlert(state.alert_message);
   };
   ws.onclose=function(){
     if(trackingActive) setTimeout(function(){ if(trackingActive) connectWebSocket(wsUrl); },3000);
@@ -459,7 +460,7 @@ function stopTracking(){
   trackingActive=false;
   if(ws) ws.close();
   var btn=document.getElementById('stop-btn');
-  if(btn){ btn.innerHTML='<i class="fas fa-check"></i> تم الإيقاف'; }
+  if(btn){ btn.innerHTML='<i class="fas fa-check"></i> طھظ… ط§ظ„ط¥ظٹظ‚ط§ظپ'; }
   
   fetch("{% url 'student:attention_stop' %}",{
     method:'POST',
