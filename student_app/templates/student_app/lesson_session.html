@@ -523,11 +523,18 @@ function connectWebSocket(wsUrl){
         if (s.alert_message) showDistractionToast(s.alert_message, significant);
     };
     ws.onclose = function(){
-        stopFrameSending();
+        /* لا توقف الكاميرا هنا — إغلاق الـ WS يحدث أحياناً للإعادة التلقائية،
+           وإيقاف المسارات يجعل الكاميرا تُغلق ولن يُعاد فتحها تلقائياً. */
+        stopFrameIntervalOnly();
         if (trackingActive){
             setTimeout(function(){ if (trackingActive) connectWebSocket(wsUrl); }, 3000);
         }
     };
+}
+
+/** إيقاف إرسال الإطارات فقط (يُستدعى عند انقطاع WebSocket مؤقتاً) */
+function stopFrameIntervalOnly(){
+    if (_frameInterval){ clearInterval(_frameInterval); _frameInterval = null; }
 }
 
 function startFrameSending(){
@@ -552,7 +559,7 @@ function startFrameSending(){
 }
 
 function stopFrameSending(){
-    if (_frameInterval){ clearInterval(_frameInterval); _frameInterval = null; }
+    stopFrameIntervalOnly();
     if (_mediaStream){ _mediaStream.getTracks().forEach(function(t){ t.stop(); }); _mediaStream = null; }
 }
 
