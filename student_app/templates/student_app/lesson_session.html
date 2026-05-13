@@ -1,7 +1,7 @@
 ﻿{% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ lesson.lessontitle }} â€” ط§ظ„ط¬ظ„ط³ط© ط§ظ„طھط¹ظ„ظٹظ…ظٹط©{% endblock %}
+{% block title %}{{ lesson.lessontitle }} — الجلسة التعليمية{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -171,25 +171,25 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   <!-- ط´ط±ظٹط· ط§ظ„ط§ظ†طھط¨ط§ظ‡ -->
   <div id="attention-bar">
     <div class="att-dot"></div>
-    <span class="att-label" id="att-label">ط¬ط§ط±ظٹ ط§ظ„طھظ‡ظٹط¦ط©â€¦</span>
+    <span class="att-label" id="att-label">جاري التهيئة…</span>
     <div class="score-wrap">
       <div class="score-bar"><div class="score-fill" id="score-fill" style="width:100%"></div></div>
-      <span class="score-num" id="score-num">â€”</span>
+      <span class="score-num" id="score-num">—</span>
     </div>
     <button id="stop-btn" onclick="stopTracking()">
-      <i class="fas fa-stop-circle"></i> ط¥ظٹظ‚ط§ظپ
+      <i class="fas fa-stop-circle"></i> إيقاف
     </button>
   </div>
 
   <a href="{% url 'student:view_lesson_student' lesson.pk %}" class="back-link">
-    <i class="fas fa-chevron-right"></i> ط§ظ„ط¹ظˆط¯ط© ظ„طµظپط­ط© ط§ظ„ط¯ط±ط³
+    <i class="fas fa-chevron-right"></i> العودة لصفحة الدرس
   </a>
 
   <div class="lesson-header">
     <h1>{{ lesson.lessontitle }}</h1>
     <div class="lesson-meta">
-      <span><i class="fas fa-book"></i> {{ lesson.subjectid.subjectname|default:"â€”" }}</span>
-      <span><i class="fas fa-chalkboard-teacher"></i> {{ lesson.teacherid.userid.fullname|default:"â€”" }}</span>
+      <span><i class="fas fa-book"></i> {{ lesson.subjectid.subjectname|default:"—" }}</span>
+      <span><i class="fas fa-chalkboard-teacher"></i> {{ lesson.teacherid.userid.fullname|default:"—" }}</span>
       <span><i class="fas fa-calendar-alt"></i> {{ lesson.createdat|date:"d M Y" }}</span>
     </div>
   </div>
@@ -197,14 +197,14 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   {% if audio_url %}
   <div class="audio-top-bar">
     <div class="audio-icon"><i class="fas fa-headphones"></i></div>
-    <span class="audio-label">ط§ط³طھظ…ط¹ ظ„ظ„ط¯ط±ط³</span>
+    <span class="audio-label">استمع للدرس</span>
     <audio id="topAudio" controls>
       <source src="{{ audio_url }}" type="audio/mpeg">
     </audio>
     <div class="audio-speeds">
-      <button class="spd-btn" onclick="setSpeed(.75,this)">ط¨ط·ظٹط،</button>
-      <button class="spd-btn active" onclick="setSpeed(1,this)">ط¹ط§ط¯ظٹ</button>
-      <button class="spd-btn" onclick="setSpeed(1.25,this)">ط³ط±ظٹط¹</button>
+      <button class="spd-btn" onclick="setSpeed(.75,this)">بطيء</button>
+      <button class="spd-btn active" onclick="setSpeed(1,this)">عادي</button>
+      <button class="spd-btn" onclick="setSpeed(1.25,this)">سريع</button>
     </div>
   </div>
   {% endif %}
@@ -219,7 +219,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
       </div>
     </div>
     <div class="lesson-section-head">
-      <i class="fas fa-align-right"></i> ظ…ط­طھظˆظ‰ ط§ظ„ط¯ط±ط³
+      <i class="fas fa-align-right"></i> محتوى الدرس
     </div>
     <div class="lesson-section-body" id="lesson-paragraphs-container"></div>
   </div>
