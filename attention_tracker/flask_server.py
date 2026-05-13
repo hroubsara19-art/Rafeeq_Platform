@@ -19,10 +19,24 @@ flask_server.py
 import json
 import threading
 import time
+import logging
+import numpy as np
+import base64
+from io import BytesIO
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sock import Sock
 from attention_engine import AttentionTracker
+try:
+    from PIL import Image
+    import cv2
+except ImportError as e:
+    logger_init = logging.getLogger(__name__)
+    logger_init.warning(f"تنبيه استيراد: {e}")
+
+# تهيئة logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app  = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "http://localhost:8000"}})
@@ -39,10 +53,12 @@ def _make_session(session_id: str, student_name: str,
                                    camera_index=camera_index)
     ws_clients  = []      # قائمة WebSocket المتصلة بهذه الجلسة
     state_buffer = []     # آخر 300 حالة لحساب المتوسط
+    frame_client = None   # client الذي يرسل frames
 
     return {
         "tracker":       tracker,
         "ws_clients":    ws_clients,
+        "frame_client":  frame_client,
         "state_buffer":  state_buffer,
         "thread":        None,
         "running":       False,
@@ -115,7 +131,13 @@ def api_start():
     def _run():
         session["running"] = True
         try:
-            session["tracker"].start(callback=cb)
+            # ✅ تهيئة الـ tracker بدون محاولة فتح الكاميرا
+            session["tracker"]._running = True
+            session["tracker"]._session_start = time.time()
+            session["tracker"]._init_face_mesh()
+            # ✅ الـ tracker الآن جاهز لاستقبال frames عبر WebSocket
+        except Exception as e:
+            logger.error(f"خطأ في تهيئة tracker: {e}")
         finally:
             session["running"] = False
 
@@ -178,32 +200,99 @@ def api_summary(session_id):
 @sock.route("/ws/attention/<session_id>")
 def ws_attention(ws, session_id):
     """
-    الـ Frontend يتصل هنا ليستقبل تحديثات الانتباه real-time.
-    ws://localhost:5050/ws/attention/<session_id>
+    ✅ الـ Frontend يتصل هنا ويرسل frames من الكاميرا عبر WebSocket.
+    يتوقع messages بصيغة JSON:
+        {
+            "type": "frame",
+            "data": "base64_encoded_image..."
+        }
     """
     with _lock:
         session = _sessions.get(session_id)
 
     if not session:
-        ws.send(json.dumps({"error": "جلسة غير موجودة"}))
+        try:
+            ws.send(json.dumps({"error": "جلسة غير موجودة"}))
+        except:
+            pass
         return
 
     with _lock:
         session["ws_clients"].append(ws)
+        session["frame_client"] = ws  # هذا الـ client يرسل frames
 
-    # ابقَ متصلاً حتى يغلق الـ client أو تنتهي الجلسة
     try:
         while session.get("running", False):
             try:
                 msg = ws.receive(timeout=5)
+                if not msg:
+                    continue
+                
+                # معالجة ping/pong
                 if msg == "ping":
                     ws.send(json.dumps({"pong": True}))
-            except Exception:
+                    continue
+                
+                # معالجة frame data
+                try:
+                    data = json.loads(msg)
+                except:
+                    continue
+                
+                if not isinstance(data, dict) or data.get("type") != "frame":
+                    continue
+                
+                frame_b64 = data.get("data")
+                if not frame_b64:
+                    continue
+                
+                # ✅ معالجة الـ frame
+                try:
+                    # تحويل Base64 إلى صورة
+                    img_data = base64.b64decode(frame_b64)
+                    img = Image.open(BytesIO(img_data))
+                    frame = np.array(img)
+                    
+                    # معالجة عبر الـ tracker
+                    tracker = session["tracker"]
+                    state_dict = tracker.process_frame(frame)
+                    
+                    if state_dict:
+                        with _lock:
+                            session["state_buffer"].append(state_dict.get("attention_score", 0))
+                            if len(session["state_buffer"]) > 300:
+                                session["state_buffer"].pop(0)
+                            clients = list(session["ws_clients"])
+                        
+                        payload = json.dumps(state_dict, ensure_ascii=False)
+                        dead = []
+                        for client in clients:
+                            try:
+                                client.send(payload)
+                            except Exception:
+                                dead.append(client)
+                        
+                        if dead:
+                            with _lock:
+                                for client in dead:
+                                    if client in session.get("ws_clients", []):
+                                        session["ws_clients"].remove(client)
+                
+                except Exception as e:
+                    logger.error(f"خطأ معالجة frame: {e}")
+                    continue
+            
+            except Exception as e:
+                if "timeout" not in str(e).lower():
+                    logger.error(f"خطأ استقبال: {e}")
                 break
+    
     finally:
         with _lock:
             if ws in session.get("ws_clients", []):
                 session["ws_clients"].remove(ws)
+            if session.get("frame_client") is ws:
+                session["frame_client"] = None
 
 
 # ══════════════════════════════════════════════════════════════

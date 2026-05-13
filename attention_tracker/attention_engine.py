@@ -16,8 +16,11 @@ import mediapipe as mp
 import time
 import math
 import random
+import base64
+from io import BytesIO
 from dataclasses import dataclass, asdict
 from typing import Optional
+from PIL import Image
 
 
 # ══════════════════════════════════════════════════════════════
@@ -204,21 +207,7 @@ class AttentionTracker:
         tracker.stop()
     """
 
-    def __init__(self, student_name: str = "الطالب",
-                 camera_index: int = 0,
-                 target_fps: int = 15):
-        self.student_name  = student_name
-        self.camera_index  = camera_index
-        self.target_fps    = target_fps
-        self._running      = False
-
-        # حالة داخلية
-        self._ear_counter       = 0
-        self._distract_start    = None   # وقت بداية التشتت
-        self._last_alert        = 0.0
-        self._inattention_count = 0
-        self._session_start     = None
-        self._score_buffer      = []     # لحساب المتوسط
+    # ✅ تم دمج __init__ بشكل صحيح في process_frame سابقاً — بدون تكرار
 
     def _process(self, lm, w: int, h: int) -> AttentionState:
         now = time.time()
@@ -283,7 +272,91 @@ class AttentionTracker:
             inattention_count = self._inattention_count,
         )
 
+    def __init__(self, student_name: str = "الطالب",
+                 camera_index: int = 0,
+                 target_fps: int = 15):
+        self.student_name  = student_name
+        self.camera_index  = camera_index
+        self.target_fps    = target_fps
+        self._running      = False
+        self.last_error    = None
+        self._face_mesh    = None  # ✅ نحتفظ بـ face_mesh
+
+        # حالة داخلية
+        self._ear_counter       = 0
+        self._distract_start    = None   # وقت بداية التشتت
+        self._last_alert        = 0.0
+        self._inattention_count = 0
+        self._session_start     = None
+        self._score_buffer      = []     # لحساب المتوسط
+
+    def _init_face_mesh(self):
+        """✅ تهيئة face_mesh مرة واحدة فقط."""
+        if self._face_mesh is None:
+            mp_mesh = mp.solutions.face_mesh
+            self._face_mesh = mp_mesh.FaceMesh(
+                max_num_faces        = 1,
+                refine_landmarks     = True,
+                min_detection_confidence = 0.6,
+                min_tracking_confidence  = 0.5,
+            )
+        return self._face_mesh
+
+    def process_frame(self, frame_bytes) -> Optional[dict]:
+        """✅ معالجة single frame من الـ WebSocket (Base64 أو bytes).
+        
+        Args:
+            frame_bytes: صورة مشفرة Base64 أو numpy array
+            
+        Returns:
+            asdict(AttentionState) أو None إذا فشلت المعالجة
+        """
+        try:
+            # تحويل Base64 إلى numpy array
+            if isinstance(frame_bytes, str):
+                # Base64 string
+                img_data = base64.b64decode(frame_bytes)
+                img = Image.open(BytesIO(img_data))
+                frame = np.array(img)
+            else:
+                # numpy array مباشرة
+                frame = np.array(frame_bytes)
+            
+            if frame is None or frame.size == 0:
+                return None
+            
+            # تهيئة face_mesh عند الحاجة
+            face_mesh = self._init_face_mesh()
+            
+            h, w = frame.shape[:2]
+            if w == 0 or h == 0:
+                return None
+                
+            # تحويل BGR ← RGB
+            if len(frame.shape) == 3 and frame.shape[2] == 3:
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) if frame.dtype == np.uint8 else frame
+            else:
+                rgb = frame
+            
+            # معالجة الصورة
+            results = face_mesh.process(rgb)
+            
+            if not results.multi_face_landmarks:
+                return {"attention_score": 0, "is_attentive": False, 
+                        "alert_message": None, "distraction_cause": "no_face"}
+            
+            # معالجة وجه واحد
+            lm = results.multi_face_landmarks[0].landmark
+            state = self._process(lm, w, h)
+            
+            return asdict(state)
+        
+        except Exception as e:
+            self.last_error = str(e)
+            return None
+
     def start(self, callback=None, max_seconds: int = 0):
+        """⚠️ هذه النسخة لا تُستخدم في بيئة الويب — تُترك للتوافقية مع النسخ القديمة."""
         mp_mesh  = mp.solutions.face_mesh
         face_mesh = mp_mesh.FaceMesh(
             max_num_faces        = 1,
