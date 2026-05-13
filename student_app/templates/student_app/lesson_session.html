@@ -45,6 +45,23 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 }
 #stop-btn:hover{background:var(--sky);color:#fff;}
 
+/* رسائل التشتت أثناء الجلسة (متوافقة مع مخرجات الخوارزمية) */
+#distraction-banner{
+  display:none;margin:.35rem 0 1rem;padding:.72rem 1.1rem;border-radius:12px;
+  font-size:.88rem;font-weight:700;line-height:1.55;text-align:center;
+  background:linear-gradient(135deg,#fff7ed,#ffedd5);color:#9a3412;
+  border:1.5px solid #fdba74;box-shadow:0 2px 10px rgba(154,52,18,.08);
+}
+#distraction-banner.warning{
+  background:linear-gradient(135deg,#fffbeb,#fef3c7);color:#92400e;border-color:#fcd34d;
+}
+#distraction-banner.significant{
+  background:linear-gradient(135deg,#fef2f2,#fee2e2);color:#991b1b;border-color:#fca5a5;
+}
+#distraction-banner.drift{
+  background:linear-gradient(135deg,#f8fafc,#f1f5f9);color:#475569;border-color:#cbd5e1;
+}
+
 /* â”€â”€ ط±ط£ط³ ط§ظ„ط¯ط±ط³ â”€â”€ */
 .lesson-header{
   background:linear-gradient(135deg,var(--sky-dk),var(--sky));
@@ -180,6 +197,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
       <i class="fas fa-stop-circle"></i> إيقاف
     </button>
   </div>
+  <div id="distraction-banner" role="status" aria-live="polite" style="display:none;"></div>
 
   <a href="{% url 'student:view_lesson_student' lesson.pk %}" class="back-link">
     <i class="fas fa-chevron-right"></i> العودة لصفحة الدرس
@@ -313,6 +331,59 @@ function firstAttentionName(full){
     return p[0] || '';
 }
 
+/** نص يعكس سبب التشتت من الخادم (head_turn / drowsy / gaze / no_face) */
+function distractionBannerText(s){
+    var fn = firstAttentionName(s.student_name || '') || 'صديقي';
+    var c = String(s.distraction_cause || 'none').toLowerCase();
+    var sig = !!s.is_significant_distraction;
+    var warn = !!s.is_warning_distraction;
+    if (c === 'head_turn'){
+        return sig ? (fn + '، ثبّت رأسك أمام الشاشة — نحتاج تركيزك على الدرس.')
+            : (warn ? (fn + '، حاول ترجع وجهك نحو الشاشة والدرس.') : (fn + '، ركّز وجهك نحو الشاشة قليلاً.'));
+    }
+    if (c === 'drowsy'){
+        return sig ? (fn + '، افتح عينيك وتابع معنا — الجلسة ما زالت شغالة.')
+            : (warn ? (fn + '، لاحظنا إنك قد تكون متعب — ركّز مع الدرس.') : (fn + '، حاول تبقى عيناك على المحتوى.'));
+    }
+    if (c === 'gaze'){
+        return sig ? (fn + '، نظرك بعيد عن الدرس — رجّعه للشاشة.')
+            : (warn ? (fn + '، رجّع نظرك لمحتوى الدرس.') : (fn + '، تابع قراءة الشاشة معنا.'));
+    }
+    if (c === 'no_face'){
+        return fn + '، تأكد أن وجهك ظاهر للكاميرا حتى يستمر التتبع.';
+    }
+    return sig ? (fn + '، حافظ على تركيزك مع الجلسة — أنت قادر!')
+        : (warn ? (fn + '، حاول ترجع للتركيز مع الدرس.') : (fn + '، ركّز قليلاً مع الدرس.'));
+}
+
+function clearDistractionBanner(){
+    var el = document.getElementById('distraction-banner');
+    if (!el) return;
+    el.style.display = 'none';
+    el.textContent = '';
+    el.className = '';
+}
+
+function updateDistractionBanner(s){
+    var el = document.getElementById('distraction-banner');
+    if (!el) return;
+    if (s.is_attentive){
+        clearDistractionBanner();
+        return;
+    }
+    var warn = !!s.is_warning_distraction;
+    var sig = !!s.is_significant_distraction;
+    var score = typeof s.attention_score === 'number' ? s.attention_score : parseInt(s.attention_score, 10) || 0;
+    var show = warn || sig || score < 70;
+    if (!show){
+        clearDistractionBanner();
+        return;
+    }
+    el.textContent = distractionBannerText(s);
+    el.style.display = 'block';
+    el.className = sig ? 'significant' : (warn ? 'warning' : 'drift');
+}
+
 window.addEventListener('load', function(){ requestCameraAndStart(); });
 
 function requestCameraAndStart(){
@@ -402,6 +473,7 @@ function openCameraSettings(){
 }
 
 function hideAttentionBar(){
+    clearDistractionBanner();
     var bar = document.getElementById('attention-bar');
     if (bar){ bar.innerHTML = '<span style="color:var(--muted);font-size:.82rem;font-weight:600;margin:auto;">تتبع الانتباه معطّل — الجلسة التعليمية جارية</span>'; }
     trackingActive = false;
@@ -447,6 +519,7 @@ function connectWebSocket(wsUrl){
         updateBar(s.is_attentive ? 'attentive' : ((warning || significant) ? 'distracted' : ''),
                   label,
                   s.attention_score);
+        updateDistractionBanner(s);
         if (s.alert_message) showDistractionToast(s.alert_message, significant);
     };
     ws.onclose = function(){
@@ -529,6 +602,7 @@ function setSpeed(s, btn){
 
 function stopTracking(){
     if (!trackingActive) return;
+    clearDistractionBanner();
     trackingActive = false; stopFrameSending(); if (ws) ws.close();
     var btn = document.getElementById('stop-btn');
     if (btn) btn.innerHTML = '<i class="fas fa-check"></i> تم';
