@@ -165,11 +165,13 @@ def save_attention_report(request):
         defaults={
             "avgattentionscore": avg_attention,
             "totaltimespent":    int(session_minutes * 60),
+        },
+        create_defaults={
+            "avgattentionscore": avg_attention,
+            "testscore":         0,
+            "totaltimespent":    int(session_minutes * 60),
         }
     )
-    if created:
-        report.testscore = 0
-        report.save(update_fields=["testscore"])
 
     return JsonResponse({"ok": True, "report": report.pk, "created": created})
 

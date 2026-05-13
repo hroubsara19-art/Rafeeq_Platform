@@ -69,6 +69,18 @@ def _build_audio_url(path: str) -> str | None:
     return f'{settings.MEDIA_URL}{clean}'
 
 
+def _media_file_url_if_exists(path: str) -> str | None:
+    if not path:
+        return None
+    clean = path.strip().replace('\\', '/').lstrip('/')
+    if clean.startswith('media/'):
+        clean = clean[len('media/'):]
+    full_path = os.path.join(settings.MEDIA_ROOT, clean)
+    if not os.path.exists(full_path):
+        return None
+    return f'{settings.MEDIA_URL}{clean}'
+
+
 def _is_valid_watch_local(session_starttime, lesson) -> bool:
     """
     ✅ تتحقق أن جلسة المشاهدة حدثت بعد آخر تعديل للدرس (content_updated_at).
@@ -318,15 +330,17 @@ def lesson_session(request, lesson_id):
             image_urls.append(None)
 
     audio_url      = _build_audio_url(lesson.ai_audiopath)
-    words_json_url = None
-    if audio_url:
-        words_json_url = audio_url.rsplit('.', 1)[0] + '.json'
-        # ✅ البناء الصحيح: audio_url + '.json' (المسار الفعلي للملف)
-        words_json_url = audio_url + '.json'
+    timing_path    = getattr(lesson, 'ai_timingpath', '') or ''
+    words_json_url = _media_file_url_if_exists(timing_path)
+    if not words_json_url and lesson.ai_audiopath:
+        clean_audio = str(lesson.ai_audiopath).strip().replace('\\', '/').lstrip('/')
+        if clean_audio.startswith('media/'):
+            clean_audio = clean_audio[len('media/'):]
+        words_json_url = _media_file_url_if_exists(clean_audio + '.json')
 
     session_id   = f"lesson_{lesson.pk}_student_{student.pk if student else 0}"
     student_name = request.user.fullname or request.user.username
-    timing_url   = getattr(lesson, 'ai_timingpath', '') or ''
+    timing_url   = words_json_url or ''
 
     return render(request, 'student_app/lesson_session.html', {
         'lesson':         lesson,

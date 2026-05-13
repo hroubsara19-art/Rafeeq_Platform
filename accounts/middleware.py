@@ -105,7 +105,7 @@ class SecurityHeadersMiddleware:
         "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
         "img-src 'self' data: blob: https:; "
         "media-src 'self'; "
-        "connect-src 'self' ws://localhost:5050; "
+        "connect-src 'self' ws://localhost:5050 ws://127.0.0.1:5050; "
         "frame-ancestors 'none';"
     )
 
@@ -119,7 +119,7 @@ class SecurityHeadersMiddleware:
         response['X-XSS-Protection']       = '1; mode=block'
         response['Referrer-Policy']        = 'strict-origin-when-cross-origin'
         response['Permissions-Policy']     = (
-            'geolocation=(), microphone=(), camera=(), payment=(), usb=()'
+            'geolocation=(), microphone=(), camera=(self), payment=(), usb=()'
         )
         if 'text/html' in response.get('Content-Type', ''):
             response['Content-Security-Policy'] = self._CSP

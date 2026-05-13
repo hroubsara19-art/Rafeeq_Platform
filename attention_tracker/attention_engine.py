@@ -281,6 +281,7 @@ class AttentionTracker:
         self._running      = False
         self.last_error    = None
         self._face_mesh    = None  # ✅ نحتفظ بـ face_mesh
+        self._face_detector = None
 
         # حالة داخلية
         self._ear_counter       = 0
@@ -292,7 +293,16 @@ class AttentionTracker:
 
     def _init_face_mesh(self):
         """✅ تهيئة face_mesh مرة واحدة فقط."""
+        if self._face_mesh is False:
+            return None
+
         if self._face_mesh is None:
+            if not hasattr(mp, "solutions"):
+                cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+                self._face_detector = cv2.CascadeClassifier(cascade_path)
+                self._face_mesh = False
+                return None
+
             mp_mesh = mp.solutions.face_mesh
             self._face_mesh = mp_mesh.FaceMesh(
                 max_num_faces        = 1,
@@ -301,6 +311,52 @@ class AttentionTracker:
                 min_tracking_confidence  = 0.5,
             )
         return self._face_mesh
+
+    def _process_basic_frame(self, rgb, w: int, h: int) -> Optional[dict]:
+        """Fallback خفيف عندما لا تتوفر MediaPipe FaceMesh في البيئة الحالية."""
+        if self._face_detector is None:
+            return None
+
+        gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY) if len(rgb.shape) == 3 else rgb
+        faces = self._face_detector.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(40, 40),
+        )
+
+        now = time.time()
+        session_min = (now - self._session_start) / 60.0 if self._session_start else 0.0
+        if len(faces) == 0:
+            score = 0
+            attentive = False
+            cause = "no_face"
+        else:
+            x, y, fw, fh = max(faces, key=lambda f: f[2] * f[3])
+            face_center = (x + fw / 2) / max(w, 1)
+            centered = 0.25 <= face_center <= 0.75
+            score = 90 if centered else 60
+            attentive = score >= 70
+            cause = "none" if attentive else "head_turn"
+
+        self._score_buffer.append(score)
+        if len(self._score_buffer) > 500:
+            self._score_buffer.pop(0)
+
+        return asdict(AttentionState(
+            timestamp=now,
+            student_name=self.student_name,
+            attention_score=score,
+            is_attentive=attentive,
+            ear_value=0.0,
+            is_drowsy=False,
+            nose_ear_ratio=1.0,
+            gaze_zone="unknown",
+            distraction_cause=cause,
+            alert_message=None,
+            session_minutes=round(session_min, 2),
+            inattention_count=self._inattention_count,
+        ))
 
     def process_frame(self, frame_bytes) -> Optional[dict]:
         """✅ معالجة single frame من الـ WebSocket (Base64 أو bytes).
@@ -312,11 +368,14 @@ class AttentionTracker:
             asdict(AttentionState) أو None إذا فشلت المعالجة
         """
         try:
+            if self._session_start is None:
+                self._session_start = time.time()
+
             # تحويل Base64 إلى numpy array
             if isinstance(frame_bytes, str):
                 # Base64 string
                 img_data = base64.b64decode(frame_bytes)
-                img = Image.open(BytesIO(img_data))
+                img = Image.open(BytesIO(img_data)).convert("RGB")
                 frame = np.array(img)
             else:
                 # numpy array مباشرة
@@ -325,18 +384,22 @@ class AttentionTracker:
             if frame is None or frame.size == 0:
                 return None
             
-            # تهيئة face_mesh عند الحاجة
-            face_mesh = self._init_face_mesh()
-            
             h, w = frame.shape[:2]
             if w == 0 or h == 0:
                 return None
                 
-            # تحويل BGR ← RGB
-            if len(frame.shape) == 3 and frame.shape[2] == 3:
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) if frame.dtype == np.uint8 else frame
+            # Browser Canvas/PIL frames arrive as RGB, which is what MediaPipe expects.
+            if len(frame.shape) == 3 and frame.shape[2] >= 3:
+                rgb = frame[:, :, :3]
+                if rgb.dtype != np.uint8:
+                    rgb = rgb.astype(np.uint8)
             else:
                 rgb = frame
+
+            # تهيئة face_mesh عند الحاجة
+            face_mesh = self._init_face_mesh()
+            if face_mesh is None:
+                return self._process_basic_frame(rgb, w, h)
             
             # معالجة الصورة
             results = face_mesh.process(rgb)

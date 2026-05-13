@@ -39,7 +39,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app  = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "http://localhost:8000"}})
+CORS(app, resources={r"/api/*": {"origins": [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]}})
 sock = Sock(app)
 
 # ── مخزن الجلسات النشطة ─────────────────────────────────────
@@ -119,6 +122,8 @@ def api_start():
     student_name = data.get("student_name", "الطالب")
     camera_index = int(data.get("camera_index", 0))
 
+    # قفل واحد من الفحص حتى اكتمال التهيئة يمنع طلبين متزامنين لنفس session_id
+    # من تجاوز الفحص واستبدال الجلسة الأولى بجلسة يتيمة.
     with _lock:
         if session_id in _sessions and _sessions[session_id]["running"]:
             return jsonify({"error": "الجلسة نشطة بالفعل"}), 400
@@ -126,24 +131,17 @@ def api_start():
         session = _make_session(session_id, student_name, camera_index)
         _sessions[session_id] = session
 
-    cb = _tracker_callback(session_id)
-
-    def _run():
+        # تهيئة tracker بدون فتح كاميرا الخادم؛ frames تصل من المتصفح عبر WebSocket.
         session["running"] = True
         try:
-            # ✅ تهيئة الـ tracker بدون محاولة فتح الكاميرا
             session["tracker"]._running = True
             session["tracker"]._session_start = time.time()
             session["tracker"]._init_face_mesh()
-            # ✅ الـ tracker الآن جاهز لاستقبال frames عبر WebSocket
         except Exception as e:
             logger.error(f"خطأ في تهيئة tracker: {e}")
-        finally:
             session["running"] = False
-
-    t = threading.Thread(target=_run, daemon=True)
-    session["thread"] = t
-    t.start()
+            _sessions.pop(session_id, None)
+            return jsonify({"error": "تعذّر تهيئة تتبع الانتباه"}), 500
 
     return jsonify({
         "ok":        True,
@@ -159,9 +157,10 @@ def api_stop():
 
     with _lock:
         session = _sessions.get(session_id)
-
-    if not session:
-        return jsonify({"error": "جلسة غير موجودة"}), 404
+        if not session:
+            return jsonify({"error": "جلسة غير موجودة"}), 404
+        # حلقة WebSocket تفحص session["running"]؛ بدون هذا تبقى حتى انتهاء مهلة receive.
+        session["running"] = False
 
     session["tracker"].stop()
 
