@@ -1,7 +1,7 @@
-{% extends 'base.html' %}
+﻿{% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ lesson.lessontitle }} — الجلسة التعليمية{% endblock %}
+{% block title %}{{ lesson.lessontitle }} â€” ط§ظ„ط¬ظ„ط³ط© ط§ظ„طھط¹ظ„ظٹظ…ظٹط©{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -16,7 +16,7 @@
 body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',sans-serif;}
 .session-wrap{max-width:860px;margin:0 auto;padding:1.5rem 1.25rem 5rem;}
 
-/* ── شريط الانتباه ── */
+/* â”€â”€ ط´ط±ظٹط· ط§ظ„ط§ظ†طھط¨ط§ظ‡ â”€â”€ */
 #attention-bar{
   position:sticky;top:0;z-index:100;
   background:var(--card);border-bottom:2px solid var(--border);
@@ -45,7 +45,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 }
 #stop-btn:hover{background:var(--sky);color:#fff;}
 
-/* ── رأس الدرس ── */
+/* â”€â”€ ط±ط£ط³ ط§ظ„ط¯ط±ط³ â”€â”€ */
 .lesson-header{
   background:linear-gradient(135deg,var(--sky-dk),var(--sky));
   border-radius:1.25rem;padding:1.75rem 2rem;color:#fff;
@@ -60,7 +60,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 }
 .back-link:hover{color:var(--sky-dk);}
 
-/* ── الصوت ── */
+/* â”€â”€ ط§ظ„طµظˆطھ â”€â”€ */
 .audio-top-bar{
   background:linear-gradient(120deg,#0f172a,var(--sky-dk));
   border-radius:1rem;padding:1rem 1.25rem;margin-bottom:1.5rem;
@@ -78,7 +78,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 }
 .spd-btn:hover,.spd-btn.active{background:rgba(255,255,255,.3);}
 
-/* ── محتوى الدرس ── */
+/* â”€â”€ ظ…ط­طھظˆظ‰ ط§ظ„ط¯ط±ط³ â”€â”€ */
 .lesson-card{
   background:var(--card);border-radius:1.1rem;
   border:1.5px solid var(--border);
@@ -105,7 +105,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 }
 .lesson-section-body{padding:1.5rem;}
 
-/* الفقرات */
+/* ط§ظ„ظپظ‚ط±ط§طھ */
 .std-para-block{
   display:flex;gap:1.25rem;align-items:flex-start;
   padding:1.25rem;border-radius:12px;
@@ -134,7 +134,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 .std-para-img:hover{transform:scale(1.04);box-shadow:0 6px 20px rgba(0,0,0,.15);}
 @media(max-width:600px){.std-para-block{flex-direction:column;}.std-para-img{width:100%;height:180px;}}
 
-/* ══ تظليل الكلمات ══ */
+/* â•گâ•گ طھط¸ظ„ظٹظ„ ط§ظ„ظƒظ„ظ…ط§طھ â•گâ•گ */
 .wh-word{
   display:inline;border-radius:3px;padding:0 1px;
   transition:background-color .07s ease,color .07s ease;
@@ -145,7 +145,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   box-shadow:0 2px 6px rgba(251,191,36,0.5);font-weight:700;
 }
 
-/* ── ملخص الانتباه ── */
+/* â”€â”€ ظ…ظ„ط®طµ ط§ظ„ط§ظ†طھط¨ط§ظ‡ â”€â”€ */
 #session-summary{
   display:none;background:var(--card);border-radius:1.1rem;
   border:2px solid var(--mint);padding:1.5rem;margin-top:1.5rem;
@@ -168,28 +168,28 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 {% block content %}
 <div class="session-wrap" dir="rtl">
 
-  <!-- شريط الانتباه -->
+  <!-- ط´ط±ظٹط· ط§ظ„ط§ظ†طھط¨ط§ظ‡ -->
   <div id="attention-bar">
     <div class="att-dot"></div>
-    <span class="att-label" id="att-label">جاري التهيئة…</span>
+    <span class="att-label" id="att-label">ط¬ط§ط±ظٹ ط§ظ„طھظ‡ظٹط¦ط©â€¦</span>
     <div class="score-wrap">
       <div class="score-bar"><div class="score-fill" id="score-fill" style="width:100%"></div></div>
-      <span class="score-num" id="score-num">—</span>
+      <span class="score-num" id="score-num">â€”</span>
     </div>
     <button id="stop-btn" onclick="stopTracking()">
-      <i class="fas fa-stop-circle"></i> إيقاف
+      <i class="fas fa-stop-circle"></i> ط¥ظٹظ‚ط§ظپ
     </button>
   </div>
 
   <a href="{% url 'student:view_lesson_student' lesson.pk %}" class="back-link">
-    <i class="fas fa-chevron-right"></i> العودة لصفحة الدرس
+    <i class="fas fa-chevron-right"></i> ط§ظ„ط¹ظˆط¯ط© ظ„طµظپط­ط© ط§ظ„ط¯ط±ط³
   </a>
 
   <div class="lesson-header">
     <h1>{{ lesson.lessontitle }}</h1>
     <div class="lesson-meta">
-      <span><i class="fas fa-book"></i> {{ lesson.subjectid.subjectname|default:"—" }}</span>
-      <span><i class="fas fa-chalkboard-teacher"></i> {{ lesson.teacherid.userid.fullname|default:"—" }}</span>
+      <span><i class="fas fa-book"></i> {{ lesson.subjectid.subjectname|default:"â€”" }}</span>
+      <span><i class="fas fa-chalkboard-teacher"></i> {{ lesson.teacherid.userid.fullname|default:"â€”" }}</span>
       <span><i class="fas fa-calendar-alt"></i> {{ lesson.createdat|date:"d M Y" }}</span>
     </div>
   </div>
@@ -197,14 +197,14 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   {% if audio_url %}
   <div class="audio-top-bar">
     <div class="audio-icon"><i class="fas fa-headphones"></i></div>
-    <span class="audio-label">استمع للدرس</span>
+    <span class="audio-label">ط§ط³طھظ…ط¹ ظ„ظ„ط¯ط±ط³</span>
     <audio id="topAudio" controls>
       <source src="{{ audio_url }}" type="audio/mpeg">
     </audio>
     <div class="audio-speeds">
-      <button class="spd-btn" onclick="setSpeed(.75,this)">بطيء</button>
-      <button class="spd-btn active" onclick="setSpeed(1,this)">عادي</button>
-      <button class="spd-btn" onclick="setSpeed(1.25,this)">سريع</button>
+      <button class="spd-btn" onclick="setSpeed(.75,this)">ط¨ط·ظٹط،</button>
+      <button class="spd-btn active" onclick="setSpeed(1,this)">ط¹ط§ط¯ظٹ</button>
+      <button class="spd-btn" onclick="setSpeed(1.25,this)">ط³ط±ظٹط¹</button>
     </div>
   </div>
   {% endif %}
@@ -219,7 +219,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
       </div>
     </div>
     <div class="lesson-section-head">
-      <i class="fas fa-align-right"></i> محتوى الدرس
+      <i class="fas fa-align-right"></i> ظ…ط­طھظˆظ‰ ط§ظ„ط¯ط±ط³
     </div>
     <div class="lesson-section-body" id="lesson-paragraphs-container"></div>
   </div>
@@ -228,15 +228,15 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   <div id="session-summary">
     <h3 style="font-size:1.05rem;font-weight:800;margin-bottom:.5rem;">
       <i class="fas fa-chart-line" style="color:var(--mint);margin-left:8px;"></i>
-      ملخص جلسة الانتباه
+      ظ…ظ„ط®طµ ط¬ظ„ط³ط© ط§ظ„ط§ظ†طھط¨ط§ظ‡
     </h3>
     <div class="sum-grid">
-      <div class="sum-item"><div class="sum-num" id="sum-score">—</div><div class="sum-lbl">متوسط الانتباه</div></div>
-      <div class="sum-item"><div class="sum-num" id="sum-count">—</div><div class="sum-lbl">مرة تشتت</div></div>
-      <div class="sum-item"><div class="sum-num" id="sum-time">—</div><div class="sum-lbl">دقائق الجلسة</div></div>
+      <div class="sum-item"><div class="sum-num" id="sum-score">â€”</div><div class="sum-lbl">ظ…طھظˆط³ط· ط§ظ„ط§ظ†طھط¨ط§ظ‡</div></div>
+      <div class="sum-item"><div class="sum-num" id="sum-count">â€”</div><div class="sum-lbl">ظ…ط±ط© طھط´طھطھ</div></div>
+      <div class="sum-item"><div class="sum-num" id="sum-time">â€”</div><div class="sum-lbl">ط¯ظ‚ط§ط¦ظ‚ ط§ظ„ط¬ظ„ط³ط©</div></div>
     </div>
     <a href="{% url 'student:view_lesson_student' lesson.pk %}" class="btn-finish">
-      <i class="fas fa-check-circle"></i> إنهاء الجلسة
+      <i class="fas fa-check-circle"></i> ط¥ظ†ظ‡ط§ط، ط§ظ„ط¬ظ„ط³ط©
     </a>
   </div>
 </div>
@@ -257,11 +257,11 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 {{ student.daily_chat_limit|default:20|json_script:"dj-chat-limit" }}
 {{ student.chats_today|default:0|json_script:"dj-chat-used" }}
 
-{# ✅ إصلاح: words_json_url يُمرَّر بشكل صريح عبر json_script لمنع null في JS #}
+{# âœ… ط¥طµظ„ط§ط­: words_json_url ظٹظڈظ…ط±ظژظ‘ط± ط¨ط´ظƒظ„ طµط±ظٹط­ ط¹ط¨ط± json_script ظ„ظ…ظ†ط¹ null ظپظٹ JS #}
 {{ words_json_url|default:''|json_script:"dj-words-json-url" }}
 
 <script>
-/* ── متغيرات مشتركة ── */
+/* â”€â”€ ظ…طھط؛ظٹط±ط§طھ ظ…ط´طھط±ظƒط© â”€â”€ */
 var LESSON_ID  = JSON.parse(document.getElementById('dj-lesson-id').textContent);
 var SESSION_ID = JSON.parse(document.getElementById('dj-session-id').textContent);
 var CSRF_TOKEN = "{{ csrf_token }}";
@@ -269,27 +269,27 @@ var CHAT_URL   = "{% url 'student:lesson_chat' lesson.pk %}";
 var CHAT_LIMIT = JSON.parse(document.getElementById('dj-chat-limit').textContent);
 var CHAT_USED  = JSON.parse(document.getElementById('dj-chat-used').textContent);
 
-/* ✅ إصلاح: TIMING_URL من words_json_url المُمرَّر صراحةً من views.py */
+/* âœ… ط¥طµظ„ط§ط­: TIMING_URL ظ…ظ† words_json_url ط§ظ„ظ…ظڈظ…ط±ظژظ‘ط± طµط±ط§ط­ط©ظ‹ ظ…ظ† views.py */
 var TIMING_URL = (function(){
     try{
         var el  = document.getElementById('dj-words-json-url');
         var raw = el ? (JSON.parse(el.textContent || '""') || '') : '';
         if (!raw) return '';
-        /* إذا كان المسار نسبياً أضف /media/ مرة واحدة فقط */
+        /* ط¥ط°ط§ ظƒط§ظ† ط§ظ„ظ…ط³ط§ط± ظ†ط³ط¨ظٹط§ظ‹ ط£ط¶ظپ /media/ ظ…ط±ط© ظˆط§ط­ط¯ط© ظپظ‚ط· */
         if (raw.indexOf('http') === 0) return raw;
         if (raw.indexOf('/') === 0)    return raw;
         return '/media/' + raw;
     } catch(e){ return ''; }
 })();
 
-/* ── غلاف صورة الدرس ── */
+/* â”€â”€ ط؛ظ„ط§ظپ طµظˆط±ط© ط§ظ„ط¯ط±ط³ â”€â”€ */
 (function(){
     try{
         var imgs = JSON.parse(document.getElementById('dj-image-list').textContent || '[]');
         if (!imgs || !imgs.length) return;
         var cover = document.getElementById('lesson-card-cover');
         if (!cover) return;
-        /* ✅ تجاهل null في قائمة الصور */
+        /* âœ… طھط¬ط§ظ‡ظ„ null ظپظٹ ظ‚ط§ط¦ظ…ط© ط§ظ„طµظˆط± */
         var firstImg = null;
         for (var i = 0; i < imgs.length; i++) {
             if (imgs[i] && typeof imgs[i] === 'string' && imgs[i].trim()) {
@@ -303,7 +303,7 @@ var TIMING_URL = (function(){
     } catch(e){}
 })();
 
-/* ══ تتبع الانتباه ══════════════════════════════════════════ */
+/* â•گâ•گ طھطھط¨ط¹ ط§ظ„ط§ظ†طھط¨ط§ظ‡ â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ */
 var ws = null, trackingActive = false, alertTimer = null;
 var _mediaStream = null, _frameInterval = null;
 
@@ -365,39 +365,39 @@ function showCameraStatus(s){
     var t = document.getElementById('alert-toast'); if (!t) return;
     if (s === 'granted'){
         t.style.background = 'linear-gradient(135deg,#059669,#10b981)';
-        t.textContent = '✅ تم تفعيل الكاميرا — تتبع الانتباه نشط';
+        t.textContent = 'âœ… طھظ… طھظپط¹ظٹظ„ ط§ظ„ظƒط§ظ…ظٹط±ط§ â€” طھطھط¨ط¹ ط§ظ„ط§ظ†طھط¨ط§ظ‡ ظ†ط´ط·';
         t.style.display = 'block';
         setTimeout(function(){ t.style.display = 'none'; }, 4000);
     } else if (s === 'denied'){
         t.style.background = 'linear-gradient(135deg,#b45309,#d97706)';
-        t.innerHTML = '⚠️ رُفض إذن الكاميرا — <a href="#" onclick="openCameraSettings()" style="color:#fff;text-decoration:underline;font-weight:700;">انقر هنا لإعادة التفعيل</a>';
+        t.innerHTML = 'âڑ ï¸ڈ ط±ظڈظپط¶ ط¥ط°ظ† ط§ظ„ظƒط§ظ…ظٹط±ط§ â€” <a href="#" onclick="openCameraSettings()" style="color:#fff;text-decoration:underline;font-weight:700;">ط§ظ†ظ‚ط± ظ‡ظ†ط§ ظ„ط¥ط¹ط§ط¯ط© ط§ظ„طھظپط¹ظٹظ„</a>';
         t.style.display = 'block';
         setTimeout(function(){ t.style.display = 'none'; }, 10000);
     } else if (s === 'noCam'){
         t.style.background = 'linear-gradient(135deg,#475569,#64748b)';
-        t.textContent = '📷 لا توجد كاميرا — يمكنك متابعة الدرس عادةً';
+        t.textContent = 'ًں“· ظ„ط§ طھظˆط¬ط¯ ظƒط§ظ…ظٹط±ط§ â€” ظٹظ…ظƒظ†ظƒ ظ…طھط§ط¨ط¹ط© ط§ظ„ط¯ط±ط³ ط¹ط§ط¯ط©ظ‹';
         t.style.display = 'block';
         setTimeout(function(){ t.style.display = 'none'; }, 5000);
     } else if (s === 'insecure'){
         t.style.background = 'linear-gradient(135deg,#0369a1,#0284c7)';
-        t.textContent = '💡 تتبع الانتباه يحتاج اتصال آمن (HTTPS) أو localhost — يمكنك متابعة الدرس عادةً';
+        t.textContent = 'ًں’، طھطھط¨ط¹ ط§ظ„ط§ظ†طھط¨ط§ظ‡ ظٹط­طھط§ط¬ ط§طھطµط§ظ„ ط¢ظ…ظ† (HTTPS) ط£ظˆ localhost â€” ظٹظ…ظƒظ†ظƒ ظ…طھط§ط¨ط¹ط© ط§ظ„ط¯ط±ط³ ط¹ط§ط¯ط©ظ‹';
         t.style.display = 'block';
         setTimeout(function(){ t.style.display = 'none'; }, 7000);
     }
 }
 
 function openCameraSettings(){
-    var ua = navigator.userAgent, msg = 'لتفعيل الكاميرا:\n\n';
-    if (ua.indexOf('Chrome') !== -1){ msg += 'Chrome: انقر على أيقونة القفل 🔒 في شريط العنوان\n→ اختر "إعدادات الموقع" → فعّل الكاميرا'; }
-    else if (ua.indexOf('Firefox') !== -1){ msg += 'Firefox: انقر على أيقونة الكاميرا في شريط العنوان\n→ أزل الحظر وأعد تحميل الصفحة'; }
-    else if (ua.indexOf('Safari') !== -1){ msg += 'Safari: القائمة → الإعدادات → مواقع الويب → الكاميرا\n→ فعّل لهذا الموقع'; }
-    else { msg += 'انقر على أيقونة الكاميرا أو القفل في شريط العنوان وأعطِ الإذن.'; }
+    var ua = navigator.userAgent, msg = 'ظ„طھظپط¹ظٹظ„ ط§ظ„ظƒط§ظ…ظٹط±ط§:\n\n';
+    if (ua.indexOf('Chrome') !== -1){ msg += 'Chrome: ط§ظ†ظ‚ط± ط¹ظ„ظ‰ ط£ظٹظ‚ظˆظ†ط© ط§ظ„ظ‚ظپظ„ ًں”’ ظپظٹ ط´ط±ظٹط· ط§ظ„ط¹ظ†ظˆط§ظ†\nâ†’ ط§ط®طھط± "ط¥ط¹ط¯ط§ط¯ط§طھ ط§ظ„ظ…ظˆظ‚ط¹" â†’ ظپط¹ظ‘ظ„ ط§ظ„ظƒط§ظ…ظٹط±ط§'; }
+    else if (ua.indexOf('Firefox') !== -1){ msg += 'Firefox: ط§ظ†ظ‚ط± ط¹ظ„ظ‰ ط£ظٹظ‚ظˆظ†ط© ط§ظ„ظƒط§ظ…ظٹط±ط§ ظپظٹ ط´ط±ظٹط· ط§ظ„ط¹ظ†ظˆط§ظ†\nâ†’ ط£ط²ظ„ ط§ظ„ط­ط¸ط± ظˆط£ط¹ط¯ طھط­ظ…ظٹظ„ ط§ظ„طµظپط­ط©'; }
+    else if (ua.indexOf('Safari') !== -1){ msg += 'Safari: ط§ظ„ظ‚ط§ط¦ظ…ط© â†’ ط§ظ„ط¥ط¹ط¯ط§ط¯ط§طھ â†’ ظ…ظˆط§ظ‚ط¹ ط§ظ„ظˆظٹط¨ â†’ ط§ظ„ظƒط§ظ…ظٹط±ط§\nâ†’ ظپط¹ظ‘ظ„ ظ„ظ‡ط°ط§ ط§ظ„ظ…ظˆظ‚ط¹'; }
+    else { msg += 'ط§ظ†ظ‚ط± ط¹ظ„ظ‰ ط£ظٹظ‚ظˆظ†ط© ط§ظ„ظƒط§ظ…ظٹط±ط§ ط£ظˆ ط§ظ„ظ‚ظپظ„ ظپظٹ ط´ط±ظٹط· ط§ظ„ط¹ظ†ظˆط§ظ† ظˆط£ط¹ط·ظگ ط§ظ„ط¥ط°ظ†.'; }
     alert(msg);
 }
 
 function hideAttentionBar(){
     var bar = document.getElementById('attention-bar');
-    if (bar){ bar.innerHTML = '<span style="color:var(--muted);font-size:.82rem;font-weight:600;margin:auto;">📷 تتبع الانتباه معطّل — الجلسة التعليمية جارية</span>'; }
+    if (bar){ bar.innerHTML = '<span style="color:var(--muted);font-size:.82rem;font-weight:600;margin:auto;">ًں“· طھطھط¨ط¹ ط§ظ„ط§ظ†طھط¨ط§ظ‡ ظ…ط¹ط·ظ‘ظ„ â€” ط§ظ„ط¬ظ„ط³ط© ط§ظ„طھط¹ظ„ظٹظ…ظٹط© ط¬ط§ط±ظٹط©</span>'; }
     trackingActive = false;
 }
 
@@ -410,10 +410,10 @@ function startTracking(){
     .then(function(r){ return r.json(); })
     .then(function(d){
         if (d.ok && d.ws_url && typeof d.ws_url === 'string' && d.ws_url.indexOf('ws') === 0){
-            /* ✅ إصلاح: نتحقق أن ws_url صالح قبل الاتصال — لمنع new WebSocket(null) */
+            /* âœ… ط¥طµظ„ط§ط­: ظ†طھط­ظ‚ظ‚ ط£ظ† ws_url طµط§ظ„ط­ ظ‚ط¨ظ„ ط§ظ„ط§طھطµط§ظ„ â€” ظ„ظ…ظ†ط¹ new WebSocket(null) */
             trackingActive = true;
             connectWebSocket(d.ws_url);
-            updateBar('attentive', 'التتبع نشط ✅', 100);
+            updateBar('attentive', 'ط§ظ„طھطھط¨ط¹ ظ†ط´ط· âœ…', 100);
         } else {
             hideAttentionBar();
         }
@@ -422,7 +422,7 @@ function startTracking(){
 }
 
 function connectWebSocket(wsUrl){
-    /* ✅ تحقق إضافي داخل connectWebSocket نفسها */
+    /* âœ… طھط­ظ‚ظ‚ ط¥ط¶ط§ظپظٹ ط¯ط§ط®ظ„ connectWebSocket ظ†ظپط³ظ‡ط§ */
     if (!wsUrl || typeof wsUrl !== 'string' || wsUrl.indexOf('ws') !== 0){
         console.warn('[Attention] Invalid ws_url:', wsUrl);
         hideAttentionBar();
@@ -433,8 +433,9 @@ function connectWebSocket(wsUrl){
     ws.onmessage = function(e){
         var s = JSON.parse(e.data);
         if (s.error || s.pong) return;
-        updateBar(s.is_attentive ? 'attentive' : 'distracted',
-                  s.is_attentive ? 'منتبه ✅' : 'تشتت ⚠️',
+        var significant = !!s.is_significant_distraction;
+        updateBar(s.is_attentive ? 'attentive' : (significant ? 'distracted' : ''),
+                  s.is_attentive ? 'منتبه ✅' : (significant ? 'تشتت ملحوظ ⚠️' : 'وقت قصير للعودة للتركيز'),
                   s.attention_score);
         if (s.alert_message) showAlert(s.alert_message);
     };
@@ -504,7 +505,7 @@ function stopTracking(){
     if (!trackingActive) return;
     trackingActive = false; stopFrameSending(); if (ws) ws.close();
     var btn = document.getElementById('stop-btn');
-    if (btn) btn.innerHTML = '<i class="fas fa-check"></i> تم';
+    if (btn) btn.innerHTML = '<i class="fas fa-check"></i> طھظ…';
     fetch("{% url 'student:attention_stop' %}", {
         method:'POST',
         headers:{'Content-Type':'application/json','X-CSRFToken':CSRF_TOKEN},
@@ -528,7 +529,7 @@ function stopTracking(){
 
 function showSummary(s){
     if (!s) return;
-    document.getElementById('sum-score').textContent = s.avg_attention     || '—';
+    document.getElementById('sum-score').textContent = s.avg_attention     || 'â€”';
     document.getElementById('sum-count').textContent = s.inattention_count || '0';
     document.getElementById('sum-time').textContent  = s.session_minutes   || '0';
     var el = document.getElementById('session-summary');
@@ -538,21 +539,21 @@ function showSummary(s){
 
 window.addEventListener('beforeunload', function(){ if (trackingActive) stopTracking(); });
 
-/* ══ بناء الفقرات ══════════════════════════════════════════ */
+/* â•گâ•گ ط¨ظ†ط§ط، ط§ظ„ظپظ‚ط±ط§طھ â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ */
 (function buildParagraphs(){
     var container = document.getElementById('lesson-paragraphs-container');
     if (!container) return;
 
     var rawText   = JSON.parse(document.getElementById('dj-lesson-text').textContent  || '""');
     var imageList = JSON.parse(document.getElementById('dj-image-list').textContent   || '[]');
-    if (!rawText){ container.innerHTML = '<p style="color:#64748b;padding:1rem;">لا يوجد محتوى.</p>'; return; }
+    if (!rawText){ container.innerHTML = '<p style="color:#64748b;padding:1rem;">ظ„ط§ ظٹظˆط¬ط¯ ظ…ط­طھظˆظ‰.</p>'; return; }
 
     var paras = rawText.split(/\n\s*\n/).map(function(p){ return p.trim(); }).filter(Boolean);
 
     function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
     paras.forEach(function(text, i){
-        /* ✅ تحقق كامل: imgUrl يجب أن يكون string غير فارغ وغير null */
+        /* âœ… طھط­ظ‚ظ‚ ظƒط§ظ…ظ„: imgUrl ظٹط¬ط¨ ط£ظ† ظٹظƒظˆظ† string ط؛ظٹط± ظپط§ط±ط؛ ظˆط؛ظٹط± null */
         var rawImg = imageList[i];
         var imgUrl = (rawImg && typeof rawImg === 'string' && rawImg.trim() !== '' && rawImg !== 'null')
                      ? rawImg.trim() : '';
@@ -575,7 +576,7 @@ window.addEventListener('beforeunload', function(){ if (trackingActive) stopTrac
             imgEl.src      = imgUrl;
             imgEl.className = 'std-para-img';
             imgEl.alt      = String(i+1);
-            /* ✅ إخفاء الصورة فوراً إذا فشل التحميل */
+            /* âœ… ط¥ط®ظپط§ط، ط§ظ„طµظˆط±ط© ظپظˆط±ط§ظ‹ ط¥ط°ط§ ظپط´ظ„ ط§ظ„طھط­ظ…ظٹظ„ */
             imgEl.onerror  = function(){ this.style.display = 'none'; };
             imgEl.onclick  = (function(u){ return function(){ window.open(u,'_blank'); }; })(imgUrl);
             block.appendChild(imgEl);
@@ -583,11 +584,11 @@ window.addEventListener('beforeunload', function(){ if (trackingActive) stopTrac
         container.appendChild(block);
     });
 
-    /* تظليل الفقرة الأولى */
+    /* طھط¸ظ„ظٹظ„ ط§ظ„ظپظ‚ط±ط© ط§ظ„ط£ظˆظ„ظ‰ */
     var firstBlock = container.querySelector('.std-para-block');
     if (firstBlock) firstBlock.classList.add('para-active');
 
-    /* تظليل الفقرة الحالية عند التشغيل */
+    /* طھط¸ظ„ظٹظ„ ط§ظ„ظپظ‚ط±ط© ط§ظ„ط­ط§ظ„ظٹط© ط¹ظ†ط¯ ط§ظ„طھط´ط؛ظٹظ„ */
     var audio = document.getElementById('topAudio');
     if (audio && paras.length > 0){
         audio.addEventListener('timeupdate', function(){
@@ -598,7 +599,7 @@ window.addEventListener('beforeunload', function(){ if (trackingActive) stopTrac
         });
     }
 
-    /* ✅ تهيئة WordHighlight بعد بناء الفقرات */
+    /* âœ… طھظ‡ظٹط¦ط© WordHighlight ط¨ط¹ط¯ ط¨ظ†ط§ط، ط§ظ„ظپظ‚ط±ط§طھ */
     var topAudio = document.getElementById('topAudio');
     if (topAudio && container){
         setTimeout(function(){
@@ -616,7 +617,7 @@ window.addEventListener('beforeunload', function(){ if (trackingActive) stopTrac
 })();
 </script>
 
-<!-- ✅ محرك التظليل المحسّن v4 -->
+<!-- âœ… ظ…ط­ط±ظƒ ط§ظ„طھط¸ظ„ظٹظ„ ط§ظ„ظ…ط­ط³ظ‘ظ† v4 -->
 <script>
 (function(global){
 'use strict';

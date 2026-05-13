@@ -24,6 +24,7 @@ logger        = logging.getLogger(__name__)
 FLASK_BASE    = "http://localhost:5050"
 FLASK_TIMEOUT = 5
 ATTENTION_ALERT_THRESHOLD = 50   # % — إذا انخفض عن هذا يُرسَل إشعار لولي الأمر
+MIN_SIGNIFICANT_INATTENTION_COUNT = 2
 
 
 def _flask_post(endpoint: str, payload: dict) -> dict:
@@ -213,9 +214,11 @@ def notify_attention_alert(request):
     except (ValueError, TypeError):
         return JsonResponse({"error": "بيانات غير صالحة"}, status=400)
 
-    # لا إشعار إلا إذا الانتباه أقل من الحد
+    # لا إشعار إلا إذا الانتباه أقل من الحد، ومعه تشتت ملحوظ متكرر.
     if avg_attention >= ATTENTION_ALERT_THRESHOLD:
         return JsonResponse({"status": "skip", "reason": "above_threshold"})
+    if inattention_count < MIN_SIGNIFICANT_INATTENTION_COUNT and avg_attention >= 35:
+        return JsonResponse({"status": "skip", "reason": "not_significant_enough"})
 
     lesson = get_object_or_404(Lessoncontent, pk=lesson_id, status="Published")
 
