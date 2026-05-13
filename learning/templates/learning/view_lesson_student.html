@@ -421,13 +421,13 @@ function connectWebSocket(wsUrl){
   ws.onmessage=function(e){
     var state=JSON.parse(e.data);
     if(state.error) return;
-    updateBar(
     var significant = !!state.is_significant_distraction;
     updateBar(
       state.is_attentive ? 'attentive' : (significant ? 'distracted' : ''),
       state.is_attentive ? 'منتبه ✅' : (significant ? 'تشتت ملحوظ ⚠️' : 'وقت قصير للعودة للتركيز'),
       state.attention_score
     );
+    if(state.alert_message) showAlert(state.alert_message);
   };
   ws.onclose=function(){
     if(trackingActive) setTimeout(function(){ if(trackingActive) connectWebSocket(wsUrl); },3000);
@@ -471,15 +471,26 @@ function stopTracking(){
   .then(function(data){
     if(data.ok) {
         showSummary(data.summary);
+        var summary = data.summary || {};
         return fetch("{% url 'student:attention_save' %}",{
           method:'POST',
           headers:{'Content-Type':'application/json','X-CSRFToken':CSRF_TOKEN},
           body:JSON.stringify({
             lesson_id: LESSON_ID,
-            avg_attention: data.summary?data.summary.avg_attention:0,
-            inattention_count: data.summary?data.summary.inattention_count:0,
-            session_minutes: data.summary?data.summary.session_minutes:0,
+            avg_attention: summary.avg_attention || 0,
+            inattention_count: summary.inattention_count || 0,
+            session_minutes: summary.session_minutes || 0,
           })
+        }).then(function(){
+          return fetch("{% url 'student:attention_alert' %}",{
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-CSRFToken':CSRF_TOKEN},
+            body:JSON.stringify({
+              lesson_id: LESSON_ID,
+              avg_attention: summary.avg_attention || 0,
+              inattention_count: summary.inattention_count || 0
+            })
+          });
         });
     }
   })
