@@ -16,6 +16,7 @@ import time
 import math
 import random
 import base64
+import threading
 from io import BytesIO
 from dataclasses import dataclass, asdict
 from typing import Optional
@@ -321,6 +322,7 @@ class AttentionTracker:
             ear = (ear_l + ear_r) / 2.0
             face_ratio = compute_nose_ear_ratio(face_lm, w, h)
             gaze_zone = compute_gaze(face_lm, w, h)
+            self._last_face_seen = time.time()  # ✅ تحديث وقت آخر مرة رأينا فيها الوجه
 
             if ear < EAR_SOFT_THRESHOLD:
                 self._closed_ear_streak = min(self._closed_ear_streak + 1, 30)
@@ -331,8 +333,17 @@ class AttentionTracker:
 
             if ear < FOCUSBUDDY_EAR_THRESHOLD or self._closed_ear_streak >= EAR_CLOSED_STREAK:
                 self._drowse_active = True
+                # ✅ نظام إغماض العينين
+                if self._eye_closure_start is None:
+                    self._eye_closure_start = time.time()
             if self._open_ear_streak >= EAR_OPEN_STREAK:
                 self._drowse_active = False
+                # ✅ إعادة تعيين عداد إغماض العينين عند فتح العينين
+                if self._eye_closure_start is not None:
+                    closure_duration = time.time() - self._eye_closure_start
+                    if closure_duration >= self._eye_closure_threshold:
+                        self._eye_closure_count += 1
+                    self._eye_closure_start = None
 
             drowsy_instant = self._drowse_active
         else:
@@ -361,7 +372,12 @@ class AttentionTracker:
             drowsy = True
         elif face_lm is None:
             display_ratio = ratio_pose if ratio_pose is not None else 1.0
-            if ratio_pose is not None:
+            # ✅ منطق احتفاظ: إذا اختفى الوجه لأقل من 2 ثانية، نعتبره منتبه
+            if time.time() - self._last_face_seen < 2.0:
+                score, cause, attentive = 78, "none", True
+                self._ear_counter = 0
+                drowsy = False
+            elif ratio_pose is not None:
                 score, cause, attentive = 78, "none", True
                 self._ear_counter = 0
                 drowsy = False
@@ -439,6 +455,13 @@ class AttentionTracker:
         self._closed_ear_streak = 0
         self._open_ear_streak   = 0
         self._drowse_active     = False
+        self._mp_lock           = threading.Lock()  # ✅ حماية MediaPipe من multi-threading
+        self._last_face_seen    = time.time()  # ✅ لتجنب وميض no_face
+        # ✅ نظام إغماض العينين
+        self._eye_closure_start = None  # وقت بداية إغماض العينين
+        self._eye_closure_count = 0     # عدد مرات إغماض العينين
+        self._eye_closure_threshold = 3.0  # 3 ثواني
+        self._max_eye_closures = 3      # توقف بعد 3 مرات
 
     def _init_face_mesh(self):
         """✅ تهيئة face_mesh مرة واحدة فقط."""
@@ -456,8 +479,8 @@ class AttentionTracker:
             self._face_mesh = mp_mesh.FaceMesh(
                 max_num_faces        = 1,
                 refine_landmarks     = True,
-                min_detection_confidence = 0.6,
-                min_tracking_confidence  = 0.5,
+                min_detection_confidence = 0.45,  # ✅ تخفيف الحساسية للكاميرا المضغوطة
+                min_tracking_confidence  = 0.45,  # ✅ تخفيف الحساسية للكاميرا المضغوطة
             )
             try:
                 mp_pose = mp.solutions.pose
@@ -568,17 +591,19 @@ class AttentionTracker:
             if face_mesh is None:
                 return self._process_basic_frame(rgb, w, h)
 
-            pose_results = None
-            if self._pose is not None and self._pose is not False:
-                try:
-                    pose_results = self._pose.process(rgb)
-                except Exception:
-                    pose_results = None
+            # ✅ حماية MediaPipe من multi-threading
+            with self._mp_lock:
+                pose_results = None
+                if self._pose is not None and self._pose is not False:
+                    try:
+                        pose_results = self._pose.process(rgb)
+                    except Exception:
+                        pose_results = None
 
-            face_results = face_mesh.process(rgb)
-            face_lm = None
-            if face_results.multi_face_landmarks:
-                face_lm = face_results.multi_face_landmarks[0].landmark
+                face_results = face_mesh.process(rgb)
+                face_lm = None
+                if face_results.multi_face_landmarks:
+                    face_lm = face_results.multi_face_landmarks[0].landmark
 
             state = self._process_focusbuddy(pose_results, face_lm, w, h)
             return asdict(state)
@@ -635,6 +660,20 @@ class AttentionTracker:
 
     def stop(self):
         self._running = False
+        # ✅ إغلاق MediaPipe لتجنب تسرب الموارد
+        with self._mp_lock:
+            if self._face_mesh and self._face_mesh is not False:
+                try:
+                    self._face_mesh.close()
+                except Exception:
+                    pass
+                self._face_mesh = None
+            if self._pose and self._pose is not False:
+                try:
+                    self._pose.close()
+                except Exception:
+                    pass
+                self._pose = None
 
     def get_summary(self) -> dict:
         buf = self._score_buffer

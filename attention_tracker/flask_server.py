@@ -35,6 +35,8 @@ except ImportError as e:
     logger_init.warning(f"تنبيه استيراد: {e}")
 
 # تهيئة logging
+import os
+os.environ['NO_COLOR'] = '1'  # تعطيل colorama
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -57,6 +59,7 @@ def _make_session(session_id: str, student_name: str,
     ws_clients  = []      # قائمة WebSocket المتصلة بهذه الجلسة
     state_buffer = []     # آخر 300 حالة لحساب المتوسط
     frame_client = None   # client الذي يرسل frames
+    last_frame_time = 0   # ✅ لتجنب تراكم الإطارات
 
     return {
         "tracker":       tracker,
@@ -65,6 +68,7 @@ def _make_session(session_id: str, student_name: str,
         "state_buffer":  state_buffer,
         "thread":        None,
         "running":       False,
+        "last_frame_time": last_frame_time,  # ✅
     }
 
 
@@ -75,9 +79,7 @@ def _tracker_callback(session_id: str):
             session = _sessions.get(session_id)
             if not session:
                 return
-            session["state_buffer"].append(state_dict["attention_score"])
-            if len(session["state_buffer"]) > 300:
-                session["state_buffer"].pop(0)
+            # ✅ إزالة التحديث المزدوج - state_buffer يُحدّث فقط في ws_attention
             clients = list(session["ws_clients"])
 
         payload = json.dumps(state_dict, ensure_ascii=False)
@@ -199,102 +201,106 @@ def api_summary(session_id):
 @sock.route("/ws/attention/<session_id>")
 def ws_attention(ws, session_id):
     """
-    ✅ الـ Frontend يتصل هنا ويرسل frames من الكاميرا عبر WebSocket.
-    يتوقع messages بصيغة JSON:
-        {
-            "type": "frame",
-            "data": "base64_encoded_image..."
-        }
+    ✅ نسخة محسّنة ومستقرة: تستقبل الصور، تعالجها، وتعيد النتيجة فوراً لنفس العميل.
+    تعالج مشكلة الاستقرار عبر فحص جودة الإطارات وتفادي تراكم الطلبات.
     """
     with _lock:
         session = _sessions.get(session_id)
 
     if not session:
         try:
-            ws.send(json.dumps({"error": "جلسة غير موجودة"}))
+            ws.send(json.dumps({"error": "Session not found", "session_id": session_id}))
         except:
             pass
         return
 
     with _lock:
-        session["ws_clients"].append(ws)
-        session["frame_client"] = ws  # هذا الـ client يرسل frames
+        if ws not in session["ws_clients"]:
+            session["ws_clients"].append(ws)
+        session["frame_client"] = ws
+
+    logger.info(f"🚀 Started stable tracking for session: {session_id}")
 
     try:
-        while session.get("running", False):
+        while True:  # ✅ تحديث المرجع في كل دورة
+            with _lock:
+                session = _sessions.get(session_id)
+                if not session:
+                    break
+                if not session["running"]:
+                    break
+
+            msg = ws.receive(timeout=10) # مهلة كافية لشبكات الويب
+            if not msg:
+                continue
+            
+            # 1. فحص نوع الرسالة (Ping أو Frame)
+            if msg == "ping":
+                ws.send(json.dumps({"type": "pong"}))
+                continue
+            
             try:
-                msg = ws.receive(timeout=5)
-                if not msg:
+                data = json.loads(msg)
+            except:
+                continue
+            
+            if data.get("type") == "frame" and data.get("data"):
+                # ✅ إسقاط الإطارات المتراكمة (تقييد إلى ~6fps)
+                now = time.time()
+                last_frame = session.get("last_frame_time", 0)
+                if now - last_frame < 0.15:  # 150ms = ~6.7fps
                     continue
-                
-                # معالجة ping/pong
-                if msg == "ping":
-                    ws.send(json.dumps({"pong": True}))
-                    continue
-                
-                # معالجة frame data
+                session["last_frame_time"] = now
+
+                # 2. فك تشفير الصورة ومعالجتها
                 try:
-                    data = json.loads(msg)
-                except:
-                    continue
-                
-                if not isinstance(data, dict) or data.get("type") != "frame":
-                    continue
-                
-                frame_b64 = data.get("data")
-                if not frame_b64:
-                    continue
-                
-                # ✅ معالجة الـ frame
-                try:
-                    # تحويل Base64 إلى صورة
-                    img_data = base64.b64decode(frame_b64)
-                    img = Image.open(BytesIO(img_data))
-                    frame = np.array(img)
+                    frame_b64 = data.get("data")
+                    # إزالة الرأس إذا وجد (data:image/jpeg;base64,...)
+                    if "," in frame_b64:
+                        frame_b64 = frame_b64.split(",")[1]
                     
-                    # معالجة عبر الـ tracker
+                    img_bytes = base64.b64decode(frame_b64)
+                    img = Image.open(BytesIO(img_bytes)).convert("RGB")
+                    frame_np = np.array(img)
+                    # ✅ تحويل RGBA إلى RGB إذا لزم الأمر
+                    if frame_np.shape[-1] == 4:
+                        frame_np = cv2.cvtColor(frame_np, cv2.COLOR_RGBA2RGB)
+                    
+                    # 3. استدعاء المحرك (Attention Engine)
                     tracker = session["tracker"]
-                    state_dict = tracker.process_frame(frame)
+                    state_dict = tracker.process_frame(frame_np)
                     
                     if state_dict:
+                        # تحديث التخزين المؤقت للملخص
                         with _lock:
                             session["state_buffer"].append(state_dict.get("attention_score", 0))
-                            if len(session["state_buffer"]) > 300:
+                            if len(session["state_buffer"]) > 500:
                                 session["state_buffer"].pop(0)
-                            clients = list(session["ws_clients"])
                         
+                        # 4. الرد الفوري (هذا ما يضمن استقرار الواجهة الأمامية)
                         payload = json.dumps(state_dict, ensure_ascii=False)
-                        dead = []
-                        for client in clients:
-                            try:
-                                client.send(payload)
-                            except Exception:
-                                dead.append(client)
+                        ws.send(payload)
                         
-                        if dead:
-                            with _lock:
-                                for client in dead:
-                                    if client in session.get("ws_clients", []):
-                                        session["ws_clients"].remove(client)
-                
                 except Exception as e:
-                    logger.error(f"خطأ معالجة frame: {e}")
+                    logger.error(f"❌ Frame Processing Error: {e}")
                     continue
-            
-            except Exception as e:
-                if "timeout" not in str(e).lower():
-                    logger.error(f"خطأ استقبال: {e}")
-                break
-    
+
+    except Exception as e:
+        logger.warning(f"⚠️ WS Connection closed for {session_id}: {e}")
     finally:
         with _lock:
-            if ws in session.get("ws_clients", []):
-                session["ws_clients"].remove(ws)
-            if session.get("frame_client") is ws:
-                session["frame_client"] = None
+            if session_id in _sessions and ws in _sessions[session_id]["ws_clients"]:
+                _sessions[session_id]["ws_clients"].remove(ws)
 
 
 # ══════════════════════════════════════════════════════════════
 if __name__ == "__main__":
+    import sys
+    # تعطيل colorama لتجنب مشاكل Windows في الخلفية
+    if '--no-color' in sys.argv:
+        from click import core
+        core.should_strip_ansi = True
+        sys.argv.remove('--no-color')
+    
     print("🚀 خادم تتبع الانتباه يعمل على http://localhost:5050")
-    app.run(host="0.0.0.0", port=5050, debug=False, threaded=True)
+    app.run(host="0.0.0.0", port=5050, debug=False, threaded=True, use_reloader=False)
