@@ -551,6 +551,15 @@ class AttentionTracker:
         if len(self._score_buffer) > 500:
             self._score_buffer.pop(0)
 
+        dist_level = "none"
+        if not attentive:
+            if distract_dur >= 7.0:
+                dist_level = "high"
+            elif distract_dur >= 3.0:
+                dist_level = "medium"
+            elif distract_dur >= 1.0:
+                dist_level = "low"
+
         return asdict(AttentionState(
             timestamp=now,
             student_name=self.student_name,
@@ -568,6 +577,10 @@ class AttentionTracker:
             is_warning_distraction=warning,
             is_significant_distraction=significant,
             focus_status="focused" if attentive else ("distracted" if significant else ("warning" if warning else "drifting")),
+            distraction_level=dist_level,
+            eye_closure_duration=0.0,
+            eye_closure_count=self._eye_closure_count,
+            should_force_stop=self._eye_closure_count >= self._max_eye_closures,
         ))
 
     def process_frame(self, frame_bytes) -> Optional[dict]:

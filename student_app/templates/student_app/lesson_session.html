@@ -330,6 +330,16 @@ var TIMING_URL = (function(){
 
 var ws = null, trackingActive = false, alertTimer = null;
 var _mediaStream = null, _frameInterval = null;
+var _attentionState = {
+    distracted: false,
+    startTime: null,
+    level: 'none',
+    lastAlertLevel: null,
+    lastToastLevel: null,
+    eyeClosureCount: 0,
+    eyeClosureEventActive: false,
+    pausedByDistraction: false,
+};
 
 function firstAttentionName(full){
     if (!full || typeof full !== 'string') return '';
@@ -337,8 +347,22 @@ function firstAttentionName(full){
     return p[0] || '';
 }
 
-/** نص يعكس سبب التشتت من الخادم (head_turn / drowsy / gaze / no_face) */
 function distractionBannerText(s){
+    var fn = firstAttentionName(s.student_name || '') || 'صديقي';
+    var level = s.distraction_level || 'none';
+    if (level === 'high') {
+        return fn + '، انتباهك بعيد جداً الآن — لنساعدك على العودة للدرس.';
+    }
+    if (level === 'medium') {
+        return fn + '، هناك تشتت ملحوظ. ركّز معي مرة أخرى.';
+    }
+    if (level === 'low') {
+        return fn + '، يبدو أنك مشتت قليلاً. أعد نظرك إلى الشاشة.';
+    }
+    return distractionBannerTextFallback(s);
+}
+
+function distractionBannerTextFallback(s){
     var fn = firstAttentionName(s.student_name || '') || 'صديقي';
     var c = String(s.distraction_cause || 'none').toLowerCase();
     var sig = !!s.is_significant_distraction;
@@ -377,17 +401,119 @@ function updateDistractionBanner(s){
         clearDistractionBanner();
         return;
     }
-    var warn = !!s.is_warning_distraction;
-    var sig = !!s.is_significant_distraction;
-    var score = typeof s.attention_score === 'number' ? s.attention_score : parseInt(s.attention_score, 10) || 0;
-    var show = warn || sig || score < 70;
-    if (!show){
-        clearDistractionBanner();
-        return;
-    }
     el.textContent = distractionBannerText(s);
     el.style.display = 'block';
-    el.className = sig ? 'significant' : (warn ? 'warning' : 'drift');
+    var level = s.distraction_level || 'low';
+    if (level === 'high') {
+        el.className = 'significant';
+    } else if (level === 'medium') {
+        el.className = 'warning';
+    } else {
+        el.className = 'drift';
+    }
+}
+
+function processAttentionState(s) {
+    var now = Date.now();
+    var attentive = !!s.is_attentive;
+    var duration = 0;
+    if (!attentive) {
+        if (!_attentionState.distracted) {
+            _attentionState.distracted = true;
+            _attentionState.startTime = now;
+            _attentionState.lastAlertLevel = null;
+            _attentionState.lastToastLevel = null;
+        }
+        duration = (now - (_attentionState.startTime || now)) / 1000;
+        var level = duration >= 7 ? 'long' : duration >= 3 ? 'medium' : 'short';
+        _attentionState.level = level;
+        feedbackForDistractionLevel(level, s, duration);
+
+        var toastLevel = s.distraction_level || 'low';
+        if (_attentionState.lastToastLevel !== toastLevel) {
+            _attentionState.lastToastLevel = toastLevel;
+            var toastMsg = s.alert_message || distractionToastMessage(s);
+            if (toastMsg) {
+                showDistractionToast(toastMsg, toastLevel !== 'low');
+            }
+        }
+    } else {
+        if (_attentionState.distracted) {
+            showDistractionToast('جميل، لقد عدت للتركيز. استمر الآن!', false);
+        }
+        _attentionState.distracted = false;
+        _attentionState.level = 'none';
+        _attentionState.startTime = null;
+        _attentionState.lastAlertLevel = null;
+        _attentionState.lastToastLevel = null;
+        _attentionState.eyeClosureEventActive = false;
+        if (_attentionState.pausedByDistraction) {
+            _attentionState.pausedByDistraction = false;
+            resumeLessonAudio();
+        }
+    }
+}
+
+function feedbackForDistractionLevel(level, s, duration) {
+    if (_attentionState.lastAlertLevel === level) return;
+    _attentionState.lastAlertLevel = level;
+    if (level === 'short') {
+        // لا نوقف الصوت للتشتت القصير، فقط نوضح الحالة على الشريط.
+        pulseAttentionBar('distracted');
+    } else if (level === 'medium') {
+        pauseLessonAudio();
+        _attentionState.pausedByDistraction = true;
+        if (duration >= 3) {
+            pulseAttentionBar('distracted');
+        }
+    } else if (level === 'long') {
+        pauseLessonAudio();
+        _attentionState.pausedByDistraction = true;
+        pulseAttentionBar('distracted');
+        shakeUI();
+    }
+}
+
+function pauseLessonAudio() {
+    var audio = document.getElementById('topAudio');
+    if (audio && !audio.paused) {
+        audio.pause();
+    }
+    pauseWordHighlight();
+}
+
+function resumeLessonAudio() {
+    var audio = document.getElementById('topAudio');
+    if (audio && audio.paused && trackingActive) {
+        audio.play().catch(function(){});
+    }
+    resumeWordHighlight();
+}
+
+function pauseWordHighlight() {
+    if (window.WordHighlight && typeof window.WordHighlight.pause === 'function') {
+        window.WordHighlight.pause();
+    }
+}
+
+function resumeWordHighlight() {
+    if (window.WordHighlight && typeof window.WordHighlight.resume === 'function') {
+        window.WordHighlight.resume();
+    }
+}
+
+function pulseAttentionBar(cls) {
+    var bar = document.getElementById('attention-bar');
+    if (!bar) return;
+    bar.classList.add(cls);
+    setTimeout(function(){ bar.classList.remove(cls); }, 900);
+}
+
+function shakeUI() {
+    var container = document.querySelector('.session-wrap');
+    if (!container) return;
+    container.classList.add('shake-ui');
+    setTimeout(function(){ container.classList.remove('shake-ui'); }, 520);
 }
 
 window.addEventListener('load', function(){ requestCameraAndStart(); });
@@ -478,20 +604,57 @@ function openCameraSettings(){
     alert(msg);
 }
 
+function ensureAttentionBarStructure(){
+    var bar = document.getElementById('attention-bar');
+    if (!bar) return;
+    if (document.getElementById('att-label') && document.getElementById('score-fill') && document.getElementById('score-num')) {
+        bar.style.display = 'flex';
+        bar.style.alignItems = 'center';
+        bar.style.opacity = '1';
+        return;
+    }
+    bar.innerHTML = '<div class="att-dot"></div>' +
+        '<span class="att-label" id="att-label">جاري التهيئة…</span>' +
+        '<div class="score-wrap">' +
+            '<div class="score-bar"><div class="score-fill" id="score-fill" style="width:0%"></div></div>' +
+            '<span class="score-num" id="score-num">—</span>' +
+        '</div>' +
+        '<button id="stop-btn" onclick="stopTracking()">' +
+            '<i class="fas fa-stop-circle"></i> إيقاف' +
+        '</button>';
+    bar.style.display = 'flex';
+    bar.style.alignItems = 'center';
+    bar.style.opacity = '1';
+}
+
 function hideAttentionBar(isError = false){
     clearDistractionBanner();
+    ensureAttentionBarStructure();
     var bar = document.getElementById('attention-bar');
-    if (bar){ 
-        if (isError) {
-            bar.innerHTML = '<span style="color:var(--rose);font-size:.82rem;font-weight:600;margin:auto;"><i class="fas fa-exclamation-triangle"></i> جاري محاولة استعادة تتبع الانتباه...</span>';
-        } else {
-            bar.innerHTML = '<span style="color:var(--muted);font-size:.82rem;font-weight:600;margin:auto;">تتبع الانتباه معطّل — الجلسة التعليمية جارية</span>'; 
-        }
+    var lbl = document.getElementById('att-label');
+    var fill = document.getElementById('score-fill');
+    var num = document.getElementById('score-num');
+    if (bar){
+        bar.className = 'distracted';
+    }
+    if (lbl){
+        lbl.textContent = isError
+            ? 'جاري محاولة استعادة تتبع الانتباه...'
+            : 'تتبع الانتباه معطّل — الجلسة التعليمية جارية';
+        lbl.style.color = isError ? 'var(--rose)' : 'var(--muted)';
+    }
+    if (fill){
+        fill.style.width = '0%';
+        fill.style.background = 'var(--rose)';
+    }
+    if (num){
+        num.textContent = '—';
     }
     trackingActive = false;
 }
 
 function startTracking(){
+    updateBar('', 'جارٍ بدء تتبع الانتباه...', 0);
     fetch("{% url 'student:attention_start' %}", {
         method: 'POST',
         headers: {'Content-Type':'application/json','X-CSRFToken':CSRF_TOKEN},
@@ -499,38 +662,67 @@ function startTracking(){
     })
     .then(function(r){ return r.json(); })
     .then(function(d){
-        if (d.ok && d.ws_url && typeof d.ws_url === 'string' && d.ws_url.indexOf('ws') === 0){
+        if (d.ok && d.ws_url && typeof d.ws_url === 'string'){
             trackingActive = true;
             connectWebSocket(d.ws_url);
             updateBar('attentive', 'التتبع نشط ✅', 100);
         } else {
+            showAlert('فشل بدء تتبع الانتباه. سنحاول إعادة الاتصال.');
             hideAttentionBar();
+            setTimeout(startTracking, 5000);
         }
     })
     .catch(function(){ 
+        showAlert('تعذر التواصل مع خادم تتبع الانتباه. إعادة المحاولة بعد 5 ثوانٍ.');
         hideAttentionBar(true);
         setTimeout(startTracking, 5000); // إعادة المحاولة بعد 5 ثوانٍ
     });
 }
 
-function connectWebSocket(wsUrl){
+function normalizeWsUrl(wsUrl){
+    if (!wsUrl || typeof wsUrl !== 'string') return '';
+    if (wsUrl.indexOf('ws://') === 0 || wsUrl.indexOf('wss://') === 0) {
+        if (location.protocol === 'https:' && wsUrl.indexOf('ws://') === 0) {
+            return 'wss://' + wsUrl.slice(5);
+        }
+        return wsUrl;
+    }
+    if (wsUrl.indexOf('//') === 0) {
+        return (location.protocol === 'https:' ? 'wss:' : 'ws:') + wsUrl;
+    }
+    if (wsUrl.indexOf('/') === 0) {
+        return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.hostname + ':5050' + wsUrl;
+    }
+    return wsUrl;
+}
 
-    if (!wsUrl || typeof wsUrl !== 'string' || wsUrl.indexOf('ws') !== 0){
+function connectWebSocket(wsUrl){
+    var normalized = normalizeWsUrl(wsUrl);
+    if (!normalized){
         console.warn('[Attention] Invalid ws_url:', wsUrl);
         hideAttentionBar();
         return;
     }
-    ws = new WebSocket(wsUrl);
-    ws.onopen    = function(){ startFrameSending(); };
+    ws = new WebSocket(normalized);
+    ws.onopen = function(){
+        showAlert('تم الاتصال بخادم تتبع الانتباه');
+        startFrameSending();
+    };
+    ws.onerror = function(err){
+        console.warn('[Attention] WebSocket error', err);
+        showAlert('حدث خطأ في اتصال WebSocket. إعادة محاولة الاتصال...');
+    };
     ws.onmessage = function(e){
         var s = JSON.parse(e.data);
-        if (s.error || s.pong) return;
+        if (s.error || s.type === 'pong') return;
         
         // التعامل مع الإغلاق القسري (إغماض العينين 3 مرات)
         if (s.should_force_stop) {
             handleForceStop(s.student_name);
             return;
         }
+
+        processAttentionState(s);
 
         var warning = !!s.is_warning_distraction;
         var significant = !!s.is_significant_distraction;
@@ -558,6 +750,7 @@ function connectWebSocket(wsUrl){
            وإيقاف المسارات يجعل الكاميرا تُغلق ولن يُعاد فتحها تلقائياً. */
         stopFrameIntervalOnly();
         if (trackingActive){
+            updateBar('', 'انقطع اتصال الانتباه. إعادة المحاولة...', 0);
             setTimeout(function(){ if (trackingActive) connectWebSocket(wsUrl); }, 3000);
         }
     };
@@ -594,18 +787,37 @@ function stopFrameSending(){
     if (_mediaStream){ _mediaStream.getTracks().forEach(function(t){ t.stop(); }); _mediaStream = null; }
 }
 
+function normalizeAttentionScore(value){
+    var score = Number(value);
+    if (Number.isNaN(score)) score = 0;
+    score = Math.round(score);
+    return Math.min(100, Math.max(0, score));
+}
+
 function updateBar(cls, label, score){
+    ensureAttentionBarStructure();
     var bar  = document.getElementById('attention-bar');
     var lbl  = document.getElementById('att-label');
     var fill = document.getElementById('score-fill');
     var num  = document.getElementById('score-num');
     if (!bar) return;
-    bar.className = cls;
-    if (lbl)  lbl.textContent  = label;
+
+    score = normalizeAttentionScore(score);
+    if (lbl)  lbl.textContent  = label || 'جاري التقييم...';
     if (num)  num.textContent  = score + '%';
+
     if (fill){
-        fill.style.width      = score + '%';
+        fill.style.width = score + '%';
         fill.style.background = score >= 70 ? 'var(--mint)' : score >= 40 ? 'var(--amber)' : 'var(--rose)';
+    }
+
+    bar.className = '';
+    if (cls) {
+        bar.classList.add(cls);
+    } else if (score >= 70) {
+        bar.classList.add('attentive');
+    } else {
+        bar.classList.add('distracted');
     }
 }
 
@@ -673,6 +885,16 @@ function handleEyeClosureAlert(s) {
     var msg = fn + "، ابقَ مستيقظاً! إذا كنت تشعر بالنعاس يمكنك تأجيل الجلسة.";
     showDistractionToast(msg, true);
     
+    if (!_attentionState.eyeClosureEventActive) {
+        _attentionState.eyeClosureEventActive = true;
+        _attentionState.eyeClosureCount += 1;
+    }
+
+    if (_attentionState.eyeClosureCount >= 3) {
+        showDistractionToast(fn + '، تم إيقاف الجلسة تلقائياً حفاظاً على سلامتك.', true);
+        stopTracking();
+    }
+
     // إرسال تنبيه للأهل عبر Django
     fetch("{% url 'student:attention_alert' %}", {
         method:'POST',
@@ -683,7 +905,7 @@ function handleEyeClosureAlert(s) {
             inattention_count: s.inattention_count,
             alert_type: 'eye_closure'
         })
-    });
+    }).catch(function(){});
 }
 
 function handleForceStop(studentName) {
@@ -702,7 +924,18 @@ function setSpeed(s, btn){
 function stopTracking(){
     if (!trackingActive) return;
     clearDistractionBanner();
+    pauseLessonAudio();
     trackingActive = false; stopFrameSending(); if (ws) ws.close();
+    _attentionState = {
+        distracted: false,
+        startTime: null,
+        level: 'none',
+        lastAlertLevel: null,
+        lastToastLevel: null,
+        eyeClosureCount: _attentionState.eyeClosureCount || 0,
+        eyeClosureEventActive: false,
+        pausedByDistraction: false,
+    };
     var btn = document.getElementById('stop-btn');
     if (btn) btn.innerHTML = '<i class="fas fa-check"></i> تم';
     fetch("{% url 'student:attention_stop' %}", {
