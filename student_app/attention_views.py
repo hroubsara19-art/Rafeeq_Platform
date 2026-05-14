@@ -214,11 +214,15 @@ def notify_attention_alert(request):
     except (ValueError, TypeError):
         return JsonResponse({"error": "بيانات غير صالحة"}, status=400)
 
-    # لا إشعار إلا إذا الانتباه أقل من الحد، ومعه تشتت ملحوظ متكرر.
-    if avg_attention >= ATTENTION_ALERT_THRESHOLD:
-        return JsonResponse({"status": "skip", "reason": "above_threshold"})
-    if inattention_count < MIN_SIGNIFICANT_INATTENTION_COUNT and avg_attention >= 35:
-        return JsonResponse({"status": "skip", "reason": "not_significant_enough"})
+    alert_type = data.get("alert_type", "general")
+    
+    # إذا كان التنبيه بسبب إغماض العينين، نتجاوز فحص الحد الأدنى للانتباه
+    if alert_type != 'eye_closure':
+        # لا إشعار إلا إذا الانتباه أقل من الحد، ومعه تشتت ملحوظ متكرر.
+        if avg_attention >= ATTENTION_ALERT_THRESHOLD:
+            return JsonResponse({"status": "skip", "reason": "above_threshold"})
+        if inattention_count < MIN_SIGNIFICANT_INATTENTION_COUNT and avg_attention >= 35:
+            return JsonResponse({"status": "skip", "reason": "not_significant_enough"})
 
     lesson = get_object_or_404(Lessoncontent, pk=lesson_id, status="Published")
 
@@ -236,12 +240,26 @@ def notify_attention_alert(request):
     if already_sent:
         return JsonResponse({"status": "skip", "reason": "rate_limited"})
 
-    notify_parent_attention(
-        student           = student,
-        lesson            = lesson,
-        avg_attention     = avg_attention,
-        inattention_count = inattention_count,
-    )
+    # تخصيص الرسالة إذا كان إغماض عينين
+    if alert_type == 'eye_closure':
+        from accounts.models import Notification
+        from learning.models import Parent
+        parents = Parent.objects.filter(childid=student)
+        for p in parents:
+            Notification.objects.create(
+                recipient=p.userid,
+                notif_type="parent_attention",
+                title="تنبيه: نعاس أثناء الدراسة",
+                body=f"لاحظنا أن {student.userid.fullname} يغلق عينيه بشكل متكرر أثناء درس {lesson.lessontitle}. قد يحتاج لقسط من الراحة.",
+                lesson=lesson
+            )
+    else:
+        notify_parent_attention(
+            student           = student,
+            lesson            = lesson,
+            avg_attention     = avg_attention,
+            inattention_count = inattention_count,
+        )
 
     return JsonResponse({
         "status": "ok",

@@ -91,6 +91,10 @@ class AttentionState:
     is_warning_distraction: bool
     is_significant_distraction: bool
     focus_status: str
+    distraction_level: str        # none | low | medium | high
+    eye_closure_duration: float
+    eye_closure_count: int
+    should_force_stop: bool
 
 
 # ══════════════════════════════════════════════════════════════
@@ -406,6 +410,20 @@ class AttentionTracker:
         if len(self._score_buffer) > 500:
             self._score_buffer.pop(0)
 
+        # تحديد مستوى التشتت بناءً على الثواني
+        dist_level = "none"
+        if not attentive:
+            if distract_dur >= 7.0:
+                dist_level = "high"
+            elif distract_dur >= 3.0:
+                dist_level = "medium"
+            elif distract_dur >= 1.0:
+                dist_level = "low"
+
+        eye_dur = 0.0
+        if self._eye_closure_start:
+            eye_dur = now - self._eye_closure_start
+
         return AttentionState(
             timestamp=now,
             student_name=self.student_name,
@@ -425,6 +443,10 @@ class AttentionTracker:
             focus_status="focused" if attentive else (
                 "distracted" if significant else ("warning" if warning else "drifting")
             ),
+            distraction_level=dist_level,
+            eye_closure_duration=round(eye_dur, 1),
+            eye_closure_count=self._eye_closure_count,
+            should_force_stop=self._eye_closure_count >= self._max_eye_closures
         )
 
     def _process(self, lm, w: int, h: int) -> AttentionState:

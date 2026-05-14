@@ -172,8 +172,23 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   font-size:.92rem;font-weight:700;font-family:'Tajawal',sans-serif;
   cursor:pointer;text-decoration:none;transition:opacity .2s;
 }
-.btn-finish:hover{opacity:.9;color:#fff;}
-</style>
+  .btn-finish:hover{opacity:.9;color:#fff;}
+  
+  /* تأثير الاهتزاز عند التشتت الشديد */
+  @keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
+  }
+  .shake-ui {
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
+  </style>
 {% endblock %}
 
 {% block content %}
@@ -463,10 +478,16 @@ function openCameraSettings(){
     alert(msg);
 }
 
-function hideAttentionBar(){
+function hideAttentionBar(isError = false){
     clearDistractionBanner();
     var bar = document.getElementById('attention-bar');
-    if (bar){ bar.innerHTML = '<span style="color:var(--muted);font-size:.82rem;font-weight:600;margin:auto;">تتبع الانتباه معطّل — الجلسة التعليمية جارية</span>'; }
+    if (bar){ 
+        if (isError) {
+            bar.innerHTML = '<span style="color:var(--rose);font-size:.82rem;font-weight:600;margin:auto;"><i class="fas fa-exclamation-triangle"></i> جاري محاولة استعادة تتبع الانتباه...</span>';
+        } else {
+            bar.innerHTML = '<span style="color:var(--muted);font-size:.82rem;font-weight:600;margin:auto;">تتبع الانتباه معطّل — الجلسة التعليمية جارية</span>'; 
+        }
+    }
     trackingActive = false;
 }
 
@@ -486,7 +507,10 @@ function startTracking(){
             hideAttentionBar();
         }
     })
-    .catch(function(){ hideAttentionBar(); });
+    .catch(function(){ 
+        hideAttentionBar(true);
+        setTimeout(startTracking, 5000); // إعادة المحاولة بعد 5 ثوانٍ
+    });
 }
 
 function connectWebSocket(wsUrl){
@@ -501,16 +525,33 @@ function connectWebSocket(wsUrl){
     ws.onmessage = function(e){
         var s = JSON.parse(e.data);
         if (s.error || s.pong) return;
+        
+        // التعامل مع الإغلاق القسري (إغماض العينين 3 مرات)
+        if (s.should_force_stop) {
+            handleForceStop(s.student_name);
+            return;
+        }
+
         var warning = !!s.is_warning_distraction;
         var significant = !!s.is_significant_distraction;
         var fn = firstAttentionName(s.student_name || '');
         var neg = significant ? 'تشتت ملحوظ في الجلسة' : (warning ? 'حاول ترجع للتركيز' : 'لحظة بسيطة بعيد عن الدرس');
         var label = s.is_attentive ? 'منتبه ✅' : (fn ? (fn + '، ' + neg) : neg);
+        
         updateBar(s.is_attentive ? 'attentive' : ((warning || significant) ? 'distracted' : ''),
                   label,
                   s.attention_score);
         updateDistractionBanner(s);
+        
+        // نظام التحكم في الوسائط بناءً على مستوى التشتت
+        handleMediaControl(s);
+
         if (s.alert_message) showDistractionToast(s.alert_message, significant);
+        
+        // تنبيه إغماض العينين (3 ثواني)
+        if (s.eye_closure_duration >= 3.0) {
+            handleEyeClosureAlert(s);
+        }
     };
     ws.onclose = function(){
         /* لا توقف الكاميرا هنا — إغلاق الـ WS يحدث أحياناً للإعادة التلقائية،
@@ -584,11 +625,72 @@ function showDistractionToast(msg, isFirm){
         ? 'linear-gradient(135deg,#991b1b,#ef4444)'
         : 'linear-gradient(135deg,#b45309,#ea580c)';
     t.style.display = 'block';
+    
+    // تنبيه صوتي بسيط باسم الطالب
+    if (isFirm) {
+        speakText(msg);
+    }
+
     if (alertTimer) clearTimeout(alertTimer);
     alertTimer = setTimeout(function(){
         t.style.display = 'none';
         t.style.background = 'linear-gradient(135deg,var(--sky-dk),var(--sky))';
     }, 6500);
+}
+
+function speakText(text) {
+    if ('speechSynthesis' in window) {
+        var utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ar-SA';
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
+function handleMediaControl(s) {
+    var audio = document.getElementById('topAudio');
+    if (!audio) return;
+
+    var level = s.distraction_level;
+    var container = document.getElementById('lesson-paragraphs-container');
+
+    if (level === 'medium' || level === 'high') {
+        if (!audio.paused) {
+            audio.pause();
+            if (level === 'high') {
+                container.classList.add('shake-ui');
+                setTimeout(() => container.classList.remove('shake-ui'), 500);
+            }
+        }
+    } else if (s.is_attentive || level === 'low' || level === 'none') {
+        if (audio.paused && trackingActive) {
+            audio.play().catch(e => console.log('Autoplay blocked'));
+        }
+    }
+}
+
+function handleEyeClosureAlert(s) {
+    var fn = firstAttentionName(s.student_name || '') || 'صديقي';
+    var msg = fn + "، ابقَ مستيقظاً! إذا كنت تشعر بالنعاس يمكنك تأجيل الجلسة.";
+    showDistractionToast(msg, true);
+    
+    // إرسال تنبيه للأهل عبر Django
+    fetch("{% url 'student:attention_alert' %}", {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRFToken':CSRF_TOKEN},
+        body: JSON.stringify({
+            lesson_id: LESSON_ID,
+            avg_attention: s.attention_score,
+            inattention_count: s.inattention_count,
+            alert_type: 'eye_closure'
+        })
+    });
+}
+
+function handleForceStop(studentName) {
+    var fn = firstAttentionName(studentName || '') || 'صديقي';
+    alert(fn + "، تم إيقاف الجلسة تلقائياً بسبب تكرار إغماض العينين. يرجى أخذ قسط من الراحة.");
+    stopTracking();
+    window.location.href = "{% url 'student:view_lesson_student' lesson.pk %}";
 }
 
 function setSpeed(s, btn){
