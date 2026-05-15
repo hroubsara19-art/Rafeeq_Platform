@@ -19,6 +19,9 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.shortcuts import get_object_or_404
 from learning.models import Student, Lessoncontent, Performancereport
+from django.conf import settings
+import asyncio
+from learning.utils import generate_audio_async
 
 logger        = logging.getLogger(__name__)
 FLASK_BASE    = "http://localhost:5050"
@@ -266,3 +269,36 @@ def notify_attention_alert(request):
         "sent_to": "parents",
         "avg_attention": avg_attention,
     })
+
+
+@login_required
+@require_POST
+def tts_alert(request):
+    """
+    توليد ملف صوتي قصير للتنبيه باستخدام نفس صوت الدرس (edge_tts ar-EG-SalmaNeural).
+    Body JSON: {"text": "نص التنبيه القصير"}
+    Returns: {"ok": True, "audio_url": "/media/.."}
+    """
+    try:
+        data = json.loads(request.body)
+        text = str(data.get('text', '')).strip()
+    except Exception:
+        return JsonResponse({"error": "بيانات غير صالحة"}, status=400)
+
+    if not text:
+        return JsonResponse({"error": "النص فارغ"}, status=400)
+
+    # safe filename
+    import time
+    ts = int(time.time() * 1000)
+    uid = request.user.pk or 'anon'
+    rel_path = f'alerts/alert_{uid}_{ts}.mp3'
+
+    try:
+        # توليد الصوت - استخدام asyncio.run لان الview قصير
+        timing = asyncio.run(generate_audio_async(text, rel_path))
+        media_url = getattr(settings, 'MEDIA_URL', '/media/')
+        audio_url = media_url.rstrip('/') + '/' + rel_path
+        return JsonResponse({"ok": True, "audio_url": audio_url, "timing": timing or ''})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
