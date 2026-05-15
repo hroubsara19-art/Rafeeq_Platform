@@ -176,8 +176,24 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Cairo','Ta
     <div style="flex:1;">
       <h1 class="td-title">{{ test.testtitle }}</h1>
       <div class="td-meta">
-        <span class="td-badge"><i class="fas fa-book"></i> {{ test.lessonid.subjectid.subjectname|default:"—" }}</span>
-        <span class="td-badge"><i class="fas fa-door-open"></i> {{ test.lessonid.subjectid.classid.classname|default:"—" }}</span>
+        <span class="td-badge"><i class="fas fa-book"></i>
+          {% if test.lessonid %}
+            {{ test.lessonid.subjectid.subjectname|default:"—" }}
+          {% elif test.subjectid %}
+            {{ test.subjectid.subjectname }}
+          {% else %}
+            —
+          {% endif %}
+        </span>
+        <span class="td-badge"><i class="fas fa-door-open"></i>
+          {% if test.lessonid and test.lessonid.subjectid.classid %}
+            {{ test.lessonid.subjectid.classid.classname }}
+          {% elif test.subjectid and test.subjectid.classid %}
+            {{ test.subjectid.classid.classname }}
+          {% else %}
+            —
+          {% endif %}
+        </span>
         <span class="td-badge"><i class="fas fa-list-ol"></i> {{ questions|length }} سؤال</span>
         <span class="td-badge"><i class="fas fa-users"></i> {{ attempts|length }} محاولة</span>
         {% if test.durationtaken %}

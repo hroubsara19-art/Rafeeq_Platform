@@ -139,19 +139,24 @@ def notify_teacher_test_attempt(student, test):
         fullname     = student.userid.fullname  or username
         class_name   = _get_student_class_name(student)
         subject_name = _get_test_subject_name(test)
+        lesson_title = _get_test_lesson_title(test)
         now_str      = _tz.localtime(_tz.now()).strftime('%Y-%m-%d %H:%M')
+
+        body_text = (
+            f'قام الطالب "{fullname}" من  ({class_name}) '
+            f'بمحاولة حل اختبار "{test.testtitle}" '
+            f'في مادة "{subject_name}"'
+        )
+        if lesson_title:
+            body_text += f' لدرس "{lesson_title}"'
+        body_text += f'. ({now_str})'
 
         Notification.objects.create(
             recipient  = teacher_user,
             notif_type = 'test_attempt',
             test       = test,
             title      = f'📝 ({username}) أجرى الاختبار',
-            body       = (
-                f'قام الطالب "{fullname}" من الصف ({class_name}) '
-                f'بإجراء اختبار "{test.testtitle}". '
-                f'({now_str}) '
-                f'في مادة ({subject_name})'
-            ),
+            body       = body_text,
         )
     except Exception as e:
         logger.warning(f'notify_teacher_test_attempt error: {e}')

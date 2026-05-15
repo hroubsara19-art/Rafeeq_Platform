@@ -434,18 +434,22 @@ body{background:var(--bg);font-family:'Cairo',sans-serif;color:var(--ink);direct
   {% if my_tests %}
   {% for t in my_tests %}
   <div class="test-row" id="testrow-{{ t.testid }}"
-       data-class="{{ t.lessonid.subjectid.classid_id|default:'' }}"
-       data-subject="{{ t.lessonid.subjectid_id|default:'' }}"
+       data-class="{% if t.lessonid and t.lessonid.subjectid.classid_id %}{{ t.lessonid.subjectid.classid_id }}{% elif t.subjectid and t.subjectid.classid_id %}{{ t.subjectid.classid_id }}{% else %}{{ '' }}{% endif %}"
+       data-subject="{% if t.lessonid and t.lessonid.subjectid_id %}{{ t.lessonid.subjectid_id }}{% elif t.subjectid_id %}{{ t.subjectid_id }}{% else %}{{ '' }}{% endif %}"
        data-scope="{% if t.lessonid %}lesson{% else %}subject{% endif %}">
     <div class="test-row-icon"><i class="fas fa-file-alt"></i></div>
     <div class="test-row-info">
       <div class="test-row-title">{{ t.testtitle }}</div>
       <div class="test-row-meta">
-        {% if t.lessonid.subjectid %}
+        {% if t.lessonid and t.lessonid.subjectid %}
         <span class="test-chip"><i class="fas fa-book"></i> {{ t.lessonid.subjectid.subjectname }}</span>
+        {% elif t.subjectid %}
+        <span class="test-chip"><i class="fas fa-book"></i> {{ t.subjectid.subjectname }}</span>
         {% endif %}
-        {% if t.lessonid.subjectid.classid %}
+        {% if t.lessonid and t.lessonid.subjectid.classid %}
         <span class="test-chip"><i class="fas fa-door-open"></i> {{ t.lessonid.subjectid.classid.classname }}</span>
+        {% elif t.subjectid and t.subjectid.classid %}
+        <span class="test-chip"><i class="fas fa-door-open"></i> {{ t.subjectid.classid.classname }}</span>
         {% endif %}
         <span class="test-chip"><i class="fas fa-list-ol"></i> {{ t.question_set.count }} سؤال</span>
         {% if t.durationtaken %}

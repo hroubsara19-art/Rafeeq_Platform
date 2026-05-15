@@ -86,7 +86,15 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
     <div>
       <h1 class="quiz-title">{{ test.testtitle }}</h1>
       <div class="quiz-meta">
-        <span class="quiz-badge"><i class="fas fa-book"></i> {{ test.lessonid.subjectid.subjectname|default:"—" }}</span>
+        <span class="quiz-badge"><i class="fas fa-book"></i>
+          {% if test.lessonid %}
+            {{ test.lessonid.subjectid.subjectname|default:"—" }}
+          {% elif test.subjectid %}
+            {{ test.subjectid.subjectname }}
+          {% else %}
+            —
+          {% endif %}
+        </span>
         <span class="quiz-badge"><i class="fas fa-list-ol"></i> {{ questions|length }} سؤال</span>
         {% if test.durationtaken %}
         <span class="quiz-badge"><i class="fas fa-clock"></i> {{ test.durationtaken }} دقيقة</span>

@@ -267,11 +267,25 @@ def student_home(request):
             for t in Test.objects.filter(lessonid__in=all_lesson_ids).select_related('lessonid'):
                 tests_by_lesson[t.lessonid_id] = t
 
+        attempted_test_ids = set(
+            Testattempt.objects
+            .filter(studentid=student)
+            .values_list('testid_id', flat=True)
+        )
+
+        general_tests_by_subject = {}
+        if subjects_map:
+            subject_ids = list(subjects_map.keys())
+            for t in Test.objects.filter(subjectid__in=subject_ids, lessonid__isnull=True):
+                general_tests_by_subject.setdefault(t.subjectid_id, []).append(t)
+
         for sid, item in subjects_map.items():
             lessons_in_subj = item['lessons']
-            if not lessons_in_subj:
+            subject_general_tests = general_tests_by_subject.get(sid, [])
+            if not lessons_in_subj and not subject_general_tests:
                 item['is_subject_completed'] = False
                 continue
+
             all_done = True
             for lesson in lessons_in_subj:
                 lt     = tests_by_lesson.get(lesson.pk)
@@ -279,6 +293,13 @@ def student_home(request):
                 if not status['is_completed']:
                     all_done = False
                     break
+
+            if all_done and subject_general_tests:
+                for test in subject_general_tests:
+                    if test.testid not in attempted_test_ids:
+                        all_done = False
+                        break
+
             item['is_subject_completed'] = all_done
 
     return render(request, 'student_app/student_home.html', {
@@ -442,6 +463,16 @@ def submit_test(request, test_id):
         )
     except Exception:
         pass
+
+    try:
+        from accounts.notification_service import (
+            notify_teacher_test_attempt,
+            notify_parent_test_result,
+        )
+        notify_teacher_test_attempt(student, test)
+        notify_parent_test_result(student, test, total_score, sum(q.points for q in questions), attempt_id=attempt.pk)
+    except Exception as e:
+        logger.warning(f'notify after submit_test failed: {e}')
 
     return JsonResponse({
         'ok':          True,

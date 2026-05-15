@@ -131,7 +131,7 @@ body { background: var(--bg); color: var(--ink); direction: rtl; font-family: 'T
 
   <div class="info-row">
     <div class="info-chip"><i class="fas fa-file-alt"></i> {{ test.testtitle }}</div>
-    <div class="info-chip"><i class="fas fa-book"></i> {{ test.lessonid.subjectid.subjectname|default:"—" }}</div>
+    <div class="info-chip"><i class="fas fa-book"></i> {{ test.lessonid.subjectid.subjectname|default:test.subjectid.subjectname|default:"—" }}</div>
     <div class="info-chip"><i class="fas fa-list-ol"></i> {{ questions|length }} سؤال</div>
     {% if attempt.durationtaken %}
     <div class="info-chip"><i class="fas fa-clock"></i> <span id="tr-time-display">—</span></div>
