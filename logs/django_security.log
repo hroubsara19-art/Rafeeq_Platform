@@ -1982,3 +1982,6 @@ WARNING 2026-04-19 17:31:59,329 utils [utils] No WordBoundary events — word high
 WARNING 2026-04-19 17:43:13,834 utils [utils] No WordBoundary events — word highlighting unavailable
 ERROR 2026-04-19 18:18:03,506 utils [utils] SDK error model='gemini-2.5-flash': 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}
 WARNING 2026-04-19 18:18:49,219 utils [utils] No WordBoundary — building fallback timing from MP3 duration
+WARNING 2026-05-15 20:26:26,484 utils [utils] No WordBoundary events — word highlighting unavailable
+WARNING 2026-05-15 20:28:57,663 utils [utils] No WordBoundary events — word highlighting unavailable
+WARNING 2026-05-15 20:30:14,938 utils [utils] No WordBoundary events — word highlighting unavailable

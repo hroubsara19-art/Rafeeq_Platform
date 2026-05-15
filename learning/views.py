@@ -197,22 +197,22 @@ def teacher_required(view_func):
 # ══════════════════════════════════════════════════════════════
 
 
+def _teacher_class_filter(teacher):
+    from django.db.models import Q
+    return Q(teacherid=teacher) | Q(teachers=teacher)
+
+
 def _get_teacher_classes(teacher):
     """
     يُعيد قائمة الصفوف الخاصة بالمعلم من مصدرَين:
       1. الصفوف التي لها مواد مرتبطة بالمعلم
-      2. الصفوف التي أضافها المعلم في إدارة الصفوف (assigned_classes)
+      2. الصفوف المربوطة بالمعلم عبر assigned_classes
     هذا يضمن ظهور الصف في الفلاتر فور إضافته، حتى لو لم تُضَف مادة له بعد.
     """
     from django.db.models import Q
-    assigned_ids = (
-        teacher.assigned_classes.values_list('classid', flat=True)
-        if hasattr(teacher, 'assigned_classes')
-        else []
-    )
     return list(
         Class.objects.filter(
-            Q(subject__teacherid=teacher) | Q(classid__in=list(assigned_ids))
+            Q(subject__teacherid=teacher) | _teacher_class_filter(teacher)
         )
         .distinct()
         .order_by('classname')
@@ -230,7 +230,7 @@ def teacher_dashboard(request):
  
     teacher = Teacher.objects.filter(userid=request.user).first()
  
-    # ══ إصلاح Admin Loop ══════════════════════════════════════
+    # ══ إصلاح Admin Loop ══════════════════════════════
     # Admin (userrole='Admin' / is_staff / is_superuser) لا يملك سجل Teacher
     # بالضرورة — لا نُعيده لـ complete_profile لأن ذلك يُسبّب redirect loop
     if not teacher:
@@ -933,13 +933,15 @@ def classroom_manage(request):
  
     if _has_academic_year:
         classes  = Class.objects.filter(
-            teacherid=teacher, academic_year=current_year
-        ).order_by('classname')
+            _teacher_class_filter(teacher), academic_year=current_year
+        ).distinct().order_by('classname')
         subjects = Subject.objects.filter(
             teacherid=teacher, academic_year=current_year
         ).select_related('classid').order_by('subjectname')
     else:
-        classes  = Class.objects.filter(teacherid=teacher).order_by('classname')
+        classes  = Class.objects.filter(
+            _teacher_class_filter(teacher)
+        ).distinct().order_by('classname')
         subjects = Subject.objects.filter(
             teacherid=teacher
         ).select_related('classid').order_by('subjectname')
@@ -1056,7 +1058,7 @@ def classroom_api(request):
  
     elif action == 'delete_class':
         classid = data.get('classid')
-        cls = Class.objects.filter(**_yr(classid=classid, teacherid=teacher)).first()
+        cls = Class.objects.filter(**_yr(classid=classid)).filter(_teacher_class_filter(teacher)).first()
         if not cls:
             return JsonResponse({'error': 'الصف غير موجود'}, status=404)
         Student.objects.filter(classid=cls).update(classid=None)
@@ -1066,7 +1068,7 @@ def classroom_api(request):
     elif action == 'add_student':
         classid   = data.get('classid')
         studentid = data.get('studentid')
-        cls = Class.objects.filter(**_yr(classid=classid, teacherid=teacher)).first()
+        cls = Class.objects.filter(**_yr(classid=classid)).filter(_teacher_class_filter(teacher)).first()
         if not cls:
             return JsonResponse({'error': 'الصف غير موجود أو لا يخصك'}, status=404)
         student = Student.objects.filter(
@@ -1109,7 +1111,7 @@ def classroom_api(request):
         ).select_related('userid', 'classid').first()
         if not student:
             return JsonResponse({'error': 'الطالب غير موجود في صفوفك'}, status=404)
-        new_cls = Class.objects.filter(**_yr(classid=new_classid, teacherid=teacher)).first()
+        new_cls = Class.objects.filter(**_yr(classid=new_classid)).filter(_teacher_class_filter(teacher)).first()
         if not new_cls:
             return JsonResponse({'error': 'الصف غير موجود في صفوفك'}, status=404)
         old_class_name = student.classid.classname if student.classid else '—'
@@ -1138,11 +1140,11 @@ def classroom_api(request):
         if not classid:
             return JsonResponse({'error': 'يجب ربط المادة بصف — اختر الصف من القائمة.'}, status=400)
  
-        cls = Class.objects.filter(**_yr(classid=classid, teacherid=teacher)).first()
+        cls = Class.objects.filter(**_yr(classid=classid)).filter(_teacher_class_filter(teacher)).first()
         if not cls:
             return JsonResponse({
                 'error': 'الصف المختار غير موجود أو لا ينتمي لك في السنة الدراسية الحالية. '
-                         'تأكد من إنشاء الصف أولاً قبل إضافة المادة.'
+                         'تأكد من إضافة الصف أولاً قبل إضافة المادة.'
             }, status=400)
  
         spec             = (getattr(teacher, 'specialization', '') or '').strip()
@@ -1213,7 +1215,7 @@ def classroom_api(request):
         subjectid = data.get('subjectid')
         classid   = data.get('classid')
         subj = Subject.objects.filter(subjectid=subjectid, teacherid=teacher).first()
-        cls  = Class.objects.filter(classid=classid, teacherid=teacher).first()
+        cls  = Class.objects.filter(classid=classid).filter(_teacher_class_filter(teacher)).first()
         if not subj or not cls:
             return JsonResponse({'error': 'بيانات غير صحيحة'}, status=404)
         subj.classid = cls
@@ -1236,7 +1238,7 @@ def classroom_api(request):
                 and student.classid.teacherid != teacher
                 and student.classid.teacherid is not None):
             return JsonResponse({'error': 'هذا الطالب مُعيَّن لصف معلم آخر.'}, status=400)
-        cls = Class.objects.filter(**_yr(classid=classid, teacherid=teacher)).first()
+        cls = Class.objects.filter(**_yr(classid=classid)).filter(_teacher_class_filter(teacher)).first()
         if not cls:
             return JsonResponse({'error': 'الصف غير موجود'}, status=404)
         student.classid = cls
@@ -1284,7 +1286,7 @@ def classroom_api(request):
         if not classid:
             return JsonResponse({'error': 'يجب تحديد الصف المستهدف'}, status=400)
  
-        cls = Class.objects.filter(**_yr(classid=classid, teacherid=teacher)).first()
+        cls = Class.objects.filter(**_yr(classid=classid)).filter(_teacher_class_filter(teacher)).first()
         if not cls:
             return JsonResponse({'error': 'الصف غير موجود أو لا يخصك'}, status=404)
  
