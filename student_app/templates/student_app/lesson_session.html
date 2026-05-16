@@ -358,7 +358,12 @@ var AudioManager = (function(){
         voiceInitialized: false,
         lastAlertTime: 0,
         lastAlertHash: '',
-        cleanupRequested: false
+        cleanupRequested: false,
+        lastServerAttentive: false,
+        lastServerAttentionScore: 0,
+        lastServerUpdateTime: 0,
+        resumeCheckAttempts: 0,
+        maxResumeCheckAttempts: 5
     };
     
     var _config = {
@@ -367,7 +372,10 @@ var AudioManager = (function(){
         ttsWaitAfterComplete: 1000,  // 1 second after TTS completes
         maxMessageLength: 80,        // Truncate long messages
         preferredVoiceGender: 'male',
-        preferredVoiceLang: 'ar-SA'
+        preferredVoiceLang: 'ar-SA',
+        minAttentionScore: 65,       // Minimum attention score to resume
+        resumeCheckInterval: 500,    // Check every 500ms
+        serverDataMaxAge: 2000       // Server data must be within 2 seconds
     };
     
     var _timers = {
@@ -384,26 +392,44 @@ var AudioManager = (function(){
         var voices = window.speechSynthesis.getVoices();
         if (!voices || voices.length === 0) return null;
         
-        // Priority 1: Arabic male voice (calm, natural)
+        // Priority 1: Arabic male voice (calm, natural, clear)
+        // Look for common Arabic male voice names
+        var arabicMalePatterns = ['male', 'mohammed', 'mohammad', 'ahmed', 'hamed', 'khalid', 'faisal', 'turki', 'naif'];
         var arabicMale = voices.filter(function(v){
-            return v.lang.indexOf('ar') === 0 && 
-                   (v.name.toLowerCase().indexOf('male') > -1 || 
-                    v.name.toLowerCase().indexOf('mohammed') > -1 ||
-                    v.name.toLowerCase().indexOf('hamed') > -1);
+            if (v.lang.indexOf('ar') !== 0) return false;
+            var nameLower = v.name.toLowerCase();
+            return arabicMalePatterns.some(function(pattern){ 
+                return nameLower.indexOf(pattern) > -1; 
+            });
         });
         if (arabicMale.length > 0) return arabicMale[0];
         
-        // Priority 2: Any Arabic voice
-        var arabic = voices.filter(function(v){ return v.lang.indexOf('ar') === 0; });
+        // Priority 2: Any Arabic voice (prefer local service)
+        var arabic = voices.filter(function(v){ 
+            return v.lang.indexOf('ar') === 0 && v.localService; 
+        });
         if (arabic.length > 0) return arabic[0];
         
-        // Priority 3: Male voice in any language (natural sounding)
+        // Priority 3: Any Arabic voice (remote service)
+        var arabicRemote = voices.filter(function(v){ 
+            return v.lang.indexOf('ar') === 0; 
+        });
+        if (arabicRemote.length > 0) return arabicRemote[0];
+        
+        // Priority 4: Male voice in any language (natural sounding, calm)
+        // Prefer voices with names suggesting calm, natural male voices
+        var calmMalePatterns = ['male', 'david', 'daniel', 'james', 'thomas', 'alex', 'mark', 'paul'];
         var male = voices.filter(function(v){
-            return v.name.toLowerCase().indexOf('male') > -1 ||
-                   v.name.toLowerCase().indexOf('david') > -1 ||
-                   v.name.toLowerCase().indexOf('daniel') > -1;
+            var nameLower = v.name.toLowerCase();
+            return calmMalePatterns.some(function(pattern){ 
+                return nameLower.indexOf(pattern) > -1; 
+            });
         });
         if (male.length > 0) return male[0];
+        
+        // Priority 5: Any local voice (better quality than remote)
+        var localVoices = voices.filter(function(v){ return v.localService; });
+        if (localVoices.length > 0) return localVoices[0];
         
         // Fallback: First available voice
         return voices[0];
@@ -479,14 +505,41 @@ var AudioManager = (function(){
     }
     
     function _resumeLessonAudioAndSync() {
-        // Only resume if tracking is still active and user is focused
+        // Only resume if tracking is still active
         if (!trackingActive) return;
         
-        // Check current attention state before resuming
+        // Check local attention state
         if (_attentionState.distracted) {
-            console.log('[Audio] Still distracted, not resuming');
+            console.log('[Audio] Still distracted (local), not resuming');
             return;
         }
+        
+        // Check server attention state - must be recent and above threshold
+        var now = Date.now();
+        var dataAge = now - _state.lastServerUpdateTime;
+        
+        if (dataAge > _config.serverDataMaxAge) {
+            console.log('[Audio] Server data too old (' + dataAge + 'ms), waiting for fresh data');
+            // Schedule another check
+            _scheduleResumeCheck();
+            return;
+        }
+        
+        if (!_state.lastServerAttentive) {
+            console.log('[Audio] Server reports not attentive, not resuming');
+            _scheduleResumeCheck();
+            return;
+        }
+        
+        if (_state.lastServerAttentionScore < _config.minAttentionScore) {
+            console.log('[Audio] Attention score too low (' + _state.lastServerAttentionScore + '), not resuming');
+            _scheduleResumeCheck();
+            return;
+        }
+        
+        // All checks passed - safe to resume
+        console.log('[Audio] All checks passed, resuming lesson audio');
+        _state.resumeCheckAttempts = 0;
         
         var audio = document.getElementById('topAudio');
         if (audio && audio.paused && _state.lessonAudioPlaying) {
@@ -500,10 +553,28 @@ var AudioManager = (function(){
         _state.syncActive = true;
     }
     
+    function _scheduleResumeCheck() {
+        if (_state.resumeCheckAttempts >= _state.maxResumeCheckAttempts) {
+            console.log('[Audio] Max resume check attempts reached, giving up');
+            _state.resumeCheckAttempts = 0;
+            return;
+        }
+        
+        _state.resumeCheckAttempts++;
+        console.log('[Audio] Scheduling resume check attempt ' + _state.resumeCheckAttempts);
+        
+        if (_timers.resumeCheck) clearTimeout(_timers.resumeCheck);
+        _timers.resumeCheck = setTimeout(function(){
+            if (_state.cleanupRequested) return;
+            _resumeLessonAudioAndSync();
+        }, _config.resumeCheckInterval);
+    }
+    
     function _onTTSComplete() {
         console.log('[Audio] TTS completed');
         _state.ttsPlaying = false;
         _state.currentUtterance = null;
+        _state.resumeCheckAttempts = 0;
         
         // Wait extra second before checking attention
         if (_timers.resumeCheck) clearTimeout(_timers.resumeCheck);
@@ -529,10 +600,10 @@ var AudioManager = (function(){
             utterance.voice = _state.selectedVoice;
         }
         
-        // ADHD-friendly settings
-        utterance.rate = 0.9;      // Slightly slower for clarity
-        utterance.pitch = 1.0;    // Natural pitch
-        utterance.volume = 0.85;  // Not too loud
+        // ADHD-friendly settings - calm, clear, not overwhelming
+        utterance.rate = 0.85;     // Slower for better comprehension
+        utterance.pitch = 0.95;    // Slightly lower pitch for calmness
+        utterance.volume = 0.8;   // Moderate volume, not too loud
         
         utterance.onend = _onTTSComplete;
         utterance.onerror = function(e){
@@ -644,8 +715,17 @@ var AudioManager = (function(){
                 ttsPlaying: _state.ttsPlaying,
                 lessonAudioPlaying: _state.lessonAudioPlaying,
                 syncActive: _state.syncActive,
-                queueLength: _state.ttsQueue.length
+                queueLength: _state.ttsQueue.length,
+                lastServerAttentive: _state.lastServerAttentive,
+                lastServerAttentionScore: _state.lastServerAttentionScore
             };
+        },
+        
+        updateServerAttentionState: function(isAttentive, score){
+            _state.lastServerAttentive = isAttentive;
+            _state.lastServerAttentionScore = score || 0;
+            _state.lastServerUpdateTime = Date.now();
+            console.log('[Audio] Server attention updated: attentive=' + isAttentive + ', score=' + score);
         }
     };
 })();
@@ -1035,6 +1115,9 @@ function connectWebSocket(wsUrl){
     ws.onmessage = function(e){
         var s = JSON.parse(e.data);
         if (s.error || s.type === 'pong') return;
+        
+        // Update AudioManager with latest server attention state
+        AudioManager.updateServerAttentionState(s.is_attentive, s.attention_score);
         
         // التعامل مع الإغلاق القسري (إغماض العينين 3 مرات)
         if (s.should_force_stop) {
