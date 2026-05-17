@@ -95,6 +95,14 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 .gc-session.watched .gc-icon{background:rgba(16,185,129,0.15);color:var(--mint);}
 .gc-exam    .gc-icon{background:rgba(245,158,11,0.15);color:#b45309;}
 .gc-exam.disabled .gc-icon{background:var(--border);color:var(--muted);}
+.gc-video   .gc-icon{background:rgba(59,130,246,0.1);color:#2563eb;}
+.gc-video:hover{border-color:#2563eb;}
+.gc-video.disabled{background:#f8fafc;border-color:var(--border);opacity:.68;cursor:not-allowed;pointer-events:none;}
+.gc-video.disabled .gc-icon{background:var(--border);color:var(--muted);}
+.gc-vr      .gc-icon{background:rgba(168,85,247,0.15);color:#7c3aed;}
+.gc-vr:hover{border-color:#7c3aed;}
+.gc-vr.disabled{background:#f8fafc;border-color:var(--border);opacity:.68;cursor:not-allowed;pointer-events:none;}
+.gc-vr.disabled .gc-icon{background:var(--border);color:var(--muted);}
 
 .gc-title{font-size:1.05rem;font-weight:800;color:var(--ink);}
 .gc-desc{font-size:.82rem;color:var(--muted);line-height:1.7;}
@@ -276,6 +284,40 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
       <span class="gc-btn">
         <i class="fas fa-clock"></i> قريباً
       </span>
+    </div>
+    {% endif %}
+
+    <!-- بطاقة الفيديو التعليمي -->
+    {% if has_video %}
+    <a href="{% url 'student:lesson_video' lesson.pk %}" class="gateway-card gc-video">
+      <div class="gc-icon"><i class="fas fa-video"></i></div>
+      <div class="gc-title">الفيديو التعليمي</div>
+      <div class="gc-desc">شاهد شرح الفيديو الخاص بالدرس الذي رفعه المعلم.</div>
+      <span class="gc-btn"><i class="fas fa-play-circle"></i> مشاهدة الفيديو</span>
+    </a>
+    {% else %}
+    <div class="gateway-card gc-video disabled">
+      <div class="gc-icon"><i class="fas fa-video"></i></div>
+      <div class="gc-title">الفيديو التعليمي</div>
+      <div class="gc-desc">لم يقم المعلم برفع فيديو لهذا الدرس بعد.</div>
+      <span class="gc-btn"><i class="fas fa-clock"></i> ليس متاحاً</span>
+    </div>
+    {% endif %}
+
+    <!-- بطاقة الواقع الافتراضي -->
+    {% if has_vr %}
+    <a href="{% url 'student:lesson_vr_experience' lesson.pk %}" class="gateway-card gc-vr">
+      <div class="gc-icon"><i class="fas fa-vr-cardboard"></i></div>
+      <div class="gc-title">تجربة الواقع الافتراضي</div>
+      <div class="gc-desc">استكشف المحتوى ثلاثي الأبعاد المرتبط بهذا الدرس.</div>
+      <span class="gc-btn"><i class="fas fa-cube"></i> ابدأ التجربة</span>
+    </a>
+    {% else %}
+    <div class="gateway-card gc-vr disabled">
+      <div class="gc-icon"><i class="fas fa-vr-cardboard"></i></div>
+      <div class="gc-title">تجربة الواقع الافتراضي</div>
+      <div class="gc-desc">لم يتم إعداد محتوى VR لهذا الدرس بعد.</div>
+      <span class="gc-btn"><i class="fas fa-clock"></i> ليس متاحاً</span>
     </div>
     {% endif %}
 

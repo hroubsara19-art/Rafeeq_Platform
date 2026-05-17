@@ -17,6 +17,8 @@ urlpatterns = [
 
     # ── STEP 4: Learning Session ──────────────────────────────
     path('lesson/session/<int:lesson_id>/', views.lesson_session,     name='lesson_session'),
+    path('lesson/video/<int:lesson_id>/',   views.lesson_video,       name='lesson_video'),
+    path('lesson/vr/<int:lesson_id>/',      views.lesson_vr_experience, name='lesson_vr_experience'),
 
     # ── STEP 5: Lesson Exam (MCQ) ─────────────────────────────
     path('test/<int:test_id>/take/',       views.take_test,           name='take_test'),

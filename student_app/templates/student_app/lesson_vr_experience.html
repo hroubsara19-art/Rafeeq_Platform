@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تجربة الواقع الافتراضي — {{ lesson.lessontitle }}{% endblock %}
+
+{% block extra_css %}
+<style>
+body{direction:rtl;font-family:'Tajawal',sans-serif;background:#f3f6fb;color:#1e293b;}
+.lesson-vr-wrap{max-width:980px;margin:3rem auto;padding:0 1.25rem 3rem;}
+.back-link{display:inline-flex;align-items:center;gap:.5rem;color:#475569;font-size:.95rem;font-weight:600;text-decoration:none;margin-bottom:1.5rem;}
+.back-link:hover{color:#7c3aed;}
+.vr-card{background:#fff;border-radius:1.25rem;box-shadow:0 24px 72px rgba(15,23,42,.08);overflow:hidden;border:1px solid #e2e8f0;}
+.vr-card header{padding:1.5rem 1.75rem;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#7c3aed,#c084fc);color:#fff;}
+.vr-card header h1{font-size:1.35rem;margin:0;font-weight:800;}
+.vr-body{padding:1.5rem;}
+.vr-intro{font-size:.98rem;line-height:1.8;color:#334155;margin-bottom:1.4rem;}
+.vr-gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;}
+@media(max-width:900px){.vr-gallery{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:620px){.vr-gallery{grid-template-columns:1fr;}}
+.vr-preview{border-radius:1rem;overflow:hidden;border:1px solid #e5e7eb;}
+.vr-preview img{width:100%;display:block;}
+.vr-actions{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1.5rem;}
+.vr-btn{background:#7c3aed;color:#fff;padding:.75rem 1.25rem;border-radius:.85rem;text-decoration:none;font-weight:800;display:inline-flex;align-items:center;gap:.5rem;}
+.vr-btn:hover{opacity:.92;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lesson-vr-wrap" dir="rtl">
+  <a href="{% url 'student:view_lesson_student' lesson.pk %}" class="back-link">
+    <i class="fas fa-chevron-right"></i> العودة إلى صفحة الدرس
+  </a>
+
+  <div class="vr-card">
+    <header>
+      <h1>تجربة الواقع الافتراضي: {{ lesson.lessontitle }}</h1>
+    </header>
+    <div class="vr-body">
+      <p class="vr-intro">
+        هذه الصفحة تعرض محتوى تجربة الواقع الافتراضي المرتبط بالدرس.
+        اعرض الصور التمهيدية أدناه ثم استعد للاستمتاع ببيئة تفاعلية من إعداد المعلم.
+      </p>
+
+      <div class="vr-gallery">
+        {% for url in visual_urls %}
+        <div class="vr-preview">
+          <img src="{{ url }}" alt="معاينة واقع افتراضي">
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="vr-actions">
+        <a href="#" class="vr-btn">
+          <i class="fas fa-cube"></i> استكشاف VR
+        </a>
+        <a href="{% url 'student:view_lesson_student' lesson.pk %}" class="vr-btn" style="background:#e5e7eb;color:#1e293b;">
+          <i class="fas fa-arrow-left"></i> العودة
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

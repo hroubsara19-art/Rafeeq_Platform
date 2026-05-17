@@ -60,10 +60,13 @@ def _build_image_url(path: str) -> str | None:
 
 
 def _build_audio_url(path: str) -> str | None:
-    """بناء رابط ملف الصوت."""
+    """بناء رابط ملف الصوت أو الفيديو مع دعم الروابط الخارجية."""
     if not path:
         return None
-    clean = path.strip().replace('\\', '/').lstrip('/')
+    path = str(path).strip().replace('\\', '/')
+    if path.startswith(('http://', 'https://')):
+        return path
+    clean = path.lstrip('/')
     if clean.startswith('media/'):
         clean = clean[len('media/'):]
     return f'{settings.MEDIA_URL}{clean}'
@@ -692,6 +695,14 @@ def view_lesson_student(request, lesson_id):
             'is_completed':   False,
         }
 
+    video_url = _build_audio_url(lesson.ai_videopath)
+    visuals   = lesson.ai_visualpath if isinstance(lesson.ai_visualpath, list) else []
+    visual_urls = [
+        _build_image_url(str(path).strip())
+        for path in visuals if path and str(path).strip()
+    ]
+    visual_urls = [url for url in visual_urls if url]
+
     return render(request, 'student_app/view_lesson_student.html', {
         'lesson':         lesson,
         'lesson_test':    lesson_test,
@@ -700,6 +711,65 @@ def view_lesson_student(request, lesson_id):
         'is_stale_watch': status['is_stale_watch'],
         'test_done':      status['test_done'],
         'is_completed':   status['is_completed'],
+        'video_url':      video_url,
+        'has_video':      bool(video_url),
+        'visual_urls':    visual_urls,
+        'has_vr':         bool(visual_urls),
+    })
+
+
+@login_required
+def lesson_video(request, lesson_id):
+    lesson  = get_object_or_404(Lessoncontent, pk=lesson_id, status='Published')
+    student = Student.objects.filter(userid=request.user).select_related('classid').first()
+
+    if not request.user.is_staff and not request.user.is_superuser:
+        if student and student.classid:
+            if not Lessoncontent.objects.filter(
+                pk=lesson_id, status='Published',
+                subjectid__classid=student.classid
+            ).exists():
+                messages.error(request, 'هذا الدرس غير متاح لصفك.')
+                return redirect('student:student_home')
+
+    video_url = _build_audio_url(lesson.ai_videopath)
+    if not video_url:
+        messages.error(request, 'فيديو الدرس غير متوفر حالياً.')
+        return redirect('student:view_lesson_student', lesson_id=lesson_id)
+
+    return render(request, 'student_app/lesson_video.html', {
+        'lesson':    lesson,
+        'video_url': video_url,
+    })
+
+
+@login_required
+def lesson_vr_experience(request, lesson_id):
+    lesson  = get_object_or_404(Lessoncontent, pk=lesson_id, status='Published')
+    student = Student.objects.filter(userid=request.user).select_related('classid').first()
+
+    if not request.user.is_staff and not request.user.is_superuser:
+        if student and student.classid:
+            if not Lessoncontent.objects.filter(
+                pk=lesson_id, status='Published',
+                subjectid__classid=student.classid
+            ).exists():
+                messages.error(request, 'هذا الدرس غير متاح لصفك.')
+                return redirect('student:student_home')
+
+    visuals = lesson.ai_visualpath if isinstance(lesson.ai_visualpath, list) else []
+    visual_urls = [
+        _build_image_url(str(path).strip())
+        for path in visuals if path and str(path).strip()
+    ]
+    visual_urls = [url for url in visual_urls if url]
+    if not visual_urls:
+        messages.error(request, 'تجربة الواقع الافتراضي غير متوفرة لهذا الدرس.')
+        return redirect('student:view_lesson_student', lesson_id=lesson_id)
+
+    return render(request, 'student_app/lesson_vr_experience.html', {
+        'lesson':      lesson,
+        'visual_urls': visual_urls,
     })
 
 
