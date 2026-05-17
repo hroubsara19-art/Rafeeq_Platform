@@ -20,7 +20,7 @@ from django.views.decorators.http import require_POST
 from .models import (
     AiAgent, Lessoncontent, Teacher, Student,
     Testattempt,Subject, Class, Learningsession,
-    Test, Question, User as UserModel,
+    Test, Question, User as UserModel, LessonWatchRecord,
 )
 from .utils import process_lesson_with_ai
 from accounts.info_forms import (
@@ -476,6 +476,192 @@ def upload_lesson_video(request):
     except Exception as e:
         logger.error(f'upload_lesson_video error: {str(e)}', exc_info=True)
         return JsonResponse({'success': False, 'error': f'خطأ: {str(e)}'}, status=500)
+
+@login_required
+def preview_videos(request):
+    """
+    صفحة معاينة الفيديوهات المنشورة كما يراها الطالب
+    مع إمكانية التعديل والحذف للمعلم
+    """
+    is_admin = request.user.is_staff or request.user.is_superuser
+    role     = getattr(request.user, 'userrole', None)
+
+    if not is_admin and role not in (ROLE_TEACHER, ROLE_ADMIN):
+        messages.error(request, 'هذه الصفحة مخصصة للمعلمين فقط.')
+        return redirect('student:student_home')
+
+    teacher = Teacher.objects.filter(userid=request.user).first()
+
+    # جلب الدروس المنشورة التي تحتوي على فيديوهات
+    lessons_with_videos = []
+    if teacher:
+        lessons_with_videos = list(
+            Lessoncontent.objects
+            .filter(teacherid=teacher, status=STATUS_PUBLISHED)
+            .exclude(video_file__isnull=True)
+            .exclude(video_file='')
+            .select_related('subjectid', 'subjectid__classid')
+            .order_by('-createdat')
+        )
+
+    return render(request, 'learning/preview_videos.html', {
+        'lessons': lessons_with_videos,
+        'teacher': teacher,
+    })
+
+@login_required
+@require_POST
+def delete_lesson_video(request, lesson_id):
+    """
+    حذف فيديو من درس معين
+    """
+    is_admin = request.user.is_staff or request.user.is_superuser
+    role     = getattr(request.user, 'userrole', None)
+
+    if not is_admin and role not in (ROLE_TEACHER, ROLE_ADMIN):
+        return JsonResponse({'success': False, 'error': 'غير مصرح'}, status=403)
+
+    try:
+        lesson = Lessoncontent.objects.filter(lessonid=lesson_id).first()
+        if not lesson:
+            return JsonResponse({'success': False, 'error': 'الدرس غير موجود'})
+
+        # التحقق من أن المعلم هو مالك الدرس
+        teacher = Teacher.objects.filter(userid=request.user).first()
+        if lesson.teacherid != teacher:
+            return JsonResponse({'success': False, 'error': 'غير مصرح بحذف هذا الفيديو'})
+
+        # حذف ملف الفيديو
+        if lesson.video_file:
+            try:
+                lesson.video_file.delete(save=False)
+            except Exception as e:
+                logger.warning(f'Failed to delete video file: {e}')
+
+        lesson.video_file = None
+        lesson.video_title = None
+        lesson.save(update_fields=['video_file', 'video_title'])
+
+        logger.info(f'[Video Delete] Teacher {request.user.username} deleted video for lesson {lesson_id}')
+
+        return JsonResponse({'success': True})
+
+    except Exception as e:
+        logger.error(f'delete_lesson_video error: {str(e)}', exc_info=True)
+        return JsonResponse({'success': False, 'error': f'خطأ: {str(e)}'}, status=500)
+
+@login_required
+def edit_lesson_video(request, lesson_id):
+    """
+    صفحة تعديل الفيديو المنشور
+    """
+    is_admin = request.user.is_staff or request.user.is_superuser
+    role     = getattr(request.user, 'userrole', None)
+
+    if not is_admin and role not in (ROLE_TEACHER, ROLE_ADMIN):
+        messages.error(request, 'هذه الصفحة مخصصة للمعلمين فقط.')
+        return redirect('student:student_home')
+
+    lesson = get_object_or_404(Lessoncontent, pk=lesson_id)
+    teacher = Teacher.objects.filter(userid=request.user).first()
+
+    if teacher and lesson.teacherid != teacher:
+        messages.error(request, 'ليس لديك صلاحية تعديل هذا الدرس.')
+        return redirect('learning:teacher_dashboard')
+
+    # جلب الدروس المنشورة للمعلم للقائمة المنسدلة
+    teacher_lessons = []
+    if teacher:
+        teacher_lessons = list(
+            Lessoncontent.objects
+            .filter(teacherid=teacher, status=STATUS_PUBLISHED)
+            .values('pk', 'lessontitle')
+            .order_by('-createdat')
+        )
+
+    if request.method == 'POST':
+        new_video_title = request.POST.get('video_title', '').strip()
+        new_lesson_id = request.POST.get('lesson_id', '').strip()
+        new_lesson_text = request.POST.get('lesson_text', '').strip()
+        new_video = request.FILES.get('video_file')
+
+        update_fields = []
+
+        if new_video_title:
+            lesson.video_title = new_video_title
+            update_fields.append('video_title')
+
+        if new_lesson_id:
+            # تغيير الدرس المرتبط بالفيديو
+            new_lesson = Lessoncontent.objects.filter(pk=new_lesson_id).first()
+            if new_lesson and new_lesson.teacherid == teacher:
+                lesson.lessontitle = new_lesson.lessontitle
+                update_fields.append('lessontitle')
+
+        if new_lesson_text:
+            # حفظ النص الأصلي كما يدخله المعلم بدون تنظيف
+            lesson.originaltext = new_lesson_text
+            update_fields.append('originaltext')
+
+        if new_video:
+            # حذف الفيديو القديم إذا وجد
+            if lesson.video_file:
+                try:
+                    lesson.video_file.delete(save=False)
+                except Exception as e:
+                    logger.warning(f'Failed to delete old video file: {e}')
+
+            lesson.video_file = new_video
+            update_fields.append('video_file')
+
+        if update_fields:
+            lesson.save(update_fields=update_fields)
+            messages.success(request, 'تم تحديث الدرس بنجاح')
+        else:
+            messages.warning(request, 'لم يتم إجراء أي تغييرات')
+
+        return redirect('learning:preview_videos')
+
+    return render(request, 'learning/edit_lesson_video.html', {
+        'lesson': lesson,
+        'teacher': teacher,
+        'teacher_lessons': teacher_lessons,
+    })
+
+@login_required
+def video_viewers(request, lesson_id):
+    """
+    عرض الطلاب الذين شاهدوا الفيديو
+    """
+    is_admin = request.user.is_staff or request.user.is_superuser
+    role     = getattr(request.user, 'userrole', None)
+
+    if not is_admin and role not in (ROLE_TEACHER, ROLE_ADMIN):
+        messages.error(request, 'هذه الصفحة مخصصة للمعلمين فقط.')
+        return redirect('student:student_home')
+
+    lesson = get_object_or_404(Lessoncontent, pk=lesson_id)
+    teacher = Teacher.objects.filter(userid=request.user).first()
+
+    if teacher and lesson.teacherid != teacher:
+        messages.error(request, 'ليس لديك صلاحية عرض بيانات هذا الدرس.')
+        return redirect('learning:teacher_dashboard')
+
+    # جلب الطلاب الذين شاهدوا الدرس
+    viewers = []
+    if teacher:
+        viewers = list(
+            LessonWatchRecord.objects
+            .filter(lesson=lesson)
+            .select_related('student', 'student__userid')
+            .order_by('-watched_at')
+        )
+
+    return render(request, 'learning/video_viewers.html', {
+        'lesson': lesson,
+        'viewers': viewers,
+        'teacher': teacher,
+    })
 
 # ══════════════════════════════════════════════════════════════
 # إنشاء الدرس بالذكاء الاصطناعي

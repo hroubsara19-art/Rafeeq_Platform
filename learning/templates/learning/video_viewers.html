@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}الطلاب الذين شاهدوا الفيديو — EduPal{% endblock %}
+
+{% block extra_css %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700&display=swap');
+:root {
+  --blue:      #1d4ed8;
+  --blue-dk:   #1e3a5f;
+  --blue-lt:   #eff4ff;
+  --blue-bd:   #bfdbfe;
+  --teal:      #0f766e;
+  --teal-lt:   #f0fdfa;
+  --teal-bd:   #99f6e4;
+  --purple:    #6d28d9;
+  --purple-lt: #f5f3ff;
+  --slate:     #475569;
+  --slate-lt:  #f8fafc;
+  --ink:       #1e293b;
+  --muted:     #64748b;
+  --border:    #e2e8f0;
+  --bg:        #f3f6fb;
+  --white:     #ffffff;
+  --r:         14px;
+  --sh:        0 1px 4px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --sh-h:      0 6px 20px rgba(0,0,0,.10), 0 20px 48px rgba(0,0,0,.08);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { direction: rtl; }
+body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color: var(--ink); }
+.page-wrap { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem 5rem; }
+
+/* ══ Header ═══════════════════════════════════════════════════ */
+.page-header {
+  background: linear-gradient(125deg, #1e3a5f 0%, #1d4ed8 55%, #2563eb 100%);
+  border-radius: 20px; padding: 2.5rem 3rem;
+  display: flex; align-items: center; gap: 2rem;
+  position: relative; overflow: hidden;
+  box-shadow: 0 8px 40px rgba(29,78,216,.28);
+  margin-bottom: 2rem;
+}
+.page-header::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 88% 20%, rgba(255,255,255,.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 12% 80%, rgba(255,255,255,.05) 0%, transparent 50%);
+}
+.header-icon {
+  width: 72px; height: 72px; flex-shrink: 0;
+  background: rgba(255,255,255,.16); border: 1.5px solid rgba(255,255,255,.28);
+  border-radius: 18px; display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem; color: #fff; backdrop-filter: blur(4px);
+}
+.header-text h1 { font-size: clamp(1.5rem, 2.5vw, 2.2rem); font-weight: 900; color: #fff; margin: 0 0 .5rem; line-height: 1.2; }
+.header-text p  { font-size: 1rem; color: rgba(255,255,255,.85); margin: 0; font-family: 'Tajawal', sans-serif; line-height: 1.8; }
+.back-btn {
+  display: inline-flex; align-items: center; gap: .5rem;
+  padding: .6rem 1.2rem; border-radius: 10px;
+  background: rgba(255,255,255,.15); color: #fff;
+  border: 1.5px solid rgba(255,255,255,.28);
+  font-size: .9rem; font-weight: 700;
+  text-decoration: none; transition: all .2s;
+  margin-left: auto;
+}
+.back-btn:hover { background: rgba(255,255,255,.25); text-decoration: none; color: #fff; }
+
+/* ══ Viewers Card ═══════════════════════════════════════════════ */
+.viewers-card {
+  background: var(--white);
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  padding: 2.5rem;
+  box-shadow: var(--sh);
+}
+
+.viewers-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 2rem; padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border);
+}
+.viewers-header h2 {
+  font-size: 1.5rem; font-weight: 800; color: var(--ink); margin: 0;
+}
+.viewers-count {
+  background: var(--blue-lt); color: var(--blue);
+  padding: .5rem 1.2rem; border-radius: 20px;
+  font-size: .9rem; font-weight: 700;
+}
+
+/* ══ Viewers List ═══════════════════════════════════════════════ */
+.viewers-list { display: flex; flex-direction: column; gap: 1rem; }
+
+.viewer-item {
+  display: flex; align-items: center; gap: 1.5rem;
+  padding: 1.2rem 1.5rem;
+  background: var(--slate-lt);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  transition: all .2s;
+}
+.viewer-item:hover {
+  border-color: var(--blue-bd);
+  background: var(--blue-lt);
+}
+
+.viewer-avatar {
+  width: 56px; height: 56px;
+  background: var(--blue); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; color: #fff; font-weight: 800;
+  flex-shrink: 0;
+}
+
+.viewer-info { flex: 1; }
+.viewer-name {
+  font-size: 1.1rem; font-weight: 800; color: var(--ink);
+  margin-bottom: .3rem;
+}
+.viewer-meta {
+  font-size: .85rem; color: var(--muted);
+  font-family: 'Tajawal', sans-serif;
+  display: flex; gap: 1rem; align-items: center;
+}
+.viewer-meta span { display: flex; align-items: center; gap: .3rem; }
+
+.viewer-date {
+  background: var(--white); padding: .4rem 1rem;
+  border-radius: 10px; font-size: .85rem; font-weight: 700;
+  color: var(--muted); font-family: 'Tajawal', sans-serif;
+}
+
+/* ══ Empty State ═══════════════════════════════════════════════ */
+.empty-state {
+  text-align: center; padding: 4rem 2rem;
+  background: var(--slate-lt);
+  border: 2px dashed var(--border);
+  border-radius: 20px;
+}
+.empty-icon {
+  width: 100px; height: 100px;
+  background: var(--blue-lt); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 1.5rem;
+  font-size: 2.5rem; color: var(--blue);
+}
+.empty-title { font-size: 1.3rem; font-weight: 800; color: var(--ink); margin-bottom: .5rem; }
+.empty-desc { font-size: .95rem; color: var(--muted); font-family: 'Tajawal', sans-serif; line-height: 1.8; }
+
+@media(max-width: 768px) {
+  .page-header { flex-direction: column; text-align: center; padding: 2rem 1.5rem; }
+  .back-btn { margin-left: 0; margin-top: 1rem; }
+  .page-wrap { padding: 1.5rem 1rem 4rem; }
+  .viewer-item { flex-direction: column; text-align: center; }
+  .viewer-meta { justify-content: center; flex-wrap: wrap; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrap" dir="rtl" lang="ar">
+
+  <!-- ══ Header ════════════════════════════════════════════════ -->
+  <div class="page-header">
+    <div class="header-icon"><i class="fas fa-users"></i></div>
+    <div class="header-text">
+      <h1>الطلاب الذين شاهدوا الفيديو</h1>
+      <p>{{ lesson.lessontitle }}</p>
+    </div>
+    <a href="{% url 'learning:preview_videos' %}" class="back-btn">
+      <i class="fas fa-arrow-right"></i>
+      العودة للمعاينة
+    </a>
+  </div>
+
+  <!-- ══ Viewers Card ════════════════════════════════════════════════ -->
+  <div class="viewers-card">
+    <div class="viewers-header">
+      <h2>قائمة المشاهدين</h2>
+      <div class="viewers-count">{{ viewers|length }} طالب</div>
+    </div>
+
+    {% if viewers %}
+    <div class="viewers-list">
+      {% for record in viewers %}
+      <div class="viewer-item">
+        <div class="viewer-avatar">
+          {{ record.student.userid.username|first|upper }}
+        </div>
+        <div class="viewer-info">
+          <div class="viewer-name">{{ record.student.userid.username }}</div>
+          <div class="viewer-meta">
+            <span><i class="fas fa-calendar"></i> {{ record.watched_at|date:"d M Y" }}</span>
+            <span><i class="fas fa-clock"></i> {{ record.watched_at|time:"H:i" }}</span>
+          </div>
+        </div>
+        <div class="viewer-date">
+          {{ record.watched_at|timesince }} مضى
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">
+        <i class="fas fa-user-slash"></i>
+      </div>
+      <h3 class="empty-title">لا يوجد مشاهدون بعد</h3>
+      <p class="empty-desc">
+        لم يقم أي طالب بمشاهدة هذا الفيديو حتى الآن.<br>
+        سيظهر هنا الطلاب بمجرد مشاهدتهم للفيديو.
+      </p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,460 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}معاينة الفيديوهات المنشورة — EduPal{% endblock %}
+
+{% block extra_css %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700&display=swap');
+:root {
+  --blue:      #1d4ed8;
+  --blue-dk:   #1e3a5f;
+  --blue-lt:   #eff4ff;
+  --blue-bd:   #bfdbfe;
+  --teal:      #0f766e;
+  --teal-lt:   #f0fdfa;
+  --teal-bd:   #99f6e4;
+  --purple:    #6d28d9;
+  --purple-lt: #f5f3ff;
+  --slate:     #475569;
+  --slate-lt:  #f8fafc;
+  --ink:       #1e293b;
+  --muted:     #64748b;
+  --border:    #e2e8f0;
+  --bg:        #f3f6fb;
+  --white:     #ffffff;
+  --r:         14px;
+  --sh:        0 1px 4px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --sh-h:      0 6px 20px rgba(0,0,0,.10), 0 20px 48px rgba(0,0,0,.08);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { direction: rtl; }
+body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color: var(--ink); }
+.page-wrap { max-width: 1400px; margin: 0 auto; padding: 2rem 1.5rem 5rem; }
+
+/* ══ Header ═══════════════════════════════════════════════════ */
+.page-header {
+  background: linear-gradient(125deg, #1e3a5f 0%, #1d4ed8 55%, #2563eb 100%);
+  border-radius: 20px; padding: 2.5rem 3rem;
+  display: flex; align-items: center; gap: 2rem;
+  position: relative; overflow: hidden;
+  box-shadow: 0 8px 40px rgba(29,78,216,.28);
+  margin-bottom: 2rem;
+}
+.page-header::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 88% 20%, rgba(255,255,255,.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 12% 80%, rgba(255,255,255,.05) 0%, transparent 50%);
+}
+.header-icon {
+  width: 72px; height: 72px; flex-shrink: 0;
+  background: rgba(255,255,255,.16); border: 1.5px solid rgba(255,255,255,.28);
+  border-radius: 18px; display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem; color: #fff; backdrop-filter: blur(4px);
+}
+.header-text h1 { font-size: clamp(1.5rem, 2.5vw, 2.2rem); font-weight: 900; color: #fff; margin: 0 0 .5rem; line-height: 1.2; }
+.header-text p  { font-size: 1rem; color: rgba(255,255,255,.85); margin: 0; font-family: 'Tajawal', sans-serif; line-height: 1.8; }
+.back-btn {
+  display: inline-flex; align-items: center; gap: .5rem;
+  padding: .6rem 1.2rem; border-radius: 10px;
+  background: rgba(255,255,255,.15); color: #fff;
+  border: 1.5px solid rgba(255,255,255,.28);
+  font-size: .9rem; font-weight: 700;
+  text-decoration: none; transition: all .2s;
+  margin-left: auto;
+}
+.back-btn:hover { background: rgba(255,255,255,.25); text-decoration: none; color: #fff; }
+
+/* ══ Video Grid ═══════════════════════════════════════════════ */
+.videos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.video-card {
+  background: var(--white);
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--sh);
+  transition: all .3s ease;
+}
+
+.video-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--sh-h);
+  border-color: var(--blue-bd);
+}
+
+.video-preview {
+  width: 100%;
+  height: 220px;
+  background: #000;
+  position: relative;
+}
+
+.video-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-content {
+  padding: 1.5rem;
+}
+
+.video-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--ink);
+  margin-bottom: .5rem;
+  line-height: 1.4;
+}
+
+.video-lesson {
+  font-size: .9rem;
+  color: var(--muted);
+  margin-bottom: .75rem;
+  font-family: 'Tajawal', sans-serif;
+}
+
+.video-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: .8rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.video-meta span {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+}
+
+.video-actions {
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .6rem 1.2rem;
+  border-radius: 10px;
+  font-size: .85rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all .2s;
+  border: none;
+}
+
+.btn-view {
+  background: var(--blue);
+  color: #fff;
+}
+.btn-view:hover { background: var(--blue-dk); color: #fff; text-decoration: none; }
+
+.btn-edit {
+  background: var(--teal);
+  color: #fff;
+}
+.btn-edit:hover { background: #0d6e6e; color: #fff; }
+
+.btn-delete {
+  background: #ef4444;
+  color: #fff;
+}
+.btn-delete:hover { background: #dc2626; color: #fff; }
+
+/* ══ Empty State ═════════════════════════════════════════════ */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: var(--white);
+  border: 2px dashed var(--border);
+  border-radius: 20px;
+}
+
+.empty-icon {
+  width: 100px;
+  height: 100px;
+  background: var(--blue-lt);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  font-size: 2.5rem;
+  color: var(--blue);
+}
+
+.empty-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--ink);
+  margin-bottom: .5rem;
+}
+
+.empty-desc {
+  font-size: .95rem;
+  color: var(--muted);
+  font-family: 'Tajawal', sans-serif;
+  line-height: 1.8;
+}
+
+/* ══ Modal ══════════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal-content {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 2.5rem;
+  text-align: center;
+  max-width: 450px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from { transform: translateY(-20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-icon {
+  width: 80px;
+  height: 80px;
+  background: #ef4444;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+}
+
+.modal-icon i { font-size: 2.5rem; color: #fff; }
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--ink);
+  margin-bottom: 1rem;
+}
+
+.modal-text {
+  font-size: 1rem;
+  color: var(--muted);
+  margin-bottom: 2rem;
+  font-family: 'Tajawal', sans-serif;
+  line-height: 1.8;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.modal-btn {
+  padding: .9rem 2rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .2s;
+  border: none;
+  font-family: 'Cairo', sans-serif;
+}
+
+.modal-btn-cancel {
+  background: var(--slate);
+  color: #fff;
+}
+.modal-btn-cancel:hover { background: var(--muted); }
+
+.modal-btn-confirm {
+  background: #ef4444;
+  color: #fff;
+}
+.modal-btn-confirm:hover { background: #dc2626; }
+
+@media(max-width: 768px) {
+  .page-header { flex-direction: column; text-align: center; padding: 2rem 1.5rem; }
+  .back-btn { margin-left: 0; margin-top: 1rem; }
+  .page-wrap { padding: 1.5rem 1rem 4rem; }
+  .videos-grid { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrap" dir="rtl" lang="ar">
+
+  <!-- ══ Header ════════════════════════════════════════════════ -->
+  <div class="page-header">
+    <div class="header-icon"><i class="fas fa-eye"></i></div>
+    <div class="header-text">
+      <h1>معاينة الفيديوهات المنشورة</h1>
+      <p>شاهد الفيديوهات التعليمية كما يراها الطلاب مع إمكانية التعديل والحذف</p>
+    </div>
+    <a href="{% url 'learning:ai_video_tools' %}" class="back-btn">
+      <i class="fas fa-arrow-right"></i>
+      العودة لإدارة الفيديوهات
+    </a>
+  </div>
+
+  <!-- ══ Videos Grid ════════════════════════════════════════════════ -->
+  {% if lessons %}
+  <div class="videos-grid">
+    {% for lesson in lessons %}
+    <div class="video-card">
+      <div class="video-preview">
+        <video controls preload="metadata">
+          <source src="{{ lesson.video_file.url }}">
+          عذراً، المتصفح لا يدعم تشغيل الفيديو.
+        </video>
+      </div>
+      <div class="video-content">
+        <h3 class="video-title">{{ lesson.video_title|default:lesson.lessontitle }}</h3>
+        <p class="video-lesson">
+          <i class="fas fa-book"></i> {{ lesson.lessontitle }}
+        </p>
+        <div class="video-meta">
+          <span><i class="fas fa-calendar"></i> {{ lesson.createdat|date:"d M Y" }}</span>
+          <span><i class="fas fa-tag"></i> {{ lesson.subjectid.subjectname|default:"—" }}</span>
+        </div>
+        <div class="video-actions">
+          <a href="{% url 'student:lesson_video' lesson.pk %}" target="_blank" class="action-btn btn-view">
+            <i class="fas fa-external-link-alt"></i>
+            معاينة كطالب
+          </a>
+          <a href="{% url 'learning:video_viewers' lesson.pk %}" class="action-btn btn-edit" style="background: var(--purple);">
+            <i class="fas fa-users"></i>
+            المشاهدون
+          </a>
+          <a href="{% url 'learning:edit_lesson_video' lesson.pk %}" class="action-btn btn-edit">
+            <i class="fas fa-edit"></i>
+            تعديل
+          </a>
+          <button class="action-btn btn-delete" onclick="showDeleteModal({{ lesson.pk }})">
+            <i class="fas fa-trash"></i>
+            حذف
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">
+      <i class="fas fa-video-slash"></i>
+    </div>
+    <h3 class="empty-title">لا توجد فيديوهات منشورة</h3>
+    <p class="empty-desc">
+      لم تقم برفع أي فيديوهات تعليمية بعد.<br>
+      ابدأ برفع فيديو من صفحة إدارة الفيديوهات.
+    </p>
+    <a href="{% url 'learning:ai_video_tools' %}" class="action-btn btn-view" style="margin-top: 1.5rem;">
+      <i class="fas fa-plus"></i>
+      رفع فيديو جديد
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- ══ Delete Confirmation Modal ════════════════════════════════════ -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-content">
+    <div class="modal-icon">
+      <i class="fas fa-trash"></i>
+    </div>
+    <h3 class="modal-title">تأكيد الحذف</h3>
+    <p class="modal-text">
+      هل أنت متأكد من حذف هذا الفيديو؟<br>
+      لا يمكن التراجع عن هذا الإجراء.
+    </p>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" onclick="closeDeleteModal()">
+        إلغاء
+      </button>
+      <button class="modal-btn modal-btn-confirm" onclick="confirmDelete()">
+        نعم، احذف
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var lessonToDelete = null;
+
+function showDeleteModal(lessonId) {
+  lessonToDelete = lessonId;
+  document.getElementById('deleteModal').classList.add('active');
+}
+
+function closeDeleteModal() {
+  lessonToDelete = null;
+  document.getElementById('deleteModal').classList.remove('active');
+}
+
+function confirmDelete() {
+  if (!lessonToDelete) return;
+
+  var deleteUrl = "{% url 'learning:delete_lesson_video' lesson_id=0 %}".replace('0', lessonToDelete);
+  fetch(deleteUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken')
+    }
+  })
+  .then(function(response) {
+    if (!response.ok) throw new Error('Failed to delete video');
+    return response.json();
+  })
+  .then(function(data) {
+    if (data.success) {
+      location.reload();
+    } else {
+      throw new Error(data.error || 'حدث خطأ أثناء الحذف');
+    }
+  })
+  .catch(function(error) {
+    console.error('Error:', error);
+    alert(error.message || 'حدث خطأ أثناء الحذف');
+  })
+  .finally(function() {
+    closeDeleteModal();
+  });
+}
+
+function getCookie(name) {
+  var value = '; ' + document.cookie;
+  var parts = value.split('; ' + name + '=');
+  if (parts.length == 2) return parts.pop().split(';').shift();
+}
+</script>
+{% endblock %}

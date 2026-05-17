@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}تعديل الفيديو — EduPal{% endblock %}
+
+{% block extra_css %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700&display=swap');
+:root {
+  --blue:      #1d4ed8;
+  --blue-dk:   #1e3a5f;
+  --blue-lt:   #eff4ff;
+  --blue-bd:   #bfdbfe;
+  --teal:      #0f766e;
+  --teal-lt:   #f0fdfa;
+  --teal-bd:   #99f6e4;
+  --purple:    #6d28d9;
+  --purple-lt: #f5f3ff;
+  --slate:     #475569;
+  --slate-lt:  #f8fafc;
+  --ink:       #1e293b;
+  --muted:     #64748b;
+  --border:    #e2e8f0;
+  --bg:        #f3f6fb;
+  --white:     #ffffff;
+  --r:         14px;
+  --sh:        0 1px 4px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --sh-h:      0 6px 20px rgba(0,0,0,.10), 0 20px 48px rgba(0,0,0,.08);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { direction: rtl; }
+body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color: var(--ink); }
+.page-wrap { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 5rem; }
+
+/* ══ Header ═══════════════════════════════════════════════════ */
+.page-header {
+  background: linear-gradient(125deg, #1e3a5f 0%, #1d4ed8 55%, #2563eb 100%);
+  border-radius: 20px; padding: 2.5rem 3rem;
+  display: flex; align-items: center; gap: 2rem;
+  position: relative; overflow: hidden;
+  box-shadow: 0 8px 40px rgba(29,78,216,.28);
+  margin-bottom: 2rem;
+}
+.page-header::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 88% 20%, rgba(255,255,255,.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 12% 80%, rgba(255,255,255,.05) 0%, transparent 50%);
+}
+.header-icon {
+  width: 72px; height: 72px; flex-shrink: 0;
+  background: rgba(255,255,255,.16); border: 1.5px solid rgba(255,255,255,.28);
+  border-radius: 18px; display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem; color: #fff; backdrop-filter: blur(4px);
+}
+.header-text h1 { font-size: clamp(1.5rem, 2.5vw, 2.2rem); font-weight: 900; color: #fff; margin: 0 0 .5rem; line-height: 1.2; }
+.header-text p  { font-size: 1rem; color: rgba(255,255,255,.85); margin: 0; font-family: 'Tajawal', sans-serif; line-height: 1.8; }
+.back-btn {
+  display: inline-flex; align-items: center; gap: .5rem;
+  padding: .6rem 1.2rem; border-radius: 10px;
+  background: rgba(255,255,255,.15); color: #fff;
+  border: 1.5px solid rgba(255,255,255,.28);
+  font-size: .9rem; font-weight: 700;
+  text-decoration: none; transition: all .2s;
+  margin-left: auto;
+}
+.back-btn:hover { background: rgba(255,255,255,.25); text-decoration: none; color: #fff; }
+
+/* ══ Form Card ═════════════════════════════════════════════════ */
+.form-card {
+  background: var(--white);
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  padding: 2.5rem;
+  box-shadow: var(--sh);
+}
+
+.form-group { margin-bottom: 1.5rem; }
+.form-label {
+  display: block; font-size: .95rem; font-weight: 700;
+  color: var(--ink); margin-bottom: .5rem;
+}
+.form-input {
+  width: 100%; padding: .9rem 1.1rem;
+  border: 2px solid var(--border); border-radius: 12px;
+  font-size: 1rem; font-family: 'Cairo', sans-serif;
+  transition: border-color .2s;
+}
+.form-input:focus {
+  outline: none; border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-lt);
+}
+
+/* ══ File Upload ═══════════════════════════════════════════════ */
+.file-upload {
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  background: var(--slate-lt);
+}
+.file-upload:hover {
+  border-color: var(--blue);
+  background: var(--blue-lt);
+}
+.file-upload-icon {
+  width: 64px; height: 64px;
+  background: var(--blue-lt);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 1rem;
+  font-size: 1.5rem; color: var(--blue);
+}
+.file-upload-title { font-size: 1.1rem; font-weight: 800; color: var(--ink); margin-bottom: .5rem; }
+.file-upload-desc { font-size: .9rem; color: var(--muted); font-family: 'Tajawal', sans-serif; line-height: 1.6; }
+
+/* ══ Current Video ═══════════════════════════════════════════ */
+.current-video {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: var(--slate-lt);
+  border-radius: 16px;
+  border: 2px solid var(--border);
+}
+.current-video-title {
+  font-size: 1rem; font-weight: 700; color: var(--ink);
+  margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem;
+}
+.current-video video {
+  width: 100%; max-height: 400px;
+  border-radius: 12px; background: #000;
+}
+
+/* ══ Actions ══════════════════════════════════════════════════ */
+.form-actions {
+  display: flex; gap: 1rem; margin-top: 2rem;
+}
+.action-btn {
+  display: inline-flex; align-items: center; gap: .5rem;
+  padding: .9rem 2rem; border-radius: 12px;
+  font-size: 1rem; font-weight: 700; cursor: pointer;
+  transition: all .2s; border: none; text-decoration: none;
+  font-family: 'Cairo', sans-serif;
+}
+.btn-save {
+  background: var(--teal); color: #fff;
+}
+.btn-save:hover { background: #0d6e6e; color: #fff; }
+.btn-cancel {
+  background: var(--slate); color: #fff;
+}
+.btn-cancel:hover { background: var(--muted); color: #fff; }
+
+@media(max-width: 768px) {
+  .page-header { flex-direction: column; text-align: center; padding: 2rem 1.5rem; }
+  .back-btn { margin-left: 0; margin-top: 1rem; }
+  .page-wrap { padding: 1.5rem 1rem 4rem; }
+  .form-actions { flex-direction: column; }
+  .action-btn { width: 100%; justify-content: center; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-wrap" dir="rtl" lang="ar">
+
+  <!-- ══ Header ════════════════════════════════════════════════ -->
+  <div class="page-header">
+    <div class="header-icon"><i class="fas fa-edit"></i></div>
+    <div class="header-text">
+      <h1>تعديل الفيديو المنشور</h1>
+      <p>قم بتعديل عنوان الفيديو أو استبدال ملف الفيديو</p>
+    </div>
+    <a href="{% url 'learning:preview_videos' %}" class="back-btn">
+      <i class="fas fa-arrow-right"></i>
+      العودة للمعاينة
+    </a>
+  </div>
+
+  <!-- ══ Edit Form ════════════════════════════════════════════════ -->
+  <div class="form-card">
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <!-- Lesson Selection -->
+      <div class="form-group">
+        <label class="form-label">اختر الدرس المرتبط</label>
+        <select name="lesson_id" class="form-input">
+          <option value="">-- اختر درساً --</option>
+          {% for l in teacher_lessons %}
+          <option value="{{ l.pk }}" {% if l.pk == lesson.pk %}selected{% endif %}>
+            {{ l.lessontitle }}
+          </option>
+          {% endfor %}
+        </select>
+        <small style="color: var(--muted); font-size: .85rem; margin-top: .5rem; display: block;">
+          يمكنك اختيار درس آخر لربط الفيديو به
+        </small>
+      </div>
+
+      <!-- Video Title -->
+      <div class="form-group">
+        <label class="form-label">عنوان الفيديو</label>
+        <input type="text" name="video_title" class="form-input"
+               value="{{ lesson.video_title|default:'' }}"
+               placeholder="أدخل عنوان الفيديو">
+      </div>
+
+      <!-- Lesson Text -->
+      <div class="form-group">
+        <label class="form-label">نص الدرس الأصلي</label>
+        <textarea name="lesson_text" class="form-input" rows="10"
+                  placeholder="أدخل نص الدرس">{{ lesson.originaltext|default:'' }}</textarea>
+      </div>
+
+      <!-- Video File -->
+      <div class="form-group">
+        <label class="form-label">ملف الفيديو (اختياري)</label>
+        <label class="file-upload">
+          <input type="file" name="video_file" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo" style="display: none;" onchange="this.parentElement.querySelector('.file-upload-title').textContent = this.files[0]?.name || 'اختر ملف الفيديو'">
+          <div class="file-upload-icon">
+            <i class="fas fa-cloud-upload-alt"></i>
+          </div>
+          <div class="file-upload-title">اختر ملف الفيديو</div>
+          <div class="file-upload-desc">
+            أو اسحب وأفلت الملف هنا<br>
+            يدعم MP4, WebM, MOV حتى 500MB
+          </div>
+        </label>
+      </div>
+
+      <!-- Current Video Preview -->
+      {% if lesson.video_file %}
+      <div class="current-video">
+        <div class="current-video-title">
+          <i class="fas fa-video"></i>
+          الفيديو الحالي
+        </div>
+        <video controls preload="metadata">
+          <source src="{{ lesson.video_file.url }}">
+          عذراً، المتصفح لا يدعم تشغيل الفيديو.
+        </video>
+      </div>
+      {% endif %}
+
+      <!-- Actions -->
+      <div class="form-actions">
+        <button type="submit" class="action-btn btn-save">
+          <i class="fas fa-save"></i>
+          حفظ التعديلات
+        </button>
+        <a href="{% url 'learning:preview_videos' %}" class="action-btn btn-cancel">
+          <i class="fas fa-times"></i>
+          إلغاء
+        </a>
+      </div>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

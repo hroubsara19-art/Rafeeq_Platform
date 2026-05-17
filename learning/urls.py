@@ -35,6 +35,10 @@ urlpatterns = [
     path('teacher/ai-video-tools/',         learning_views.ai_video_tools,    name='ai_video_tools'),
     path('teacher/upload-lesson-video/',    learning_views.upload_lesson_video, name='upload_lesson_video'),
     path('teacher/publish-lesson-video/',   learning_views.publish_lesson_video, name='publish_lesson_video'),
+    path('teacher/preview-videos/',        learning_views.preview_videos,     name='preview_videos'),
+    path('teacher/edit-video/<int:lesson_id>/', learning_views.edit_lesson_video, name='edit_lesson_video'),
+    path('teacher/delete-video/<int:lesson_id>/', learning_views.delete_lesson_video, name='delete_lesson_video'),
+    path('teacher/video-viewers/<int:lesson_id>/', learning_views.video_viewers, name='video_viewers'),
 
     # ── إدارة الاختبارات (معلم) ──────────────────────────────
     path('teacher/test/<int:test_id>/',        learning_views.teacher_test_detail, name='teacher_test_detail'),

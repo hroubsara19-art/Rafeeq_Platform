@@ -1,43 +1,218 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}فيديو الدرس — {{ lesson.lessontitle }}{% endblock %}
+{% block title %}فيديو الدرس — {{ lesson.video_title|default:lesson.lessontitle }}{% endblock %}
 
 {% block extra_css %}
 <style>
-body{direction:rtl;font-family:'Tajawal',sans-serif;background:#f3f6fb;color:#1e293b;}
-.lesson-video-wrap{max-width:900px;margin:3rem auto;padding:0 1.25rem 3rem;}
-.back-link{display:inline-flex;align-items:center;gap:.5rem;color:#475569;font-size:.95rem;font-weight:600;text-decoration:none;margin-bottom:1.5rem;}
-.back-link:hover{color:#1d4ed8;}
-.video-card{background:#fff;border-radius:1.25rem;box-shadow:0 24px 72px rgba(15,23,42,.08);overflow:hidden;border:1px solid #e2e8f0;}
-.video-card header{padding:1.5rem 1.75rem;border-bottom:1px solid #e2e8f0;background:#eff6ff;}
-.video-card header h1{font-size:1.3rem;margin:0;font-weight:800;color:#1d4ed8;}
-.video-body{padding:1.5rem;}
-.video-player{width:100%;max-height:560px;border-radius:1rem;background:#000;}
-.video-desc{margin-top:1rem;font-size:.95rem;line-height:1.75;color:#475569;}
-.video-note{margin-top:1.5rem;padding:1rem 1.2rem;background:#f8fafc;border:1px solid #dbeafe;border-radius:.9rem;color:#334155;}
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700&display=swap');
+:root {
+  --blue:      #1d4ed8;
+  --blue-dk:   #1e3a5f;
+  --blue-lt:   #eff4ff;
+  --blue-bd:   #bfdbfe;
+  --teal:      #0f766e;
+  --teal-lt:   #f0fdfa;
+  --purple:    #6d28d9;
+  --purple-lt: #f5f3ff;
+  --slate:     #475569;
+  --slate-lt:  #f8fafc;
+  --ink:       #1e293b;
+  --muted:     #64748b;
+  --border:    #e2e8f0;
+  --bg:        #f3f6fb;
+  --white:     #ffffff;
+  --r:         14px;
+  --sh:        0 1px 4px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  --sh-h:      0 6px 20px rgba(0,0,0,.10), 0 20px 48px rgba(0,0,0,.08);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { direction: rtl; }
+body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color: var(--ink); }
+.lesson-video-wrap { max-width: 1000px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+
+/* ══ Back Link ═════════════════════════════════════════════════ */
+.back-link {
+  display: inline-flex; align-items: center; gap: .5rem;
+  color: var(--slate); font-size: .95rem; font-weight: 700;
+  text-decoration: none; margin-bottom: 1.5rem;
+  padding: .5rem 1rem; border-radius: 10px;
+  background: var(--white); border: 2px solid var(--border);
+  transition: all .2s;
+}
+.back-link:hover { background: var(--blue-lt); color: var(--blue); border-color: var(--blue-bd); text-decoration: none; }
+
+/* ══ Video Card ═════════════════════════════════════════════════ */
+.video-card {
+  background: var(--white);
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--sh);
+}
+
+.video-header {
+  background: linear-gradient(125deg, #1e3a5f 0%, #1d4ed8 55%, #2563eb 100%);
+  padding: 2rem 2.5rem;
+  position: relative; overflow: hidden;
+}
+.video-header::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 88% 20%, rgba(255,255,255,.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 12% 80%, rgba(255,255,255,.05) 0%, transparent 50%);
+}
+.video-header h1 {
+  font-size: clamp(1.4rem, 2.5vw, 1.8rem);
+  font-weight: 900; color: #fff; margin: 0 0 .5rem; line-height: 1.2;
+}
+.video-meta {
+  display: flex; gap: 1.5rem; flex-wrap: wrap;
+  font-size: .9rem; color: rgba(255,255,255,.85);
+  font-family: 'Tajawal', sans-serif;
+}
+.video-meta span { display: flex; align-items: center; gap: .4rem; }
+
+.video-body { padding: 2rem; }
+
+.video-player {
+  width: 100%; border-radius: 16px;
+  background: #000; box-shadow: 0 8px 32px rgba(0,0,0,.15);
+  margin-bottom: 2rem;
+}
+
+/* ══ Lesson Info (Inside Video Card) ═══════════════════════════ */
+.lesson-info-section {
+  background: var(--slate-lt);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem 2rem;
+}
+
+.lesson-info-section-title {
+  font-size: 1.1rem; font-weight: 800; color: var(--ink);
+  margin-bottom: 1.2rem; display: flex; align-items: center; gap: .7rem;
+}
+.lesson-info-section-title i { color: var(--blue); }
+
+.lesson-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.lesson-info-item {
+  background: var(--white);
+  padding: 1.2rem;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+}
+
+.lesson-info-label {
+  font-size: .8rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .5px;
+  margin-bottom: .5rem;
+}
+.lesson-info-value {
+  font-size: 1rem; color: var(--ink); line-height: 1.6;
+  font-family: 'Tajawal', sans-serif;
+  font-weight: 600;
+}
+
+.lesson-text-box {
+  background: var(--white);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  max-height: 300px;
+  overflow-y: auto;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  font-family: 'Tajawal', sans-serif;
+  font-size: .95rem;
+  color: var(--ink);
+}
+
+/* ══ Note ═════════════════════════════════════════════════════ */
+.video-note {
+  margin-top: 1.5rem; padding: 1.2rem 1.5rem;
+  background: var(--teal-lt); border: 2px solid var(--teal-bd);
+  border-radius: 12px; color: var(--teal);
+  font-family: 'Tajawal', sans-serif; line-height: 1.8;
+}
+.video-note strong { font-weight: 800; }
+
+@media(max-width: 768px) {
+  .lesson-video-wrap { padding: 1.5rem 1rem 4rem; }
+  .video-header { padding: 1.5rem; }
+  .video-body { padding: 1.5rem; }
+  .lesson-info-section { padding: 1.5rem; }
+  .lesson-info-grid { grid-template-columns: 1fr; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="lesson-video-wrap" dir="rtl">
+<div class="lesson-video-wrap" dir="rtl" lang="ar">
   <a href="{% url 'student:view_lesson_student' lesson.pk %}" class="back-link">
-    <i class="fas fa-chevron-right"></i> العودة إلى صفحة الدرس
+    <i class="fas fa-arrow-right"></i>
+    العودة إلى صفحة الدرس
   </a>
 
+  <!-- ══ Video Card ════════════════════════════════════════════════ -->
   <div class="video-card">
-    <header>
-      <h1>الفيديو التعليمي: {{ lesson.lessontitle }}</h1>
-    </header>
+    <div class="video-header">
+      <h1>{{ lesson.video_title|default:lesson.lessontitle }}</h1>
+      <div class="video-meta">
+        <span><i class="fas fa-book"></i> {{ lesson.lessontitle }}</span>
+        <span><i class="fas fa-calendar"></i> {{ lesson.createdat|date:"d M Y" }}</span>
+        {% if lesson.subjectid %}
+        <span><i class="fas fa-tag"></i> {{ lesson.subjectid.subjectname }}</span>
+        {% endif %}
+      </div>
+    </div>
     <div class="video-body">
       <video controls class="video-player" preload="metadata">
         <source src="{{ video_url }}">
         عذراً، المتصفح لا يدعم تشغيل الفيديو.
       </video>
-      <p class="video-desc">
-        هذا الفيديو مرتبط بمحتوى الدرس وقد تم رفعه من المعلم.
-        يمكنك مشاهدته لتعزيز فهمك قبل أو بعد الجلسة التعليمية.
-      </p>
+
+      <!-- ══ Lesson Info Section (Inside Video Card) ═══════════════════════════ -->
+      <div class="lesson-info-section">
+        <div class="lesson-info-section-title">
+          <i class="fas fa-info-circle"></i>
+          معلومات الدرس
+        </div>
+
+        <div class="lesson-info-grid">
+          <div class="lesson-info-item">
+            <div class="lesson-info-label">عنوان الدرس</div>
+            <div class="lesson-info-value">{{ lesson.lessontitle }}</div>
+          </div>
+
+          {% if lesson.video_title %}
+          <div class="lesson-info-item">
+            <div class="lesson-info-label">عنوان الفيديو</div>
+            <div class="lesson-info-value">{{ lesson.video_title }}</div>
+          </div>
+          {% endif %}
+
+          {% if lesson.subjectid %}
+          <div class="lesson-info-item">
+            <div class="lesson-info-label">المادة</div>
+            <div class="lesson-info-value">{{ lesson.subjectid.subjectname }}</div>
+          </div>
+          {% endif %}
+        </div>
+
+        {% if lesson.originaltext %}
+        <div style="margin-top: 1.5rem;">
+          <div class="lesson-info-label" style="margin-bottom: .8rem;">نص الدرس الأصلي</div>
+          <div class="lesson-text-box">{{ lesson.originaltext }}</div>
+        </div>
+        {% endif %}
+      </div>
+
       <div class="video-note">
         <strong>ملاحظة:</strong> إذا واجهت صعوبة في التشغيل، حاول تحديث الصفحة أو التأكد من اتصال الإنترنت.
       </div>

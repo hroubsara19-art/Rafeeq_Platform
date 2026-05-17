@@ -31,7 +31,7 @@ from django.utils import timezone
 
 from learning.models import (
     Lessoncontent, Learningsession, Performancereport, Student, Test, Subject,
-    Testattempt, Studentanswer,
+    Testattempt, Studentanswer, Teacher,
 )
 
 logger = logging.getLogger(__name__)
@@ -733,24 +733,29 @@ def view_lesson_student(request, lesson_id):
 def lesson_video(request, lesson_id):
     lesson  = get_object_or_404(Lessoncontent, pk=lesson_id, status='Published')
     student = Student.objects.filter(userid=request.user).select_related('classid').first()
+    teacher = Teacher.objects.filter(userid=request.user).first()
 
-    logger.info(f'[Lesson Video] Student {request.user.username} requesting video for lesson {lesson_id}')
+    logger.info(f'[Lesson Video] User {request.user.username} requesting video for lesson {lesson_id}')
 
-    # التحقق من أن الطالب له حق الوصول إلى الدرس
-    if not request.user.is_staff and not request.user.is_superuser:
-        if student and student.classid:
-            if not Lessoncontent.objects.filter(
-                pk=lesson_id, status='Published',
-                subjectid__classid=student.classid
-            ).exists():
-                messages.error(request, 'هذا الدرس غير متاح لصفك.')
-                logger.warning(f'[Lesson Video] Student {request.user.username} denied access to lesson {lesson_id} - not in their class')
-                return redirect('student:student_home')
+    # السماح للمعلمين بمعاينة الفيديوهات الخاصة بهم
+    if teacher and lesson.teacherid == teacher:
+        logger.info(f'[Lesson Video] Teacher {request.user.username} previewing their own video for lesson {lesson_id}')
+    else:
+        # التحقق من أن الطالب له حق الوصول إلى الدرس
+        if not request.user.is_staff and not request.user.is_superuser:
+            if student and student.classid:
+                if not Lessoncontent.objects.filter(
+                    pk=lesson_id, status='Published',
+                    subjectid__classid=student.classid
+                ).exists():
+                    messages.error(request, 'هذا الدرس غير متاح لصفك.')
+                    logger.warning(f'[Lesson Video] Student {request.user.username} denied access to lesson {lesson_id} - not in their class')
+                    return redirect('student:student_home')
 
     # عرض الفيديو المرفوع يدوياً إذا كان موجوداً
     video_url = None
     logger.info(f'[Lesson Video] Lesson {lesson_id} - video_file: {lesson.video_file}, ai_videopath: {lesson.ai_videopath}')
-    
+
     if lesson.video_file:
         try:
             video_url = lesson.video_file.url
@@ -769,6 +774,18 @@ def lesson_video(request, lesson_id):
         logger.warning(f'[Lesson Video] No video available for lesson {lesson_id}. video_file: {lesson.video_file}, ai_videopath: {lesson.ai_videopath}')
         messages.error(request, 'فيديو الدرس غير متوفر حالياً.')
         return redirect('student:view_lesson_student', lesson_id=lesson_id)
+
+    # تسجيل مشاهدة الطالب للفيديو
+    if student:
+        from learning.models import LessonWatchRecord
+        try:
+            LessonWatchRecord.objects.get_or_create(
+                student=student,
+                lesson=lesson
+            )
+            logger.info(f'[Lesson Video] Recorded watch for student {request.user.username} on lesson {lesson_id}')
+        except Exception as e:
+            logger.error(f'[Lesson Video] Failed to record watch: {str(e)}', exc_info=True)
 
     logger.info(f'[Lesson Video] Rendering video page for lesson {lesson_id} with video_url: {video_url}')
     return render(request, 'student_app/lesson_video.html', {
