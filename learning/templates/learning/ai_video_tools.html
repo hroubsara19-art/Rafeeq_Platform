@@ -173,6 +173,7 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
   background: var(--slate-lt);
   transition: all .3s ease; cursor: pointer;
   position: relative;
+  z-index: 1;
 }
 .upload-area:hover { border-color: var(--blue); background: var(--blue-lt); }
 .upload-area.dragover { border-color: var(--blue); background: var(--blue-lt); transform: scale(1.02); }
@@ -193,6 +194,8 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
   cursor: pointer; transition: all .2s;
 }
 .upload-btn:hover { background: var(--blue-dk); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(29,78,216,.3); }
+
+.upload-btn { position: relative; z-index: 1002; }
 
 #videoInput { display: none; }
 
@@ -356,7 +359,7 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
     <div class="sec-lbl"><i class="fas fa-book"></i> اختيار الدرس</div>
     <div class="form-group">
       <label class="form-label">اختر الدرس <span class="required">*</span></label>
-      <select class="form-control" id="lessonSelect">
+      <select class="lesson-select" id="lessonSelect">
         <option value="">-- اختر الدرس --</option>
         {% for lesson in lessons %}
         <option value="{{ lesson.pk }}">{{ lesson.lessontitle }}</option>
@@ -370,7 +373,7 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
     <!-- Video Title -->
     <div class="form-group">
       <label class="form-label">عنوان الفيديو <span class="required">*</span></label>
-      <input type="text" class="form-control" id="videoTitle" placeholder="أدخل عنوان الفيديو">
+      <input type="text" class="form-input" id="videoTitle" placeholder="أدخل عنوان الفيديو">
       <div class="error-message" id="videoTitleError" style="display: none;">
         <i class="fas fa-exclamation-circle"></i> يجب إدخال عنوان الفيديو
       </div>
@@ -379,13 +382,13 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
     <!-- Lesson Text -->
     <div class="form-group">
       <label class="form-label">نص الدرس الأصلي (اختياري)</label>
-      <textarea class="form-control" id="lessonText" rows="4" placeholder="أدخل نص الدرس الأصلي"></textarea>
+      <textarea class="form-textarea" id="lessonText" rows="4" placeholder="أدخل نص الدرس الأصلي"></textarea>
     </div>
 
     <!-- Support Content -->
     <div class="form-group">
       <label class="form-label">محتوى داعم (اختياري)</label>
-      <textarea class="form-control" id="supportContent" rows="3" placeholder="أدخل محتوى داعم إضافي"></textarea>
+      <textarea class="form-textarea" id="supportContent" rows="3" placeholder="أدخل محتوى داعم إضافي"></textarea>
     </div>
 
   </div>
@@ -403,23 +406,19 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
         أو انقر لاختيار ملف الفيديو من جهازك<br>
         يدعم MP4, WebM, MOV حتى 500MB (فيديوهات حتى 15 دقيقة أو أكثر)
       </div>
-      <button class="upload-btn" onclick="document.getElementById('videoInput').click()">
+      <label for="videoInput" class="upload-btn" id="videoInputLabel" tabindex="0" role="button" aria-label="اختر ملف الفيديو">
         <i class="fas fa-folder-open"></i>
         اختر ملف الفيديو
-      </button>
-      <input type="file" id="videoInput" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo">
+      </label>
+      <input type="file" id="videoInput" accept="video/mp4,video/webm,video/quicktime,video/x-msvideo" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;" />
     </div>
 
     <!-- Video Preview -->
     <div class="video-preview" id="videoPreview">
       <video id="previewVideo" controls></video>
       <div class="video-actions">
-        <button class="action-btn btn-save" onclick="saveVideo()">
-          <i class="fas fa-save"></i>
-          حفظ الفيديو
-        </button>
-        <button class="action-btn btn-publish" onclick="publishVideo()">
-          <i class="fas fa-check-circle"></i>
+        <button class="action-btn btn-publish" onclick="publishVideo()" id="publishBtn">
+          <i class="fas fa-paper-plane"></i>
           تأكيد النشر
         </button>
         <button class="action-btn btn-delete" onclick="deleteVideo()">
@@ -476,9 +475,17 @@ uploadArea.addEventListener('drop', function(e) {
   }
 });
 
-uploadArea.addEventListener('click', function() {
-  document.getElementById('videoInput').click();
-});
+// Make label keyboard-activatable (Enter / Space)
+var inputLabel = document.getElementById('videoInputLabel');
+var fileInput = document.getElementById('videoInput');
+if (inputLabel && fileInput) {
+  inputLabel.addEventListener('keydown', function(ev) {
+    if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
+      ev.preventDefault();
+      try { fileInput.click(); } catch (e) {}
+    }
+  });
+}
 
 function showPreview(file) {
   var preview = document.getElementById('videoPreview');
@@ -502,16 +509,54 @@ function cancelUpload() {
 }
 
 function deleteVideo() {
-  if (confirm('هل أنت متأكد من حذف هذا الفيديو؟')) {
+  showDeleteConfirmationModal();
+}
+
+function showDeleteConfirmationModal() {
+  var modal = document.createElement('div');
+  modal.id = 'deleteConfirmModal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+  
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:20px;padding:2.5rem;text-align:center;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:slideIn 0.3s ease-out;">
+      <div style="width:80px;height:80px;background:#ef4444;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;">
+        <i class="fas fa-trash" style="font-size:2.5rem;color:#fff;"></i>
+      </div>
+      <h2 style="margin:0 0 1rem;color:#1e293b;font-size:1.5rem;">تأكيد الحذف</h2>
+      <p style="margin:0 0 2rem;color:#64748b;font-size:1rem;">هل أنت متأكد من حذف هذا الفيديو؟ لا يمكن التراجع عن هذا الإجراء.</p>
+      <div style="display:flex;gap:1rem;justify-content:center;">
+        <button onclick="closeDeleteModal(false)" style="background:#64748b;color:#fff;border:none;padding:.9rem 2rem;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;transition:background 0.2s;">
+          إلغاء
+        </button>
+        <button onclick="closeDeleteModal(true)" style="background:#ef4444;color:#fff;border:none;padding:.9rem 2rem;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;transition:background 0.2s;">
+          نعم، احذف
+        </button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // إضافة أنيميشن (علامة مميزة للحذف لاحقاً)
+  var style = document.createElement('style');
+  style.id = 'deleteConfirmModalStyle';
+  style.textContent = '@keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }';
+  document.head.appendChild(style);
+}
+
+function closeDeleteModal(confirmed) {
+  var modal = document.getElementById('deleteConfirmModal');
+  if (modal) modal.remove();
+  var style = document.getElementById('deleteConfirmModalStyle');
+  if (style) style.remove();
+  if (confirmed) {
     cancelUpload();
   }
 }
 
-function saveVideo() {
+function publishVideo() {
   var lessonId = document.getElementById('lessonSelect').value;
   var videoTitle = document.getElementById('videoTitle').value;
-  var lessonText = document.getElementById('lessonText').value;
-  var supportContent = document.getElementById('supportContent').value;
   
   // إخفاء جميع رسائل الخطأ
   document.getElementById('lessonSelectError').style.display = 'none';
@@ -538,7 +583,16 @@ function saveVideo() {
   if (hasError) {
     return;
   }
+
+  // تعطيل الزر أثناء الرفع
+  var publishBtn = document.getElementById('publishBtn');
+  publishBtn.disabled = true;
+  publishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري النشر...';
+
+  var lessonText = document.getElementById('lessonText').value;
+  var supportContent = document.getElementById('supportContent').value;
   
+  // رفع الفيديو ونشره في خطوة واحدة
   var formData = new FormData();
   formData.append('lesson_id', lessonId);
   formData.append('video_file', selectedFile);
@@ -559,72 +613,16 @@ function saveVideo() {
   })
   .then(function(data) {
     if (data.success) {
-      alert('تم رفع الفيديو بنجاح!');
-      cancelUpload();
-    } else {
-      alert(data.error || 'حدث خطأ أثناء رفع الفيديو');
-    }
-  })
-  .catch(function(error) {
-    console.error('Error:', error);
-    alert('حدث خطأ أثناء رفع الفيديو');
-  });
-}
-
-function publishVideo() {
-  var lessonId = document.getElementById('lessonSelect').value;
-  var videoTitle = document.getElementById('videoTitle').value;
-  
-  // إخفاء جميع رسائل الخطأ
-  document.getElementById('lessonSelectError').style.display = 'none';
-  document.getElementById('videoTitleError').style.display = 'none';
-  
-  // التحقق من الحقول المطلوبة
-  var hasError = false;
-  
-  if (!lessonId) {
-    document.getElementById('lessonSelectError').style.display = 'flex';
-    hasError = true;
-  }
-  
-  if (!videoTitle.trim()) {
-    document.getElementById('videoTitleError').style.display = 'flex';
-    hasError = true;
-  }
-  
-  if (!selectedFile) {
-    alert('يرجى رفع الفيديو أولاً قبل النشر');
-    return;
-  }
-  
-  if (hasError) {
-    return;
-  }
-  
-  fetch("{% url 'learning:publish_lesson_video' %}", {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': getCookie('csrftoken')
-    },
-    body: JSON.stringify({
-      lesson_id: lessonId
-    })
-  })
-  .then(function(response) {
-    if (!response.ok) throw new Error('Failed to publish video');
-    return response.json();
-  })
-  .then(function(data) {
-    if (data.success) {
       showSuccessModal();
     } else {
-      alert(data.error || 'حدث خطأ أثناء نشر الفيديو');
+      throw new Error(data.error || 'حدث خطأ أثناء رفع الفيديو');
     }
   })
   .catch(function(error) {
     console.error('Error:', error);
-    alert('حدث خطأ أثناء نشر الفيديو');
+    publishBtn.disabled = false;
+    publishBtn.innerHTML = '<i class="fas fa-paper-plane"></i> تأكيد النشر';
+    alert(error.message || 'حدث خطأ أثناء النشر');
   });
 }
 

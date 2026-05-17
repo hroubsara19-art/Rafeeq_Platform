@@ -441,9 +441,18 @@ def upload_lesson_video(request):
         if video_file.size > max_size:
             return JsonResponse({'success': False, 'error': 'حجم الملف يتجاوز الحد الأقصى (500MB)'})
 
+        # التحقق من صيغة الملف
+        file_ext = video_file.name.split('.')[-1].lower()
+        allowed_extensions = ['mp4', 'webm', 'mov', 'avi']
+        if file_ext not in allowed_extensions:
+            return JsonResponse({'success': False, 'error': f'صيغة الملف {file_ext} غير مدعومة. الملفات المدعومة: {", ".join(allowed_extensions)}'})
+
         # حذف الفيديو القديم إذا وجد
         if lesson.video_file:
-            lesson.video_file.delete(save=False)
+            try:
+                lesson.video_file.delete(save=False)
+            except Exception as e:
+                logger.warning(f'Failed to delete old video: {e}')
 
         # حفظ الفيديو الجديد
         lesson.video_file = video_file
@@ -456,13 +465,17 @@ def upload_lesson_video(request):
         
         lesson.save()
 
-        logger.info(f'[Video Upload] Teacher {request.user.username} uploaded video for lesson {lesson_id}')
+        logger.info(f'[Video Upload] Teacher {request.user.username} uploaded video for lesson {lesson_id}. File: {video_file.name}, Size: {video_file.size} bytes')
 
-        return JsonResponse({'success': True, 'message': 'تم رفع الفيديو بنجاح'})
+        return JsonResponse({
+            'success': True, 
+            'message': 'تم رفع الفيديو بنجاح',
+            'video_url': lesson.video_file.url if lesson.video_file else None
+        })
 
     except Exception as e:
-        logger.error(f'upload_lesson_video error: {e}')
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        logger.error(f'upload_lesson_video error: {str(e)}', exc_info=True)
+        return JsonResponse({'success': False, 'error': f'خطأ: {str(e)}'}, status=500)
 
 # ══════════════════════════════════════════════════════════════
 # إنشاء الدرس بالذكاء الاصطناعي

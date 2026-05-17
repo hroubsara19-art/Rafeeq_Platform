@@ -383,6 +383,9 @@ def take_test(request, test_id):
     """بدء أو استئناف اختبار."""
     student = request.student
     test    = get_object_or_404(Test, pk=test_id)
+    
+    # تحميل العلاقات المرتبطة لتجنب queries إضافية وحل مشاكل None
+    test = Test.objects.select_related('lessonid__subjectid', 'subjectid').get(pk=test_id)
 
     existing  = Testattempt.objects.filter(studentid=student, testid=test).first()
     questions = list(test.question_set.order_by('questionid'))
@@ -696,6 +699,12 @@ def view_lesson_student(request, lesson_id):
         }
 
     video_url = _build_audio_url(lesson.ai_videopath)
+    
+    # التحقق من الفيديو المرفوع يدوياً أيضاً
+    has_manual_video = bool(lesson.video_file)
+    has_ai_video = bool(video_url)
+    has_any_video = has_manual_video or has_ai_video
+    
     visuals   = lesson.ai_visualpath if isinstance(lesson.ai_visualpath, list) else []
     visual_urls = [
         _build_image_url(str(path).strip())
@@ -712,7 +721,9 @@ def view_lesson_student(request, lesson_id):
         'test_done':      status['test_done'],
         'is_completed':   status['is_completed'],
         'video_url':      video_url,
-        'has_video':      bool(video_url),
+        'has_video':      has_any_video,
+        'has_manual_video': has_manual_video,
+        'has_ai_video':   has_ai_video,
         'visual_urls':    visual_urls,
         'has_vr':         bool(visual_urls),
     })
@@ -723,6 +734,9 @@ def lesson_video(request, lesson_id):
     lesson  = get_object_or_404(Lessoncontent, pk=lesson_id, status='Published')
     student = Student.objects.filter(userid=request.user).select_related('classid').first()
 
+    logger.info(f'[Lesson Video] Student {request.user.username} requesting video for lesson {lesson_id}')
+
+    # التحقق من أن الطالب له حق الوصول إلى الدرس
     if not request.user.is_staff and not request.user.is_superuser:
         if student and student.classid:
             if not Lessoncontent.objects.filter(
@@ -730,20 +744,33 @@ def lesson_video(request, lesson_id):
                 subjectid__classid=student.classid
             ).exists():
                 messages.error(request, 'هذا الدرس غير متاح لصفك.')
+                logger.warning(f'[Lesson Video] Student {request.user.username} denied access to lesson {lesson_id} - not in their class')
                 return redirect('student:student_home')
 
     # عرض الفيديو المرفوع يدوياً إذا كان موجوداً
     video_url = None
+    logger.info(f'[Lesson Video] Lesson {lesson_id} - video_file: {lesson.video_file}, ai_videopath: {lesson.ai_videopath}')
+    
     if lesson.video_file:
-        video_url = lesson.video_file.url
+        try:
+            video_url = lesson.video_file.url
+            logger.info(f'[Lesson Video] Student {request.user.username} accessing manual video for lesson {lesson_id}. Video URL: {video_url}')
+        except Exception as e:
+            logger.error(f'[Lesson Video] Failed to get video URL for lesson {lesson_id}: {str(e)}', exc_info=True)
+            messages.error(request, 'فيديو الدرس غير متوفر حالياً.')
+            return redirect('student:view_lesson_student', lesson_id=lesson_id)
     else:
         # عرض فيديو AI إذا كان موجوداً
-        video_url = _build_audio_url(lesson.ai_videopath)
+        if lesson.ai_videopath:
+            video_url = _build_audio_url(lesson.ai_videopath)
+            logger.info(f'[Lesson Video] Student {request.user.username} accessing AI video for lesson {lesson_id}')
 
     if not video_url:
+        logger.warning(f'[Lesson Video] No video available for lesson {lesson_id}. video_file: {lesson.video_file}, ai_videopath: {lesson.ai_videopath}')
         messages.error(request, 'فيديو الدرس غير متوفر حالياً.')
         return redirect('student:view_lesson_student', lesson_id=lesson_id)
 
+    logger.info(f'[Lesson Video] Rendering video page for lesson {lesson_id} with video_url: {video_url}')
     return render(request, 'student_app/lesson_video.html', {
         'lesson':    lesson,
         'video_url': video_url,
