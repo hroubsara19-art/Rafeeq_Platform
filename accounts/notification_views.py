@@ -22,7 +22,7 @@ def notifications_list(request):
         'title':      n.title,
         'body':       n.body,
         'is_read':    n.is_read,
-        'created_at': n.created_at.strftime('%Y-%m-%d %H:%M'),
+        'created_at': n.created_at.isoformat(),
     } for n in notifs]
 
     unread = Notification.objects.filter(recipient=request.user, is_read=False).count()

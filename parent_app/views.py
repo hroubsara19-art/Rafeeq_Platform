@@ -75,7 +75,6 @@ def parent_portal(request):
     # ── الإشعارات الجديدة لولي الأمر ────────────────────────────
     unread_notifications = []
     all_notifications    = []
-    unread_count = 0
     if child:
         all_notifications = list(
             Notification.objects
@@ -89,7 +88,7 @@ def parent_portal(request):
             .order_by('-created_at')[:30]
         )
         unread_notifications = [n for n in all_notifications if not n.is_read]
-        unread_count = len(unread_notifications)
+        # ✅ عدم تعليم الإشعارات كمقروءة تلقائياً - يترك ذلك للمستخدم
 
     # ── تجميع تقارير المواد ──────────────────────────────────────
     subject_reports = []
@@ -127,7 +126,7 @@ def parent_portal(request):
         'subject_reports':       subject_reports,
         'all_notifications':     all_notifications,
         'unread_notifications':  unread_notifications,
-        'unread_count':          unread_count,
+        'unread_count':          len(unread_notifications),
         'teacher_notes':         teacher_notes,
     })
 
@@ -187,16 +186,3 @@ def parent_profile(request):
         'parent': parent,
         'child':  child,
     })
-
-
-# ══════════════════════════════════════════════════════════════
-# ✅ Notification endpoints — Pass-through to accounts app
-# ══════════════════════════════════════════════════════════════
-
-# Import notification views from accounts
-from accounts.notification_views import (
-    notifications_list,
-    notifications_unread,
-    notifications_mark_read,
-    notifications_mark_one,
-)

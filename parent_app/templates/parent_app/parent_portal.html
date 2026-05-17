@@ -6,97 +6,17 @@
     html, body { direction: rtl; }
 </style>
 
-<!-- ═══════════════ Notifications Sidebar ═══════════════ -->
-<div class="offcanvas offcanvas-end" tabindex="-1" id="parentNotifOffcanvas"
-     aria-labelledby="parentNotifOffcanvasLabel"
-     style="width:380px;font-family:'Cairo',sans-serif;">
-  <div class="offcanvas-header border-bottom"
-       style="background:linear-gradient(120deg,#1e3a5f,#1d4ed8);color:#fff;">
-    <h5 class="offcanvas-title fw-bold" id="parentNotifOffcanvasLabel">
-      <i class="fas fa-bell me-2"></i>الإشعارات
-      <span id="parentNotifBadgePanel" class="badge rounded-pill ms-2"
-            style="background:#ef4444;font-size:.72rem;display:none;"></span>
-    </h5>
-    <div class="d-flex align-items-center gap-2">
-      <button type="button" class="btn btn-sm btn-light fw-bold"
-              style="border-radius:8px;font-family:'Cairo',sans-serif;font-size:.78rem;"
-              onclick="markAllParentNotifRead()">
-        تحديد الكل كمقروء
-      </button>
-      <button type="button" class="btn-close btn-close-white"
-              data-bs-dismiss="offcanvas"></button>
-    </div>
-  </div>
-
-  <div class="offcanvas-body p-0">
-    <div id="parentNotifList" style="overflow-y:auto;height:100%;"></div>
-  </div>
-</div>
-
-<style>
-.parent-notif-item{
-  display:flex;gap:.75rem;align-items:flex-start;
-  padding:.9rem 1rem;border-bottom:1px solid #e2e8f0;
-  cursor:pointer;transition:background .15s;
-}
-.parent-notif-item:hover{background:#f8faff;}
-.parent-notif-item.unread{background:#eff4ff;border-right:3px solid #1d4ed8;}
-
-.parent-notif-icon{
-  width:40px;height:40px;border-radius:10px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;font-size:1rem;
-}
-.parent-icon-grade    {background:#dbeafe;color:#1d4ed8;}
-.parent-icon-attention{background:#fef3c7;color:#d97706;}
-.parent-icon-lesson   {background:#dbeafe;color:#1e40af;}
-.parent-icon-test     {background:#ede9fe;color:#6d28d9;}
-.parent-icon-schedule {background:#fef3c7;color:#d97706;}
-.parent-icon-result   {background:#d1fae5;color:#059669;}
-
-.parent-notif-content{flex:1;min-width:0;}
-.parent-notif-title{font-size:.87rem;font-weight:700;color:#1e293b;margin-bottom:.2rem;}
-.parent-notif-body {font-size:.8rem;color:#475569;line-height:1.6;white-space:pre-line;}
-.parent-notif-time {font-size:.7rem;color:#94a3b8;margin-top:.3rem;display:flex;align-items:center;gap:.3rem;}
-.parent-notif-empty{
-  display:flex;flex-direction:column;align-items:center;
-  justify-content:center;height:220px;color:#94a3b8;gap:.5rem;
-}
-.parent-notif-empty i{font-size:2.5rem;opacity:.2;}
-.parent-notif-empty p{font-size:.85rem;font-weight:600;}
-.parent-notif-item.attention-alert{background:#fffbeb;border-right:3px solid #d97706;}
-.parent-notif-item.attention-alert.unread{background:#fef3c7;}
-</style>
-
-<div id="js-parent-notif-data"
-     data-list-url="{% url 'parent:notifications_list' %}"
-     data-unread-url="{% url 'parent:notifications_unread' %}"
-     data-mark-all-url="{% url 'parent:notifications_mark_read' %}"
-     data-mark-one-url="{% url 'parent:notifications_mark_one' notif_id=0 %}"
-     data-csrf="{{ csrf_token }}"
-     style="display:none;"></div>
-
 <div class="container-lg mt-5 pb-5" dir="rtl" lang="ar">
 
-    <!-- ═══════════════ Hero bar with Notification button ═══════════════ -->
-    <div class="hero-bar mb-5" style="position:relative;">
-        <div class="d-flex align-items-center justify-content-between">
-            <div class="d-flex align-items-center gap-4">
-                <div class="hero-icon">
-                    <i class="fas fa-user-graduate"></i>
-                </div>
-                <div>
-                    <h1 class="hero-title mb-1">لوحة متابعة: {{ child.fullname }}</h1>
-                    <p class="hero-sub mb-0">نظام EduPal — متابعة ذكية للأداء والتقدم الدراسي لطفلك.</p>
-                </div>
+    <!-- ═══════════════ Hero ═══════════════ -->
+    <div class="hero-bar mb-5">
+        <div class="d-flex align-items-center gap-4">
+            <div class="hero-icon">
+                <i class="fas fa-user-graduate"></i>
             </div>
-            <!-- Notification Icon with Badge -->
-            <div style="position:relative;cursor:pointer;" class="me-3"
-                 data-bs-toggle="offcanvas" data-bs-target="#parentNotifOffcanvas"
-                 onclick="loadParentNotifications()">
-                <i class="fas fa-bell" style="font-size:1.5rem;color:#fff;"></i>
-                <span id="parentNotifBadgeSidebar" class="badge rounded-pill"
-                      style="position:absolute;top:-8px;right:-8px;background:#ef4444;color:#fff;font-size:.65rem;display:none;padding:.25rem .45rem;">
-                </span>
+            <div>
+                <h1 class="hero-title mb-1">لوحة متابعة: {{ child.fullname }}</h1>
+                <p class="hero-sub mb-0">نظام EduPal — متابعة ذكية للأداء والتقدم الدراسي لطفلك.</p>
             </div>
         </div>
     </div>
@@ -369,12 +289,30 @@ body {
 .table-responsive { overflow-y: hidden; }
 </style>
 
+<div id="js-parent-notif-data"
+     data-unread-count="{{ unread_count|default:0 }}"
+     style="display:none;"></div>
 
 {% endblock %}
 
 {% block extra_js %}
 <script>
 (function(){
+    function initParentNotifications() {
+        var dataEl = document.getElementById('js-parent-notif-data');
+        if (!dataEl) return;
+        var unread = parseInt(dataEl.getAttribute('data-unread-count') || '0', 10);
+        var badges = document.querySelectorAll('.notif-unread-badge');
+        badges.forEach(function(badge) {
+            if (unread > 0) {
+                badge.textContent = unread > 99 ? '99+' : unread;
+                badge.style.display = 'inline';
+            } else {
+                badge.style.display = 'none';
+            }
+        });
+    }
+
     function applyProgressBars() {
         document.querySelectorAll('.progress-fill').forEach(function(bar) {
             var w = bar.getAttribute('data-width');
@@ -441,156 +379,11 @@ body {
         document.head.appendChild(script);
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-            applyProgressBars();
-            loadChartJS(initChart);
-            initParentNotifications();
-        });
-    } else {
+    document.addEventListener('DOMContentLoaded', function(){
+        initParentNotifications();
         applyProgressBars();
         loadChartJS(initChart);
-        initParentNotifications();
-    }
+    });
 })();
-
-// ═══════════════════════════════════════════════════════════════
-// ✅ Parent Notifications System — Similar to Student System
-// ═══════════════════════════════════════════════════════════════
-
-function initParentNotifications() {
-    var nd = document.getElementById('js-parent-notif-data');
-    if (!nd) return;
-    
-    var dataset = nd.dataset;
-    window._parentNotifConfig = {
-        LIST_URL: dataset.listUrl,
-        UNREAD_URL: dataset.unreadUrl,
-        MARK_ALL: dataset.markAllUrl,
-        MARK_ONE: dataset.markOneUrl.replace('/0/', '/'),
-        CSRF: dataset.csrf
-    };
-    
-    // Load notifications on page load
-    updateParentNotifBadge();
-    
-    // Poll for new notifications every 30 seconds
-    setInterval(updateParentNotifBadge, 30000);
-}
-
-function updateParentNotifBadge() {
-    if (!window._parentNotifConfig) return;
-    fetch(window._parentNotifConfig.UNREAD_URL, {
-        headers: {'X-Requested-With': 'XMLHttpRequest'}
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-        var count = d.count || 0;
-        var badge1 = document.getElementById('parentNotifBadgePanel');
-        var badge2 = document.getElementById('parentNotifBadgeSidebar');
-        
-        if (badge1) {
-            badge1.textContent = count;
-            badge1.style.display = count > 0 ? 'inline' : 'none';
-        }
-        if (badge2) {
-            badge2.textContent = count;
-            badge2.style.display = count > 0 ? 'inline' : 'none';
-        }
-    })
-    .catch(function(){});
-}
-
-function loadParentNotifications() {
-    if (!window._parentNotifConfig) return;
-    
-    fetch(window._parentNotifConfig.LIST_URL, {
-        headers: {'X-Requested-With': 'XMLHttpRequest'}
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-        renderParentNotifList(d.notifications || []);
-        updateParentNotifBadge();
-    })
-    .catch(function(){});
-}
-
-function renderParentNotifList(list) {
-    var container = document.getElementById('parentNotifList');
-    if (!container) return;
-    
-    if (!list || list.length === 0) {
-        container.innerHTML = '<div class="parent-notif-empty"><i class="fas fa-bell-slash"></i><p>لا توجد إشعارات</p></div>';
-        return;
-    }
-    
-    var ICONS = {
-        'parent_grade': {cls: 'parent-icon-grade', icon: 'fa-chart-bar'},
-        'parent_attention': {cls: 'parent-icon-attention', icon: 'fa-exclamation-triangle'},
-        'parent_lesson': {cls: 'parent-icon-lesson', icon: 'fa-book-open'},
-        'parent_test': {cls: 'parent-icon-test', icon: 'fa-file-alt'},
-        'parent_result': {cls: 'parent-icon-result', icon: 'fa-check-circle'},
-        'schedule_update': {cls: 'parent-icon-schedule', icon: 'fa-calendar-check'}
-    };
-    
-    container.innerHTML = list.map(function(n) {
-        var ic = ICONS[n.type] || {cls: 'parent-icon-lesson', icon: 'fa-bell'};
-        var isAttention = n.type === 'parent_attention';
-        var extraClass = isAttention ? 'attention-alert' : '';
-        
-        function escH(s) {
-            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        }
-        
-        return '<div class="parent-notif-item ' + (n.is_read ? '' : 'unread') + ' ' + extraClass + '" ' +
-               'id="parent-notif-' + n.id + '" onclick="markOneParentNotif(' + n.id + ', this)">' +
-                 '<div class="parent-notif-icon ' + ic.cls + '"><i class="fas ' + ic.icon + '"></i></div>' +
-                 '<div class="parent-notif-content">' +
-                   '<div class="parent-notif-title">' + escH(n.title) + '</div>' +
-                   '<div class="parent-notif-body">' + escH(n.body) + '</div>' +
-                   '<div class="parent-notif-time"><i class="fas fa-clock"></i>' + escH(n.created_at) + '</div>' +
-                 '</div>' +
-               '</div>';
-    }).join('');
-}
-
-function markAllParentNotifRead() {
-    if (!window._parentNotifConfig) return;
-    
-    fetch(window._parentNotifConfig.MARK_ALL, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': window._parentNotifConfig.CSRF,
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(function(r) { return r.json(); })
-    .then(function() {
-        document.querySelectorAll('#parentNotifList .parent-notif-item.unread').forEach(function(el) {
-            el.classList.remove('unread');
-        });
-        updateParentNotifBadge();
-    })
-    .catch(function(){});
-}
-
-function markOneParentNotif(notifId, el) {
-    if (!window._parentNotifConfig) return;
-    if (!el.classList.contains('unread')) return;
-    
-    fetch(window._parentNotifConfig.MARK_ONE + notifId + '/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': window._parentNotifConfig.CSRF,
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(function(r) { return r.json(); })
-    .then(function() {
-        el.classList.remove('unread');
-        updateParentNotifBadge();
-    })
-    .catch(function(){});
-}
 </script>
 {% endblock %}
