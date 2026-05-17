@@ -221,27 +221,6 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
     </div>
   </div>
 
-  {% if lesson.video_file %}
-  <div class="video-top-bar" style="background: linear-gradient(125deg, #1e3a5f 0%, #1d4ed8 55%, #2563eb 100%); border-radius: 16px; padding: 1.5rem 2rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1.5rem; box-shadow: 0 8px 40px rgba(29,78,216,.28);">
-    <div style="width: 56px; height: 56px; flex-shrink: 0; background: rgba(255,255,255,.16); border: 1.5px solid rgba(255,255,255,.28); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; color: #fff;">
-      <i class="fas fa-video"></i>
-    </div>
-    <div style="flex: 1;">
-      <div style="font-size: 1.1rem; font-weight: 800; color: #fff; margin-bottom: .3rem;">
-        {% if lesson.video_title %}{{ lesson.video_title }}{% else %}فيديو الدرس{% endif %}
-      </div>
-      <div style="font-size: .9rem; color: rgba(255,255,255,.85); font-family: 'Tajawal', sans-serif;">
-        شاهد الفيديو التعليمي للدرس
-      </div>
-    </div>
-  </div>
-  <div style="background: #fff; border: 2px solid #e2e8f0; border-radius: 16px; padding: 1rem; margin-bottom: 2rem; box-shadow: 0 4px 16px rgba(0,0,0,.05);">
-    <video id="lessonVideo" controls style="width: 100%; border-radius: 12px; background: #000;">
-      <source src="{{ lesson.video_file.url }}" type="video/mp4">
-      متصفحك لا يدعم تشغيل الفيديو.
-    </video>
-  </div>
-  {% endif %}
 
   {% if audio_url %}
   <div class="audio-top-bar">

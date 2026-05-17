@@ -366,6 +366,44 @@ def ai_video_tools(request):
 
 @login_required
 @require_POST
+def publish_lesson_video(request):
+    is_admin = request.user.is_staff or request.user.is_superuser
+    role     = getattr(request.user, 'userrole', None)
+
+    if not is_admin and role not in (ROLE_TEACHER, ROLE_ADMIN):
+        return JsonResponse({'success': False, 'error': 'غير مصرح'}, status=403)
+
+    try:
+        data = _json.loads(request.body)
+        lesson_id = data.get('lesson_id')
+
+        if not lesson_id:
+            return JsonResponse({'success': False, 'error': 'يجب اختيار الدرس'})
+
+        lesson = Lessoncontent.objects.filter(lessonid=lesson_id).first()
+        if not lesson:
+            return JsonResponse({'success': False, 'error': 'الدرس غير موجود'})
+
+        # التحقق من أن المعلم هو مالك الدرس
+        teacher = Teacher.objects.filter(userid=request.user).first()
+        if lesson.teacherid != teacher:
+            return JsonResponse({'success': False, 'error': 'غير مصرح بتعديل هذا الدرس'})
+
+        # التحقق من وجود الفيديو
+        if not lesson.video_file:
+            return JsonResponse({'success': False, 'error': 'لا يوجد فيديو للنشر'})
+
+        # الفيديو منشور تلقائياً عند الرفع
+        logger.info(f'[Video Publish] Teacher {request.user.username} video for lesson {lesson_id} is ready')
+
+        return JsonResponse({'success': True, 'message': 'الفيديو جاهز للعرض للطلاب'})
+
+    except Exception as e:
+        logger.error(f'publish_lesson_video error: {e}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@login_required
+@require_POST
 def upload_lesson_video(request):
     is_admin = request.user.is_staff or request.user.is_superuser
     role     = getattr(request.user, 'userrole', None)
@@ -385,6 +423,9 @@ def upload_lesson_video(request):
         
         if not video_file:
             return JsonResponse({'success': False, 'error': 'يجب اختيار ملف الفيديو'})
+        
+        if not video_title or not video_title.strip():
+            return JsonResponse({'success': False, 'error': 'يجب إدخال عنوان الفيديو'})
 
         lesson = Lessoncontent.objects.filter(lessonid=lesson_id).first()
         if not lesson:

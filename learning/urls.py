@@ -34,6 +34,7 @@ urlpatterns = [
     # ── أدوات توليد الفيديو بالذكاء الاصطناعي ───────────────────
     path('teacher/ai-video-tools/',         learning_views.ai_video_tools,    name='ai_video_tools'),
     path('teacher/upload-lesson-video/',    learning_views.upload_lesson_video, name='upload_lesson_video'),
+    path('teacher/publish-lesson-video/',   learning_views.publish_lesson_video, name='publish_lesson_video'),
 
     # ── إدارة الاختبارات (معلم) ──────────────────────────────
     path('teacher/test/<int:test_id>/',        learning_views.teacher_test_detail, name='teacher_test_detail'),

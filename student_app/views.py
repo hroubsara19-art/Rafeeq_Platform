@@ -732,7 +732,14 @@ def lesson_video(request, lesson_id):
                 messages.error(request, 'هذا الدرس غير متاح لصفك.')
                 return redirect('student:student_home')
 
-    video_url = _build_audio_url(lesson.ai_videopath)
+    # عرض الفيديو المرفوع يدوياً إذا كان موجوداً
+    video_url = None
+    if lesson.video_file:
+        video_url = lesson.video_file.url
+    else:
+        # عرض فيديو AI إذا كان موجوداً
+        video_url = _build_audio_url(lesson.ai_videopath)
+
     if not video_url:
         messages.error(request, 'فيديو الدرس غير متوفر حالياً.')
         return redirect('student:view_lesson_student', lesson_id=lesson_id)
