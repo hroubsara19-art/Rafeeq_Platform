@@ -232,7 +232,7 @@ If video was paused by system:
     └─→ video.play()
     └─→ _videoState.pausedBySystem = false
     ↓
-Update UI status: "متركز ✅"
+Update UI status: "مركز ✅"
     ↓
 Ready for new attention/distraction cycle
 ```

@@ -234,7 +234,7 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
 
   <div class="attention-status" id="attentionStatus" style="display: none;">
     <div class="status-indicator attentive" id="statusIndicator"></div>
-    <span id="statusText">متركز</span>
+    <span id="statusText">مركز</span>
   </div>
 
   <button class="attention-toggle-btn" id="attentionToggleBtn" onclick="toggleAttentionTracking()" title="تفعيل/تعطيل تتبع الانتباه">
@@ -407,53 +407,70 @@ function cancelAllAlerts() {
 }
 
 function speakAlert(text, onDone) {
-  // Stop any existing alerts first
+  // Stop any existing alerts first and ensure a short gap to avoid audio overlap
   cancelAllAlerts();
 
-  // Try server-side TTS first (returns an audio_url), fallback to speechSynthesis
-  try {
-    fetch("{% url 'student:tts_alert' %}", {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
-      body: JSON.stringify({ text: text })
-    })
-    .then(function(r) { return r.ok ? r.json() : Promise.reject('TTS request failed'); })
-    .then(function(d) {
-      if (d && d.ok && d.audio_url) {
-        var audioEl = document.getElementById('attentionAlertSound');
-        if (!audioEl) {
-          audioEl = document.createElement('audio');
-          audioEl.id = 'attentionAlertSound'; audioEl.preload = 'auto';
-          document.body.appendChild(audioEl);
+  // Helper: wait for voices (some browsers populate asynchronously)
+  function waitForVoices(timeoutMs) {
+    return new Promise(function(resolve) {
+      if (!('speechSynthesis' in window)) return resolve([]);
+      var voices = speechSynthesis.getVoices();
+      if (voices && voices.length) return resolve(voices);
+      var resolved = false;
+      var handler = function() {
+        if (resolved) return;
+        voices = speechSynthesis.getVoices();
+        if (voices && voices.length) {
+          resolved = true;
+          speechSynthesis.onvoiceschanged = null;
+          return resolve(voices);
         }
-        audioEl.src = d.audio_url;
-        _alertState.audioPlaying = true;
-        audioEl.onended = function() { _alertState.audioPlaying = false; if (onDone) onDone(); };
-        audioEl.onerror = function(e) { console.error('[Voice] Audio play error', e); _alertState.audioPlaying = false; speakViaSpeechSynthesis(text, onDone); };
-        audioEl.play().catch(function(e) { console.warn('[Voice] Audio play prevented', e); _alertState.audioPlaying = false; speakViaSpeechSynthesis(text, onDone); });
-        return;
-      }
-      // Fallback
-      speakViaSpeechSynthesis(text, onDone);
-    })
-    .catch(function(e) {
-      console.warn('[Voice] Server TTS failed, falling back to speechSynthesis', e);
-      speakViaSpeechSynthesis(text, onDone);
+      };
+      speechSynthesis.onvoiceschanged = handler;
+      setTimeout(function() {
+        if (resolved) return;
+        speechSynthesis.onvoiceschanged = null;
+        resolve(speechSynthesis.getVoices() || []);
+      }, timeoutMs || 2000);
     });
-  } catch (e) {
-    console.warn('[Voice] TTS fetch error', e);
-    speakViaSpeechSynthesis(text, onDone);
   }
 
   function speakViaSpeechSynthesis(txt, cb) {
     if (!('speechSynthesis' in window)) { if (cb) cb(); return; }
-    var u = new SpeechSynthesisUtterance(txt);
-    u.lang = 'ar-SA'; u.rate = 0.9; u.pitch = 1.0; u.volume = 0.8;
-    if (_voiceState.selectedVoice) u.voice = _voiceState.selectedVoice;
-    u.onend = function() { if (cb) cb(); };
-    u.onerror = function(e) { console.error('[Voice] Speech error:', e); if (cb) cb(); };
-    speechSynthesis.speak(u);
+
+    waitForVoices(2500).then(function(voices) {
+      var utter = new SpeechSynthesisUtterance(txt);
+      utter.lang = 'ar-SA'; utter.rate = 0.9; utter.pitch = 1.0; utter.volume = 0.9;
+
+      // Prefer an Arabic voice if available
+      var chosen = null;
+      if (voices && voices.length) {
+        chosen = voices.find(function(v){ return v.lang && v.lang.indexOf('ar') === 0; }) || voices.find(function(v){ return /arabic|saudi|hmd|hamada/i.test(v.name || ''); });
+      }
+      if (!chosen && _voiceState.selectedVoice) chosen = _voiceState.selectedVoice;
+      if (chosen) utter.voice = chosen;
+
+      utter.onend = function() { _alertState.audioPlaying = false; if (cb) cb(); };
+      utter.onerror = function(e) { console.error('[Voice] Speech error:', e); _alertState.audioPlaying = false; if (cb) cb(); };
+
+      // Small gap to avoid overlapping audio sources (approx. 500ms)
+      setTimeout(function(){
+        try { _alertState.audioPlaying = true; speechSynthesis.speak(utter); } catch(e) { console.error('[Voice] speak failed', e); if (cb) cb(); }
+      }, 500);
+    }).catch(function(e){ console.warn('[Voice] waitForVoices failed', e); if (onDone) onDone(); });
   }
+
+  // Directly use browser TTS (server TTS endpoint removed)
+  speakViaSpeechSynthesis(text, onDone);
+}
+
+// Pause frame sending but keep the session alive on the Flask side.
+function pauseTracking() {
+  console.log('[Attention] Pausing frame sending (keep session alive)');
+  stopFrameSending();
+  _videoState.pausedByUser = true;
+  // Keep trackingActive true so the server session remains
+  updateStatus('attentive', 'التتبع متوقف مؤقتاً');
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -479,6 +496,12 @@ function onVideoPlay() {
   // Start tracking only when video plays
   if (!trackingActive) {
     startTracking();
+  } else {
+    // If session exists and WS is open, resume sending frames
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      startFrameSending();
+      updateStatus('attentive', 'التتبع مستأنف');
+    }
   }
 }
 
@@ -492,10 +515,10 @@ function onVideoPause() {
   }
   
   // User manually paused the video
-  console.log('[Video] ❚❚ User paused video manually - stopping tracking');
+  console.log('[Video] ❚❚ User paused video manually - pausing frame sending (session remains)');
   _videoState.pausedByUser = true;
   _videoState.wasPlayingBeforeDistraction = false;
-  stopTracking();
+  pauseTracking();
 }
 
 function onVideoEnded() {
@@ -771,7 +794,7 @@ function processAttentionState(s) {
     _attentionState.lastAlertLevel = null;
     
     // Update status bar
-    updateStatus('attentive', 'متركز ✅');
+    updateStatus('attentive', 'مركز ✅');
   }
 }
 

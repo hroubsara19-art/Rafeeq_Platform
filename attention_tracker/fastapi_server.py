@@ -107,8 +107,15 @@ async def api_start(request: Request):
     # قفل واحد من الفحص حتى اكتمال التهيئة يمنع طلبين متزامنين لنفس session_id
     # من تجاوز الفحص واستبدال الجلسة الأولى بجلسة يتيمة.
     with _lock:
-        if session_id in _sessions and _sessions[session_id]["running"]:
-            raise HTTPException(status_code=400, detail="الجلسة نشطة بالفعل")
+        existing = _sessions.get(session_id)
+        if existing and existing.get("running"):
+            # إذا كانت الجلسة تعمل بالفعل، نعيد ws_url بدلاً من إرجاع خطأ
+            logger.info(f"api_start: session {session_id} already running, returning existing ws_url")
+            return {
+                "ok": True,
+                "session_id": session_id,
+                "ws_url": f"ws://localhost:5050/ws/attention/{session_id}",
+            }
 
         session = _make_session(session_id, student_name, camera_index)
         _sessions[session_id] = session
@@ -140,22 +147,37 @@ async def api_stop(request: Request):
     with _lock:
         session = _sessions.get(session_id)
         if not session:
-            raise HTTPException(status_code=404, detail="جلسة غير موجودة")
-        # حلقة WebSocket تفحص session["running"]؛ بدون هذا تبقى حتى انتهاء مهلة receive.
+            # Make stop idempotent: if session not found, return OK (client may call stop multiple times)
+            logger.info(f"api_stop: session {session_id} not found — returning ok (idempotent)")
+            return {"ok": True, "warning": "session_not_found"}
+        # Signal session to stop; WS loop checks this flag.
         session["running"] = False
 
-    session["tracker"].stop()
+    # Attempt graceful shutdown of tracker/thread
+    try:
+        session["tracker"].stop()
+    except Exception as e:
+        logger.warning(f"api_stop: error stopping tracker for {session_id}: {e}")
 
-    # انتظر توقف الـ thread
-    if session["thread"]:
-        session["thread"].join(timeout=3)
+    # Wait for thread to finish (best-effort)
+    try:
+        if session.get("thread"):
+            session["thread"].join(timeout=3)
+    except Exception:
+        pass
 
-    summary = session["tracker"].get_summary()
-    buf     = session["state_buffer"]
+    # Prepare summary (safe access)
+    try:
+        summary = session["tracker"].get_summary()
+    except Exception as e:
+        logger.warning(f"api_stop: error getting summary for {session_id}: {e}")
+        summary = {}
+
+    buf = session.get("state_buffer", [])
     summary["avg_attention"] = round(sum(buf) / len(buf), 1) if buf else 0
 
     with _lock:
-        del _sessions[session_id]
+        _sessions.pop(session_id, None)
 
     return {"ok": True, "summary": summary}
 

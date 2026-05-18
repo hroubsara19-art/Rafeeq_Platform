@@ -35,7 +35,17 @@ def _flask_post(endpoint: str, payload: dict) -> dict:
         r = requests.post(
             f"{FLASK_BASE}{endpoint}", json=payload, timeout=FLASK_TIMEOUT
         )
-        return r.json()
+        # If non-2xx, include status and body for debugging
+        try:
+            body = r.json()
+        except Exception:
+            body = r.text[:1000]
+
+        if r.status_code >= 400:
+            logger.warning(f"Flask POST {endpoint} returned {r.status_code}: {body}")
+            return {"error": f"flask_error", "status_code": r.status_code, "body": body}
+
+        return body
     except requests.exceptions.ConnectionError:
         logger.warning(f"Flask server غير متاح [{endpoint}]")
         return {"error": "خادم تتبع الانتباه غير متاح حالياً"}
@@ -300,5 +310,9 @@ def tts_alert(request):
         media_url = getattr(settings, 'MEDIA_URL', '/media/')
         audio_url = media_url.rstrip('/') + '/' + rel_path
         return JsonResponse({"ok": True, "audio_url": audio_url, "timing": timing or ''})
+    except FileNotFoundError as e:
+        logger.exception('TTS file error')
+        return JsonResponse({"error": "file_error", "detail": str(e)}, status=500)
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        logger.exception('TTS generation failed')
+        return JsonResponse({"error": "tts_failed", "detail": str(e)}, status=500)

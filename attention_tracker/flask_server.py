@@ -160,22 +160,34 @@ def api_stop():
     with _lock:
         session = _sessions.get(session_id)
         if not session:
-            return jsonify({"error": "جلسة غير موجودة"}), 404
+            logger.info(f"api_stop: session {session_id} not found — returning ok (idempotent)")
+            return jsonify({"ok": True, "warning": "session_not_found"})
         # حلقة WebSocket تفحص session["running"]؛ بدون هذا تبقى حتى انتهاء مهلة receive.
         session["running"] = False
 
-    session["tracker"].stop()
+    try:
+        session["tracker"].stop()
+    except Exception as e:
+        logger.warning(f"api_stop: error stopping tracker for {session_id}: {e}")
 
-    # انتظر توقف الـ thread
-    if session["thread"]:
-        session["thread"].join(timeout=3)
+    # انتظر توقف الـ thread (best-effort)
+    try:
+        if session.get("thread"):
+            session["thread"].join(timeout=3)
+    except Exception:
+        pass
 
-    summary = session["tracker"].get_summary()
-    buf     = session["state_buffer"]
+    try:
+        summary = session["tracker"].get_summary()
+    except Exception as e:
+        logger.warning(f"api_stop: error getting summary for {session_id}: {e}")
+        summary = {}
+
+    buf = session.get("state_buffer", [])
     summary["avg_attention"] = round(sum(buf) / len(buf), 1) if buf else 0
 
     with _lock:
-        del _sessions[session_id]
+        _sessions.pop(session_id, None)
 
     return jsonify({"ok": True, "summary": summary})
 

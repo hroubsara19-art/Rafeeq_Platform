@@ -38,13 +38,13 @@
 
 ### مجموعة الاختبار 2️⃣: معالجة حالات الانتباه
 
-#### الاختبار 2.1: معالجة حالة "متركز"
+#### الاختبار 2.1: معالجة حالة "مركز"
 ```javascript
 Input: { is_attentive: true }
 ↓
 Expected: _attentionState.distracted = false, level = 'none'
 ↓
-✅ PASS: Status updated to "متركز ✅"
+✅ PASS: Status updated to "مركز ✅"
 ```
 
 #### الاختبار 2.2: محاكاة 2 ثانية تشتت (بدون تنبيه)
@@ -182,14 +182,14 @@ Action: Call resetAttentionState()
 #### السيناريو: من الانتباه إلى التشتت وعودة التركيز
 
 ```
-📌 STEP 1: الحالة الأولية (متركز)
+📌 STEP 1: الحالة الأولية (مركز)
 ─────────────────────────────────────
 processAttentionState({ is_attentive: true })
 ↓
 ✅ PASS
    _attentionState.distracted = false
    _attentionState.level = 'none'
-   Status: "متركز ✅"
+   Status: "مركز ✅"
 
 📌 STEP 2: تشتت 2 ثانية (بدون تنبيه)
 ─────────────────────────────────────
@@ -239,7 +239,7 @@ onAttentiveDetected() triggered
 ├─→ clearAlerts() ✅
 ├─→ resetAttentionState() ✅
 ├─→ Video resumed: video.play() ✅
-└─→ Status: "متركز ✅" ✅
+└─→ Status: "مركز ✅" ✅
 
 ✅ FINAL RESULT:
    _attentionState.distracted = false

@@ -202,9 +202,9 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
       <div class="score-bar"><div class="score-fill" id="score-fill" style="width:100%"></div></div>
       <span class="score-num" id="score-num">—</span>
     </div>
-    <button id="stop-btn" onclick="stopTracking()">
-      <i class="fas fa-stop-circle"></i> إيقاف
-    </button>
+        <button id="stop-btn" onclick="pauseTracking()">
+            <i class="fas fa-pause-circle"></i> إيقاف مؤقت
+        </button>
   </div>
   <div id="distraction-banner" role="status" aria-live="polite" style="display:none;"></div>
 
@@ -338,13 +338,17 @@ var _attentionState = {
     level: 'none',
     lastAlertLevel: null,
     lastToastLevel: null,
+    shortAlertShown: false,
+    longAlertShown: false,
     eyeClosureCount: 0,
     eyeClosureEventActive: false,
     pausedByDistraction: false,
-    pausedByUser: false,
     consecutiveDistractionCount: 0,
     maxConsecutiveDistractions: 7,
 };
+
+// Session-level flags (user pause state etc.)
+var _sessionState = { pausedByUser: false };
 
 // ══════════════════════════════════════════════════════════════
 // Audio/TTS Management Module
@@ -1058,8 +1062,8 @@ function ensureAttentionBarStructure(){
             '<div class="score-bar"><div class="score-fill" id="score-fill" style="width:0%"></div></div>' +
             '<span class="score-num" id="score-num">—</span>' +
         '</div>' +
-        '<button id="stop-btn" onclick="stopTracking()">' +
-            '<i class="fas fa-stop-circle"></i> إيقاف' +
+        '<button id="stop-btn" onclick="pauseTracking()">' +
+            '<i class="fas fa-pause-circle"></i> إيقاف مؤقت' +
         '</button>';
     bar.style.display = 'flex';
     bar.style.alignItems = 'center';
@@ -1388,7 +1392,7 @@ function pauseTracking(){
     pauseFrameSending();  // Keep camera stream active
     if (ws) ws.close();
 
-    _attentionState.pausedByUser = true;
+    _sessionState.pausedByUser = true;
 
     // Stop lesson audio and highlighting
     pauseLessonAudio();
@@ -1404,7 +1408,7 @@ function pauseTracking(){
 function resumeTracking(){
     if (trackingActive) return;
 
-    _attentionState.pausedByUser = false;
+    _sessionState.pausedByUser = false;
 
     // Ensure camera is still active
     if (!_mediaStream) {
