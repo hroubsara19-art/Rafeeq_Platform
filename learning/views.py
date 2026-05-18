@@ -48,6 +48,29 @@ _ALLOWED_IMG_TYPES  = {'image/jpeg', 'image/png', 'image/gif', 'image/webp'}
 _MAX_IMG_SIZE       = 5 * 1024 * 1024
 _MAX_LESSON_TEXT    = 50_000
 
+# ══════════════════════════════════════════════════════════════
+# خريطة الأعمار المناسبة للصفوف (النظام المدرسي الفلسطيني)
+# ══════════════════════════════════════════════════════════════
+AGE_GRADE_MAPPING = {
+    'الصف الثاني': (7, 8),
+    'الصف الثالث': (8, 9),
+    'الصف الرابع': (9, 10),
+    'الصف الخامس': (10, 11),
+    'الصف السادس': (11, 12),
+    'الصف السابع': (12, 13),
+    'الصف الثامن': (13, 14),
+    'الصف التاسع': (14, 15),
+    'الصف العاشر': (15, 16),
+    'الصف الحادي عشر العلمي': (16, 17),
+    'الصف الحادي عشر الأدبي': (16, 17),
+    'الصف الحادي عشر الصناعي': (16, 17),
+    'الصف الحادي عشر التجاري': (16, 17),
+    'الصف الحادي عشر الزراعي': (16, 17),
+}
+
+# فترة التسجيل للسنة الدراسية الجديدة (شهر سبتمبر في فلسطين)
+REGISTRATION_MONTH = 9
+
 
 # ══════════════════════════════════════════════════════════════
 # دالة مساعدة: السنة الدراسية الحالية
@@ -62,6 +85,72 @@ def _current_academic_year() -> str:
     if today.month >= 9:
         return f'{today.year}-{today.year + 1}'
     return f'{today.year - 1}-{today.year}'
+
+
+# ══════════════════════════════════════════════════════════════
+# دوال التحقق من صلاحية نقل الطلاب
+# ══════════════════════════════════════════════════════════════
+
+def _is_registration_period() -> bool:
+    """
+    تتحقق هل التاريخ الحالي ضمن فترة التسجيل للسنة الدراسية الجديدة.
+    فترة التسجيل: شهر سبتمبر (9) فقط في النظام المدرسي الفلسطيني.
+    """
+    today = date.today()
+    return today.month == REGISTRATION_MONTH
+
+
+def _is_grade_appropriate_for_age(grade_name: str, age: int) -> tuple[bool, str]:
+    """
+    تتحقق هل الصف مناسب لعمر الطالب حسب النظام المدرسي الفلسطيني.
+
+    Args:
+        grade_name: اسم الصف (مثال: 'الصف الخامس')
+        age: عمر الطالب
+
+    Returns:
+        (is_appropriate, error_message)
+    """
+    if grade_name not in AGE_GRADE_MAPPING:
+        return False, f'الصف "{grade_name}" غير معروف في النظام المدرسي'
+
+    min_age, max_age = AGE_GRADE_MAPPING[grade_name]
+
+    if age < min_age:
+        return False, f'الصف "{grade_name}" غير مناسب لعمر الطالب ({age} سنة). الحد الأدنى للعمر هو {min_age} سنة.'
+
+    if age > max_age:
+        return False, f'الصف "{grade_name}" غير مناسب لعمر الطالب ({age} سنة). الحد الأقصى للعمر هو {max_age} سنة.'
+
+    return True, ''
+
+
+def _is_grade_progression_valid(current_grade: str, new_grade: str) -> tuple[bool, str]:
+    """
+    تتحقق هل الانتقال من الصف الحالي إلى الصف الجديد منطقي
+    (زيادة صف واحد فقط بعد نهاية السنة الدراسية).
+
+    Args:
+        current_grade: الصف الحالي
+        new_grade: الصف الجديد
+
+    Returns:
+        (is_valid, error_message)
+    """
+    if current_grade not in AGE_GRADE_MAPPING:
+        return True, ''  # الصف الحالي غير معروف، نسمح بالنقل
+
+    if new_grade not in AGE_GRADE_MAPPING:
+        return False, f'الصف "{new_grade}" غير معروف في النظام المدرسي'
+
+    current_min, current_max = AGE_GRADE_MAPPING[current_grade]
+    new_min, new_max = AGE_GRADE_MAPPING[new_grade]
+
+    # يجب أن يكون الصف الجديد أعلى بصف واحد فقط
+    if new_min != current_max:
+        return False, f'الانتقال من "{current_grade}" إلى "{new_grade}" غير منطقي. يجب زيادة صف واحد فقط بعد نهاية السنة الدراسية.'
+
+    return True, ''
 
 
 # ══════════════════════════════════════════════════════════════
@@ -1405,6 +1494,31 @@ def classroom_api(request):
             return JsonResponse(
                 {'error': 'هذا الطالب مُعيَّن لصف معلم آخر. لا يمكن إضافته.'}, status=400
             )
+
+        # ══════════════════════════════════════════════════════════════
+        # التحقق من فترة التسجيل
+        # ══════════════════════════════════════════════════════════════
+        if not _is_registration_period():
+            return JsonResponse({
+                'error': 'إضافة الطلاب متاحة فقط خلال فترة التسجيل (شهر سبتمبر)'
+            }, status=400)
+
+        # ══════════════════════════════════════════════════════════════
+        # التحقق من أن الصف مناسب لعمر الطالب
+        # ══════════════════════════════════════════════════════════════
+        is_appropriate, age_error = _is_grade_appropriate_for_age(cls.classname, student.age)
+        if not is_appropriate:
+            return JsonResponse({'error': age_error}, status=400)
+
+        # ══════════════════════════════════════════════════════════════
+        # التحقق من أن الانتقال منطقي (زيادة صف واحد فقط)
+        # ══════════════════════════════════════════════════════════════
+        current_grade = student.classid.classname if student.classid else None
+        if current_grade:
+            is_valid, progression_error = _is_grade_progression_valid(current_grade, cls.classname)
+            if not is_valid:
+                return JsonResponse({'error': progression_error}, status=400)
+
         student.classid = cls
         student.save(update_fields=['classid'])
         return JsonResponse({
@@ -1437,6 +1551,31 @@ def classroom_api(request):
         new_cls = Class.objects.filter(**_yr(classid=new_classid)).filter(_teacher_class_filter(teacher)).first()
         if not new_cls:
             return JsonResponse({'error': 'الصف غير موجود في صفوفك'}, status=404)
+
+        # ══════════════════════════════════════════════════════════════
+        # التحقق من فترة التسجيل
+        # ══════════════════════════════════════════════════════════════
+        if not _is_registration_period():
+            return JsonResponse({
+                'error': 'نقل الطلاب متاح فقط خلال فترة التسجيل (شهر سبتمبر)'
+            }, status=400)
+
+        # ══════════════════════════════════════════════════════════════
+        # التحقق من أن الصف الجديد مناسب لعمر الطالب
+        # ══════════════════════════════════════════════════════════════
+        is_appropriate, age_error = _is_grade_appropriate_for_age(new_cls.classname, student.age)
+        if not is_appropriate:
+            return JsonResponse({'error': age_error}, status=400)
+
+        # ══════════════════════════════════════════════════════════════
+        # التحقق من أن الانتقال منطقي (زيادة صف واحد فقط)
+        # ══════════════════════════════════════════════════════════════
+        current_grade = student.classid.classname if student.classid else None
+        if current_grade:
+            is_valid, progression_error = _is_grade_progression_valid(current_grade, new_cls.classname)
+            if not is_valid:
+                return JsonResponse({'error': progression_error}, status=400)
+
         old_class_name = student.classid.classname if student.classid else '—'
         student.classid = new_cls
         student.save(update_fields=['classid'])
@@ -1564,6 +1703,31 @@ def classroom_api(request):
         cls = Class.objects.filter(**_yr(classid=classid)).filter(_teacher_class_filter(teacher)).first()
         if not cls:
             return JsonResponse({'error': 'الصف غير موجود'}, status=404)
+
+        # ══════════════════════════════════════════════════════════════
+        # التحقق من فترة التسجيل
+        # ══════════════════════════════════════════════════════════════
+        if not _is_registration_period():
+            return JsonResponse({
+                'error': 'إضافة الطلاب متاحة فقط خلال فترة التسجيل (شهر سبتمبر)'
+            }, status=400)
+
+        # ══════════════════════════════════════════════════════════════
+        # التحقق من أن الصف مناسب لعمر الطالب
+        # ══════════════════════════════════════════════════════════════
+        is_appropriate, age_error = _is_grade_appropriate_for_age(cls.classname, student.age)
+        if not is_appropriate:
+            return JsonResponse({'error': age_error}, status=400)
+
+        # ══════════════════════════════════════════════════════════════
+        # التحقق من أن الانتقال منطقي (زيادة صف واحد فقط)
+        # ══════════════════════════════════════════════════════════════
+        current_grade = student.classid.classname if student.classid else None
+        if current_grade:
+            is_valid, progression_error = _is_grade_progression_valid(current_grade, cls.classname)
+            if not is_valid:
+                return JsonResponse({'error': progression_error}, status=400)
+
         student.classid = cls
         student.save(update_fields=['classid'])
         return JsonResponse({'ok': True, 'student_name': user.fullname})
@@ -1598,24 +1762,33 @@ def classroom_api(request):
                 'class_name': st.classid.classname if st.classid else 'غير محدد',
             })
         return JsonResponse({'ok': True, 'students': result, 'count': len(result)})
- 
     elif action == 'add_students_bulk':
         # ── إضافة مجموعة طلاب للصف دفعة واحدة ─────────────────
         student_ids = data.get('student_ids', [])
         classid     = data.get('classid')
- 
+
         if not student_ids:
             return JsonResponse({'error': 'لم يتم تحديد أي طلاب'}, status=400)
         if not classid:
             return JsonResponse({'error': 'يجب تحديد الصف المستهدف'}, status=400)
- 
+
         cls = Class.objects.filter(**_yr(classid=classid)).filter(_teacher_class_filter(teacher)).first()
         if not cls:
             return JsonResponse({'error': 'الصف غير موجود أو لا يخصك'}, status=404)
- 
+
+        # ══════════════════════════════════════════════════════════════
+        # التحقق من فترة التسجيل
+        # ══════════════════════════════════════════════════════════════
+        if not _is_registration_period():
+            return JsonResponse({
+                'error': 'إضافة الطلاب متاحة فقط خلال فترة التسجيل (شهر سبتمبر)'
+            }, status=400)
+
         added_count   = 0
         skipped_count = 0
- 
+        age_skip_count = 0
+        progression_skip_count = 0
+
         for sid in student_ids:
             student = Student.objects.filter(
                 studentid=sid
@@ -1628,19 +1801,43 @@ def classroom_api(request):
                     and student.classid.teacherid != teacher):
                 skipped_count += 1
                 continue
+
+            # ══════════════════════════════════════════════════════════════
+            # التحقق من أن الصف مناسب لعمر الطالب
+            # ══════════════════════════════════════════════════════════════
+            is_appropriate, age_error = _is_grade_appropriate_for_age(cls.classname, student.age)
+            if not is_appropriate:
+                age_skip_count += 1
+                continue
+
+            # ══════════════════════════════════════════════════════════════
+            # التحقق من أن الانتقال منطقي (زيادة صف واحد فقط)
+            # ══════════════════════════════════════════════════════════════
+            current_grade = student.classid.classname if student.classid else None
+            if current_grade:
+                is_valid, progression_error = _is_grade_progression_valid(current_grade, cls.classname)
+                if not is_valid:
+                    progression_skip_count += 1
+                    continue
+
             student.classid = cls
             student.save(update_fields=['classid'])
             added_count += 1
- 
+
         msg = f'تم إضافة {added_count} طالب إلى {cls.classname}.'
         if skipped_count:
             msg += f' تم تخطي {skipped_count} (مُعيَّنون لمعلمين آخرين).'
-        return JsonResponse({'ok': True, 'message': msg, 'added': added_count, 'skipped': skipped_count})
- 
+        if age_skip_count:
+            msg += f' تم تخطي {age_skip_count} (الصف غير مناسب لعمرهم).'
+        if progression_skip_count:
+            msg += f' تم تخطي {progression_skip_count} (الانتقال غير منطقي).'
+        return JsonResponse({'ok': True, 'message': msg, 'added': added_count, 'skipped': skipped_count + age_skip_count + progression_skip_count})
+
     return JsonResponse({'error': 'action غير معروف'}, status=400)
- 
+
 # ══════════════════════════════════════════════════════════════
 # رفع مقرر PDF
+# ... (rest of the code remains the same)
 # ══════════════════════════════════════════════════════════════
 
 @teacher_required
