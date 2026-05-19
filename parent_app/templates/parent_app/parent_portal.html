@@ -293,6 +293,10 @@ body {
      data-unread-count="{{ unread_count|default:0 }}"
      style="display:none;"></div>
 
+<script type="application/json" id="chart-data-json">
+{{ chart_data|safe }}
+</script>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -327,27 +331,57 @@ body {
             window._progressChart.destroy();
         }
         var ctx = canvas.getContext('2d');
+        
+        // استخدام البيانات الحقيقية من القالب
+        var chartDataElement = document.getElementById('chart-data-json');
+        var chartData = chartDataElement ? JSON.parse(chartDataElement.textContent) : {
+            labels: ['الأسبوع 1', 'الأسبوع 2', 'الأسبوع 3', 'الأسبوع 4'],
+            attention_scores: [0, 0, 0, 0],
+            test_scores: [0, 0, 0, 0]
+        };
+        
         window._progressChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: ['الأسبوع 1', 'الأسبوع 2', 'الأسبوع 3', 'الأسبوع 4'],
-                datasets: [{
-                    label: 'مستوى التفاعل',
-                    data: [65, 78, 72, 90],
-                    borderColor: '#1d4ed8',
-                    backgroundColor: 'rgba(29,78,216,0.07)',
-                    borderWidth: 2.5,
-                    pointBackgroundColor: '#1d4ed8',
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    fill: true,
-                    tension: 0.4
-                }]
+                labels: chartData.labels,
+                datasets: [
+                    {
+                        label: 'مستوى التركيز',
+                        data: chartData.attention_scores,
+                        borderColor: '#1d4ed8',
+                        backgroundColor: 'rgba(29,78,216,0.07)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#1d4ed8',
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'درجات الاختبارات',
+                        data: chartData.test_scores,
+                        borderColor: '#0f766e',
+                        backgroundColor: 'rgba(15,118,110,0.07)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#0f766e',
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 plugins: {
-                    legend: { display: false },
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            font: { family: 'Cairo', size: 12 },
+                            color: '#475569'
+                        }
+                    },
                     tooltip: { rtl: true, bodyFont: { family: 'Cairo' }, titleFont: { family: 'Cairo' } }
                 },
                 scales: {

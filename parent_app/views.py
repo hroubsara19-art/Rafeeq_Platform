@@ -1,6 +1,7 @@
 """
 parent_app/views.py — مُحدَّث
 """
+import json
 import logging
 import os
 import re
@@ -94,6 +95,7 @@ def parent_portal(request):
     subject_reports = []
     if reports:
         from collections import defaultdict
+        from learning.models import Lessoncontent
         subj_map = defaultdict(list)
         for r in reports:
             if r.lessonid and r.lessonid.subjectid:
@@ -101,22 +103,87 @@ def parent_portal(request):
         for subj_name, reps in subj_map.items():
             scores_list = [r.testscore for r in reps if r.testscore is not None]
             avg_g  = round(sum(scores_list) / len(scores_list), 1) if scores_list else 0
+            # حساب نسبة الإنجاز بناءً على عدد الدروس المكتملة فعلياً مقارنة بالعدد الكلي للدروس في المادة
+            subject_id = reps[0].lessonid.subjectid.subjectid if reps[0].lessonid and reps[0].lessonid.subjectid else None
+            total_lessons = Lessoncontent.objects.filter(subjectid=subject_id).count() if subject_id else 0
+            completed_lessons = len(set(r.lessonid.lessonid for r in reps if r.lessonid))
+            completion = round((completed_lessons / total_lessons * 100), 1) if total_lessons > 0 else 0
+            completion = min(100, completion)
             subject_reports.append({
                 'subject_name': subj_name,
-                'completion':   min(100, len(reps) * 20),
+                'completion':   completion,
                 'grade':        f'{avg_g}%',
             })
 
-    # ملاحظات المعلمين (إشعارات parent_grade + parent_attention)
-    teacher_notes = [
-        {
-            'teacher_name': 'النظام',
-            'date':         n.created_at.strftime('%Y-%m-%d'),
-            'text':         n.body,
+    # ملاحظات المعلمين (إشعارات parent_grade + parent_attention + teachercomments من التقارير)
+    teacher_notes = []
+    # أولاً: من الإشعارات
+    for n in all_notifications:
+        if n.notif_type in ('parent_attention', 'parent_grade'):
+            teacher_name = getattr(n, 'sender_name', None) or 'النظام'
+            if hasattr(n, 'sender') and n.sender:
+                teacher_name = n.sender.fullname if hasattr(n.sender, 'fullname') else str(n.sender)
+            teacher_notes.append({
+                'teacher_name': teacher_name,
+                'date':         n.created_at.strftime('%Y-%m-%d'),
+                'text':         n.body,
+            })
+    # ثانياً: من تعليقات المعلمين في التقارير (إذا وجدت)
+    if reports:
+        for r in reports[:5]:
+            if r.teachercomments and r.teachercomments.strip():
+                teacher_name = 'المعلم'
+                if r.lessonid and r.lessonid.teacherid and r.lessonid.teacherid.userid:
+                    teacher_name = r.lessonid.teacherid.userid.fullname
+                teacher_notes.append({
+                    'teacher_name': teacher_name,
+                    'date':         r.reportdate.strftime('%Y-%m-%d') if r.reportdate else '',
+                    'text':         r.teachercomments,
+                })
+    # ترتيب الملاحظات حسب التاريخ (الأحدث أولاً)
+    teacher_notes.sort(key=lambda x: x['date'], reverse=True)
+    teacher_notes = teacher_notes[:5]
+
+    # ── بيانات الرسم البياني للتركيز (بيانات حقيقية) ───────────────
+    chart_data = {
+        'labels': [],
+        'attention_scores': [],
+        'test_scores': [],
+    }
+    if reports:
+        # تجميع البيانات حسب الأسبوع
+        from collections import defaultdict
+        from datetime import datetime, timedelta
+        weekly_data = defaultdict(lambda: {'attention': [], 'tests': []})
+        
+        for r in reports:
+            if r.reportdate:
+                week_start = r.reportdate - timedelta(days=r.reportdate.weekday())
+                week_key = week_start.strftime('%Y-%m-%d')
+                if r.avgattentionscore is not None:
+                    weekly_data[week_key]['attention'].append(r.avgattentionscore)
+                if r.testscore is not None:
+                    weekly_data[week_key]['tests'].append(r.testscore)
+        
+        # ترتيب الأسابيع وحساب المتوسطات
+        sorted_weeks = sorted(weekly_data.keys())[:4]  # آخر 4 أسابيع
+        for week in sorted_weeks:
+            week_label = datetime.strptime(week, '%Y-%m-%d').strftime('%d/%m')
+            chart_data['labels'].append(week_label)
+            att_scores = weekly_data[week]['attention']
+            test_scores = weekly_data[week]['tests']
+            avg_att = round(sum(att_scores) / len(att_scores), 1) if att_scores else 0
+            avg_test = round(sum(test_scores) / len(test_scores), 1) if test_scores else 0
+            chart_data['attention_scores'].append(avg_att)
+            chart_data['test_scores'].append(avg_test)
+    
+    # إذا لم يكن هناك بيانات، استخدم بيانات فارغة
+    if not chart_data['labels']:
+        chart_data = {
+            'labels': ['الأسبوع 1', 'الأسبوع 2', 'الأسبوع 3', 'الأسبوع 4'],
+            'attention_scores': [0, 0, 0, 0],
+            'test_scores': [0, 0, 0, 0],
         }
-        for n in all_notifications
-        if n.notif_type in ('parent_attention', 'parent_grade')
-    ][:5]
 
     return render(request, 'parent_app/parent_portal.html', {
         'parent':                parent,
@@ -128,6 +195,7 @@ def parent_portal(request):
         'unread_notifications':  unread_notifications,
         'unread_count':          len(unread_notifications),
         'teacher_notes':         teacher_notes,
+        'chart_data':            json.dumps(chart_data, ensure_ascii=False),
     })
 
 
