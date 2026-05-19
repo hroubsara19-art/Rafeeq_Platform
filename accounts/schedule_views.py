@@ -20,8 +20,12 @@ from django.views.decorators.http import require_POST
 from accounts.models import ScheduleEntry, Notification
 from learning.models import Teacher, Student, Parent, Subject, Class
 
-
 # ══════════════════════════════════════════════════════════════
+# نطاقات منطقية لوقت المواعيد
+# ══════════════════════════════════════════════════════════════
+SCHEDULE_TIME_MIN = time(7, 0)
+SCHEDULE_TIME_MAX = time(21, 0)
+
 # مساعدات
 # ══════════════════════════════════════════════════════════════
 def _week_bounds(offset=0):
@@ -230,6 +234,10 @@ def schedule_add(request):
 
     if s_new >= e_new:
         return JsonResponse({'error': 'وقت البداية يجب أن يكون قبل وقت النهاية'}, status=400)
+    if s_new < SCHEDULE_TIME_MIN or s_new >= SCHEDULE_TIME_MAX:
+        return JsonResponse({'error': 'يجب أن يبدأ الموعد بين 07:00 و21:00'}, status=400)
+    if e_new <= SCHEDULE_TIME_MIN or e_new > SCHEDULE_TIME_MAX:
+        return JsonResponse({'error': 'يجب أن ينتهي الموعد بين 07:00 و21:00'}, status=400)
 
     # منع التاريخ الماضي
     if ed < date.today():
@@ -332,6 +340,10 @@ def schedule_edit(request, entry_id):
 
     if s_new >= e_new:
         return JsonResponse({'error': 'وقت البداية يجب أن يكون قبل وقت النهاية'}, status=400)
+    if s_new < SCHEDULE_TIME_MIN or s_new >= SCHEDULE_TIME_MAX:
+        return JsonResponse({'error': 'يجب أن يبدأ الموعد بين 07:00 و21:00'}, status=400)
+    if e_new <= SCHEDULE_TIME_MIN or e_new > SCHEDULE_TIME_MAX:
+        return JsonResponse({'error': 'يجب أن ينتهي الموعد بين 07:00 و21:00'}, status=400)
 
     # منع التاريخ الماضي
     if ed < date.today():

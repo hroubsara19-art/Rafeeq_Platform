@@ -94,11 +94,11 @@
         <div class="row g-2 mb-3">
           <div class="col">
             <label class="form-label fw-bold small">من</label>
-            <input type="time" class="form-control" id="startTime">
+            <input type="time" class="form-control" id="startTime" min="07:00" max="21:00">
           </div>
           <div class="col">
             <label class="form-label fw-bold small">إلى</label>
-            <input type="time" class="form-control" id="endTime">
+            <input type="time" class="form-control" id="endTime" min="07:00" max="21:00">
           </div>
         </div>
 
@@ -258,6 +258,8 @@ var DAYS_AR     = ['السبت','الأحد','الإثنين','الثلاثاء'
 var WEEK_DAYS   = 6;
 var HOURS       = []; for(var h=7;h<=21;h++) HOURS.push(h);
 var CAL_START   = 7, CAL_END = 21, SLOT_H = 60, TIME_COL_W = 64;
+var TIME_MIN    = '07:00';
+var TIME_MAX    = '21:00';
 
 // ─── جلب البيانات ─────────────────────────────────────────
 function loadWeek(offset){
@@ -563,6 +565,14 @@ function doSave(force){
   if(startTime&&endTime&&startTime>=endTime){
     mark('endTime',true);
     showConflictAlert('وقت البداية يجب أن يكون قبل وقت النهاية.','warning'); hasErr=true;
+  }
+  if(startTime && (startTime < TIME_MIN || startTime >= TIME_MAX)){
+    mark('startTime',true);
+    showConflictAlert('يجب أن يبدأ الموعد بين 07:00 و21:00. لا يمكن تحديد موعد منتصف الليل أو في الصباح الباكر جدًا.','danger'); hasErr=true;
+  }
+  if(endTime && (endTime <= TIME_MIN || endTime > TIME_MAX)){
+    mark('endTime',true);
+    showConflictAlert('يجب أن ينتهي الموعد بين 07:00 و21:00. لا يمكن تحديد موعد منتصف الليل أو في الصباح الباكر جدًا.','danger'); hasErr=true;
   }
   if(entryDate && new Date(entryDate).getDay()===5){
     mark('entryDate',true);
