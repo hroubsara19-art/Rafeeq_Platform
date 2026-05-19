@@ -334,6 +334,7 @@ var _mediaStream = null, _frameInterval = null;
 var _savedWsUrl = null;
 var _sessionState = {
     pausedByUser: false,
+    audioPausedByUser: false,
 };
 var _attentionState = {
     distracted: false,
@@ -347,8 +348,6 @@ var _attentionState = {
     pausedByUser: false,
     significantDistractionCounted: false,
     totalSignificantDistractionCount: 0,
-    consecutiveDistractionCount: 0,
-    maxConsecutiveDistractions: 7,
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -615,29 +614,28 @@ var AudioManager = (function(){
             
             // Track lesson audio state and link to attention tracking
             var audio = document.getElementById('topAudio');
-            if (audio) {
-                audio.addEventListener('play', function(){
-                    _state.lessonAudioPlaying = true;
-                    // Resume attention tracking when audio plays
-                    if (!trackingActive) {
-                        resumeTracking();
-                    }
-                });
-                audio.addEventListener('pause', function(){
-                    _state.lessonAudioPlaying = false;
-                    // Pause attention tracking when audio pauses
-                    if (trackingActive) {
-                        pauseTracking();
-                    }
-                });
-                audio.addEventListener('ended', function(){
-                    _state.lessonAudioPlaying = false;
-                    // Pause attention tracking when audio ends
-                    if (trackingActive) {
-                        pauseTracking();
-                    }
-                });
-            }
+            // No automatic tracking state changes from user or system audio controls.
+        // Audio playback is managed separately from attention tracking.
+        if (audio) {
+            audio.addEventListener('play', function(){
+                _state.lessonAudioPlaying = true;
+                _sessionState.audioPausedByUser = false;
+                _sessionState.audioPausedBySystem = false;
+                resumeWordHighlight();
+            });
+            audio.addEventListener('pause', function(){
+                _state.lessonAudioPlaying = false;
+                if (!_sessionState.audioPausedBySystem) {
+                    _sessionState.audioPausedByUser = true;
+                }
+                pauseWordHighlight();
+            });
+            audio.addEventListener('ended', function(){
+                _state.lessonAudioPlaying = false;
+                _sessionState.audioPausedByUser = false;
+                _sessionState.audioPausedBySystem = false;
+            });
+        }
         },
         
         playAlert: function(msg, isFirm){
@@ -822,9 +820,7 @@ function processAttentionState(s) {
             _attentionState.lastAlertLevel = null;
             _attentionState.lastToastLevel = null;
             _attentionState.significantDistractionCounted = false;
-            // Increment consecutive distraction counter
-            _attentionState.consecutiveDistractionCount++;
-            console.log('[Attention] Consecutive distractions: ' + _attentionState.consecutiveDistractionCount + '/' + _attentionState.maxConsecutiveDistractions);
+            console.log('[Attention] Distraction started');
         }
         duration = (now - (_attentionState.startTime || now)) / 1000;
         var level = s.is_significant_distraction ? 'long'
@@ -848,12 +844,6 @@ function processAttentionState(s) {
                 showDistractionToast(toastMsg, toastLevel !== 'low');
             }
         }
-
-        // Check if consecutive distractions reached limit
-        if (_attentionState.consecutiveDistractionCount >= _attentionState.maxConsecutiveDistractions) {
-            handleConsecutiveDistractionStop(s.student_name);
-            return;
-        }
     } else {
         if (_attentionState.distracted) {
             showDistractionToast('جميل، لقد عدت للتركيز. استمر الآن!', false);
@@ -865,8 +855,6 @@ function processAttentionState(s) {
         _attentionState.lastToastLevel = null;
         _attentionState.eyeClosureEventActive = false;
         _attentionState.significantDistractionCounted = false;
-        // Reset consecutive distraction counter when attention returns
-        _attentionState.consecutiveDistractionCount = 0;
         // Always resume audio when attention returns (unless paused by user)
         _attentionState.pausedByDistraction = false;
         resumeLessonAudio();
@@ -896,6 +884,7 @@ function feedbackForDistractionLevel(level, s, duration) {
 function pauseLessonAudio() {
     var audio = document.getElementById('topAudio');
     if (audio && !audio.paused) {
+        _sessionState.audioPausedBySystem = true;
         audio.pause();
     }
     pauseWordHighlight();
@@ -903,8 +892,8 @@ function pauseLessonAudio() {
 
 function resumeLessonAudio() {
     var audio = document.getElementById('topAudio');
-    // تشغيل الصوت مباشرة إذا كان التتبع نشطاً ولم يوقفه المستخدم
-    if (audio && audio.paused && trackingActive && !_sessionState.pausedByUser) {
+    // تشغيل الصوت إذا كان التتبع نشطاً ولم يوقفه المستخدم يدوياً.
+    if (audio && audio.paused && trackingActive && !_sessionState.pausedByUser && !_sessionState.audioPausedByUser) {
         audio.play().catch(function(e){
             console.log('[Audio] Autoplay blocked:', e);
         });
@@ -1160,10 +1149,11 @@ function connectWebSocket(wsUrl){
         var fn = firstAttentionName(s.student_name || '');
         var neg = significant ? 'تشتت ملحوظ في الجلسة' : (warning ? 'حاول ترجع للتركيز' : 'لحظة بسيطة بعيد عن الدرس');
         var label = s.is_attentive ? 'منتبه ✅' : (fn ? (fn + '، ' + neg) : neg);
+        var displayScore = s.is_attentive ? s.attention_score : 0;
 
         updateBar(s.is_attentive ? 'attentive' : ((warning || significant) ? 'distracted' : ''),
                   label,
-                  s.attention_score);
+                  displayScore);
         updateDistractionBanner(s);
 
         // نظام التحكم في الوسائط بناءً على مستوى التشتت
@@ -1304,19 +1294,8 @@ function handleMediaControl(s) {
         return;
     }
 
-    if (level === 'medium' || level === 'high') {
-        if (!audio.paused) {
-            audio.pause();
-            if (level === 'high') {
-                container.classList.add('shake-ui');
-                setTimeout(function(){ container.classList.remove('shake-ui'); }, 500);
-            }
-        }
-    } else if (s.is_attentive || level === 'low' || level === 'none') {
-        if (audio.paused && trackingActive) {
-            audio.play().catch(function(e){ console.log('Autoplay blocked'); });
-        }
-    }
+    // Don't handle media control here - let the attention state logic handle it
+    // This function is now a no-op to avoid conflicts with processAttentionState
 }
 
 function handleEyeClosureAlert(s) {
@@ -1430,8 +1409,8 @@ function stopTracking(){
     clearDistractionBanner();
     pauseLessonAudio();
     
-    trackingActive = false; 
-    stopFrameSending(); 
+    trackingActive = false;
+    stopFrameSending();
     if (ws) ws.close();
     
     _attentionState = {
@@ -1444,11 +1423,15 @@ function stopTracking(){
         eyeClosureEventActive: false,
         pausedByDistraction: false,
         pausedByUser: false,
+        significantDistractionCounted: false,
+        totalSignificantDistractionCount: 0,
+        consecutiveDistractionCount: 0,
+        maxConsecutiveDistractions: 7,
     };
-    
+
     var btn = document.getElementById('stop-btn');
     if (btn) btn.innerHTML = '<i class="fas fa-check"></i> تم';
-    
+
     fetch("{% url 'student:attention_stop' %}", {
         method:'POST',
         headers:{'Content-Type':'application/json','X-CSRFToken':CSRF_TOKEN},
@@ -1465,22 +1448,23 @@ function stopTracking(){
                 lesson_id:        LESSON_ID,
                 avg_attention:    summary.avg_attention    || 0,
                 inattention_count: summary.inattention_count || 0,
-                session_minutes:  summary.session_minutes  || 0
+                session_minutes:  summary.session_minutes   || 0
             })
-        }).then(function(){
-            return fetch("{% url 'student:attention_alert' %}", {
-                method:'POST',
-                headers:{'Content-Type':'application/json','X-CSRFToken':CSRF_TOKEN},
-                body: JSON.stringify({
-                    lesson_id: LESSON_ID,
-                    avg_attention: summary.avg_attention || 0,
-                    inattention_count: summary.inattention_count || 0
-                })
-            });
         });
-    }).catch(function(){});
+    })
+    .then(function(){
+        return fetch("{% url 'student:attention_alert' %}", {
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-CSRFToken':CSRF_TOKEN},
+            body: JSON.stringify({
+                lesson_id: LESSON_ID,
+                avg_attention: 0,
+                inattention_count: 0
+            })
+        });
+    })
+    .catch(function(){});
 }
-
 function showSummary(s){
     if (!s) return;
     document.getElementById('sum-score').textContent = s.avg_attention     || '—';

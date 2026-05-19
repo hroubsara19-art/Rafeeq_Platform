@@ -273,6 +273,7 @@ class AttentionTracker:
             if self._attentive_streak >= ATTENTIVE_RESET_STREAK:
                 self._distract_start = None
                 self._warning_nudge_sent = False
+                self._significant_distraction_active = False
                 self._attentive_streak = 0
                 return None, 0.0, False, False
             # منتبه مؤقتاً لكن المؤلم لا يُصفّر بعد — لا تنبيهات حتى يثبت التركيز
@@ -290,12 +291,15 @@ class AttentionTracker:
         warning = distract_dur >= DISTRACTION_WARNING_SECONDS
         significant = distract_dur >= DISTRACTION_THRESHOLD_SECONDS
 
+        if significant and not self._significant_distraction_active:
+            self._significant_distraction_active = True
+            self._inattention_count += 1
+
         alert = None
         if significant and now - self._last_alert >= ALERT_COOLDOWN:
             alert = build_alert(self.student_name, cause, score)
             if alert:
                 self._last_alert = now
-                self._inattention_count += 1
                 self._distract_start = now
                 self._warning_nudge_sent = False
         elif warning and not significant and not self._warning_nudge_sent:
@@ -470,6 +474,7 @@ class AttentionTracker:
         self._distract_start    = None   # وقت بداية التشتت
         self._last_alert        = 0.0
         self._warning_nudge_sent = False  # تنبيه تحذيري واحد لكل فترة تشتت قبل «الملحوظ»
+        self._significant_distraction_active = False  # عد كل تشتت ملحوظ مرة واحدة
         self._inattention_count = 0
         self._session_start     = None
         self._score_buffer      = []     # لحساب المتوسط
