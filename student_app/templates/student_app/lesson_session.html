@@ -232,7 +232,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 <div class="session-wrap" dir="rtl">
 
   
-  <div id="attention-bar">
+  <div id="attention-bar" style="display:none;">
     <div class="att-dot"></div>
     <span class="att-label" id="att-label">جاري التهيئة…</span>
     <div class="score-wrap">
@@ -243,6 +243,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
       <i class="fas fa-stop-circle"></i> إيقاف
     </button>
   </div>
+
   <div id="distraction-banner" role="status" aria-live="polite" style="display:none;"></div>
 
   <a href="{% url 'student:view_lesson_student' lesson.pk %}" class="back-link">
@@ -325,6 +326,29 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   background:linear-gradient(135deg,var(--sky-dk),var(--sky));color:#fff;border-radius:50px;
   padding:.8rem 1.75rem;font-size:.95rem;font-weight:700;box-shadow:0 8px 32px rgba(29,78,216,0.3);
   display:none;z-index:9999;max-width:90vw;text-align:center;"></div>
+
+<div id="distraction-popup" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:linear-gradient(135deg,#1e293b,#334155);color:#fff;border-radius:16px;
+  padding:2rem;box-shadow:0 16px 64px rgba(0,0,0,0.4);z-index:10000;max-width:400px;
+  display:none;text-align:center;">
+  <div style="font-size:1.5rem;margin-bottom:1rem;">⚠️</div>
+  <h3 style="margin:0 0 1rem 0;font-size:1.2rem;">فقدت تركيزك</h3>
+  <p style="margin:0 0 1.5rem 0;color:#cbd5e1;line-height:1.6;">
+    يمكنك إعادة آخر خمس ثوانٍ للحفاظ على اتصالك بسياق الدرس.
+  </p>
+  <div style="display:flex;gap:1rem;justify-content:center;">
+    <button id="rewind-5s-btn" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;
+      border:none;padding:0.75rem 1.5rem;border-radius:8px;cursor:pointer;font-weight:600;
+      transition:all 0.2s;">
+      إعادة 5 ثوانٍ
+    </button>
+    <button id="close-popup-btn" style="background:linear-gradient(135deg,#64748b,#475569);color:#fff;
+      border:none;padding:0.75rem 1.5rem;border-radius:8px;cursor:pointer;font-weight:600;
+      transition:all 0.2s;">
+      متابعة
+    </button>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -755,7 +779,7 @@ var AudioManager = (function(){
             var audio = document.getElementById('topAudio');
             if (audio) {
                 audio.pause();
-                audio.currentTime = 0;
+                // لا نرجع الصوت للبداية - نكتفي بالإيقاف المؤقت
             }
             
             // Stop sync
@@ -798,6 +822,85 @@ function firstAttentionName(full){
     var p = full.trim().split(/\s+/);
     return p[0] || '';
 }
+
+// دالة للتحكم في الصوت والتتبع معاً
+function toggleAudioAndTracking(){
+    var audio = document.getElementById('topAudio');
+    if (!audio) return;
+
+    if (audio.paused) {
+        // تشغيل الصوت والتتبع
+        audio.play();
+        _sessionState.audioPausedByUser = false;
+        _attentionState.pausedByUser = false;
+        if (!trackingActive) {
+            resumeTracking();
+        }
+    } else {
+        // إيقاف الصوت والتتبع معاً
+        audio.pause();
+        _sessionState.audioPausedByUser = true;
+        _attentionState.pausedByUser = true;
+        // إيقاف التتبع فعلياً عند الإيقاف اليدوي
+        if (trackingActive) {
+            stopTracking();
+        }
+    }
+}
+
+// دعم زر المسافة للتحكم في الصوت والتتبع
+document.addEventListener('keydown', function(e){
+    // زر المسافة (Space)
+    if (e.code === 'Space') {
+        e.preventDefault(); // منع التمرير
+        toggleAudioAndTracking();
+    }
+});
+
+// مراقبة تشغيل/إيقاف الصوت من زر التسجيل في الشاشة
+document.addEventListener('DOMContentLoaded', function(){
+    var audio = document.getElementById('topAudio');
+    if (audio) {
+        audio.addEventListener('play', function(){
+            _sessionState.audioPausedByUser = false;
+            _attentionState.pausedByUser = false;
+            if (!trackingActive) {
+                resumeTracking();
+            }
+        });
+
+        audio.addEventListener('pause', function(){
+            // لا نوقف التتبع إذا كان الإيقاف بسبب التنبيه الصوتي
+            if (!_attentionState.audioPausedForAlert) {
+                _sessionState.audioPausedByUser = true;
+                _attentionState.pausedByUser = true;
+                // إيقاف التتبع فعلياً عند الإيقاف اليدوي
+                if (trackingActive) {
+                    stopTracking();
+                }
+            }
+        });
+    }
+
+    // event listeners لأزرار النافذة المنبثقة
+    var rewindBtn = document.getElementById('rewind-5s-btn');
+    if (rewindBtn) {
+        rewindBtn.addEventListener('click', rewindAudio5Seconds);
+    }
+
+    var closePopupBtn = document.getElementById('close-popup-btn');
+    if (closePopupBtn) {
+        closePopupBtn.addEventListener('click', function(){
+            hideDistractionPopup();
+            // إعادة تشغيل الصوت تلقائياً عند إغلاق النافذة
+            var audio = document.getElementById('topAudio');
+            if (audio && audio.paused && _attentionState.audioPausedForAlert) {
+                audio.play();
+                _attentionState.audioPausedForAlert = false;
+            }
+        });
+    }
+});
 
 function distractionBannerText(s){
     var fn = firstAttentionName(s.student_name || '') || 'صديقي';
@@ -900,17 +1003,47 @@ function processAttentionState(s) {
 
         feedbackForDistractionLevel(level, s, duration);
 
-        var toastLevel = String(s.distraction_level || 'none').toLowerCase();
-        if (toastLevel !== 'none' && _attentionState.lastToastLevel !== toastLevel) {
-            _attentionState.lastToastLevel = toastLevel;
+        // تنبيه نصي بعد 5 ثواني من التشتت
+        if (duration >= 5.0 && _attentionState.lastToastLevel !== 'text_alert') {
+            _attentionState.lastToastLevel = 'text_alert';
             var toastMsg = distractionToastMessage(s);
             if (toastMsg) {
-                showDistractionToast(toastMsg, toastLevel !== 'low');
+                showDistractionToast(toastMsg, true);
+            }
+        }
+
+        // تنبيه صوتي بعد 7 ثواني من التشتت مع إيقاف الصوت فقط
+        if (duration >= 7.0 && _attentionState.lastAlertLevel !== 'audio_alert') {
+            _attentionState.lastAlertLevel = 'audio_alert';
+            var toastMsg = distractionToastMessage(s);
+            if (toastMsg) {
+                // إيقاف الصوت قبل التنبيه الصوتي لمنع التداخل
+                var audio = document.getElementById('topAudio');
+                if (audio && !audio.paused) {
+                    audio.pause();
+                    _attentionState.audioPausedForAlert = true;
+                    // التتبع يستمر في العمل - لا نوقفه
+                }
+                AudioManager.playAlert(toastMsg, true);
+                // إظهار نافذة منبثقة مع خيار إعادة آخر 5 ثوانٍ
+                showDistractionPopup();
             }
         }
     } else {
         if (_attentionState.distracted) {
-            showDistractionToast('جميل، لقد عدت للتركيز. استمر الآن!', false);
+            // عودة عمل الصوت تلقائياً عند عودة التركيز (التتبع يستمر)
+            if (_attentionState.audioPausedForAlert) {
+                var audio = document.getElementById('topAudio');
+                if (audio && audio.paused) {
+                    audio.play();
+                    _attentionState.audioPausedForAlert = false;
+                    // التتبع يستمر في العمل - لا نحتاج لاستئنافه
+                }
+            }
+            // إغلاق النافذة المنبثقة بعد ثانية إضافية عند عودة التركيز
+            setTimeout(function(){
+                hideDistractionPopup();
+            }, 1000);
         }
         _attentionState.distracted = false;
         _attentionState.level = 'none';
@@ -932,13 +1065,13 @@ function feedbackForDistractionLevel(level, s, duration) {
         // لا نوقف الصوت للتشتت القصير، فقط نوضح الحالة على الشريط.
         pulseAttentionBar('distracted');
     } else if (level === 'medium') {
-        pauseLessonAudio();
+        // لا نوقف الصوت هنا - نوقفه فقط بعد 7 ثواني في التنبيه الصوتي
         _attentionState.pausedByDistraction = true;
         if (duration >= 3) {
             pulseAttentionBar('distracted');
         }
     } else if (level === 'long') {
-        pauseLessonAudio();
+        // لا نوقف الصوت هنا - نوقفه فقط بعد 7 ثواني في التنبيه الصوتي
         _attentionState.pausedByDistraction = true;
         pulseAttentionBar('distracted');
         shakeUI();
@@ -1083,51 +1216,13 @@ function openCameraSettings(){
 }
 
 function ensureAttentionBarStructure(){
-    var bar = document.getElementById('attention-bar');
-    if (!bar) return;
-    if (document.getElementById('att-label') && document.getElementById('score-fill') && document.getElementById('score-num')) {
-        bar.style.display = 'flex';
-        bar.style.alignItems = 'center';
-        bar.style.opacity = '1';
-        return;
-    }
-    bar.innerHTML = '<div class="att-dot"></div>' +
-        '<span class="att-label" id="att-label">جاري التهيئة…</span>' +
-        '<div class="score-wrap">' +
-            '<div class="score-bar"><div class="score-fill" id="score-fill" style="width:0%"></div></div>' +
-            '<span class="score-num" id="score-num">—</span>' +
-        '</div>' +
-        '<button id="stop-btn" onclick="stopTracking()">' +
-            '<i class="fas fa-stop-circle"></i> إيقاف' +
-        '</button>';
-    bar.style.display = 'flex';
-    bar.style.alignItems = 'center';
-    bar.style.opacity = '1';
+    // الشريط العلوي مخفي، لا نحتاج لضبطه
+    return;
 }
 
 function hideAttentionBar(isError = false){
     clearDistractionBanner();
-    ensureAttentionBarStructure();
-    var bar = document.getElementById('attention-bar');
-    var lbl = document.getElementById('att-label');
-    var fill = document.getElementById('score-fill');
-    var num = document.getElementById('score-num');
-    if (bar){
-        bar.className = 'distracted';
-    }
-    if (lbl){
-        lbl.textContent = isError
-            ? 'جاري محاولة استعادة تتبع الانتباه...'
-            : 'تتبع الانتباه معطّل — الجلسة التعليمية جارية';
-        lbl.style.color = isError ? 'var(--rose)' : 'var(--muted)';
-    }
-    if (fill){
-        fill.style.width = '0%';
-        fill.style.background = 'var(--rose)';
-    }
-    if (num){
-        num.textContent = '—';
-    }
+    // الشريط مخفي، لا نحتاج لضبطه
     trackingActive = false;
 }
 
@@ -1223,10 +1318,10 @@ function connectWebSocket(wsUrl){
         // نظام التحكم في الوسائط بناءً على مستوى التشتت
         handleMediaControl(s);
 
-        if (s.alert_message) showDistractionToast(s.alert_message, significant);
+        // تمت إزالة التنبيه المباشر من السيرفر - التنبيه النصي يظهر فقط بعد 5 ثواني في processAttentionState
 
-        // تنبيه إغماض العينين (3 ثواني)
-        if (s.eye_closure_duration >= 3.0) {
+        // تنبيه إغماض العينين (5 ثواني)
+        if (s.eye_closure_duration >= 5.0) {
             handleEyeClosureAlert(s);
         }
     };
@@ -1288,30 +1383,8 @@ function normalizeAttentionScore(value){
 }
 
 function updateBar(cls, label, score){
-    ensureAttentionBarStructure();
-    var bar  = document.getElementById('attention-bar');
-    var lbl  = document.getElementById('att-label');
-    var fill = document.getElementById('score-fill');
-    var num  = document.getElementById('score-num');
-    if (!bar) return;
-
-    score = normalizeAttentionScore(score);
-    if (lbl)  lbl.textContent  = label || 'جاري التقييم...';
-    if (num)  num.textContent  = score + '%';
-
-    if (fill){
-        fill.style.width = score + '%';
-        fill.style.background = score >= 70 ? 'var(--mint)' : score >= 40 ? 'var(--amber)' : 'var(--rose)';
-    }
-
-    bar.className = '';
-    if (cls) {
-        bar.classList.add(cls);
-    } else if (score >= 70) {
-        bar.classList.add('attentive');
-    } else {
-        bar.classList.add('distracted');
-    }
+    // الشريط مخفي، لا نحتاج لضبطه
+    return;
 }
 
 function showAlert(msg){
@@ -1323,6 +1396,32 @@ function showAlert(msg){
     alertTimer = setTimeout(function(){ t.style.display = 'none'; }, 5000);
 }
 
+// إظهار نافذة منبثقة عند التنبيه الصوتي
+function showDistractionPopup(){
+    var popup = document.getElementById('distraction-popup');
+    if (popup) {
+        popup.style.display = 'block';
+    }
+}
+
+// إخفاء نافذة منبثقة
+function hideDistractionPopup(){
+    var popup = document.getElementById('distraction-popup');
+    if (popup) {
+        popup.style.display = 'none';
+    }
+}
+
+// إعادة آخر 5 ثوانٍ من الصوت
+function rewindAudio5Seconds(){
+    var audio = document.getElementById('topAudio');
+    if (audio) {
+        audio.currentTime = Math.max(0, audio.currentTime - 5);
+        audio.play();
+    }
+    hideDistractionPopup();
+}
+
 /** رسائل التشتت من الخادم (غالباً تتضمن اسم الطالب) — لون أوضح من تنبيهات الكاميرا */
 function showDistractionToast(msg, isFirm){
     var t = document.getElementById('alert-toast'); if (!t) return;
@@ -1331,11 +1430,6 @@ function showDistractionToast(msg, isFirm){
         ? 'linear-gradient(135deg,#991b1b,#ef4444)'
         : 'linear-gradient(135deg,#b45309,#ea580c)';
     t.style.display = 'block';
-    
-    // تنبيه صوتي مع إدارة الصوت المتقدم
-    if (isFirm) {
-        AudioManager.playAlert(msg, isFirm);
-    }
 
     if (alertTimer) clearTimeout(alertTimer);
     alertTimer = setTimeout(function(){
@@ -1531,10 +1625,6 @@ function pauseTracking(){
     _sessionState.pausedByUser = true;
 
     updateBar('', 'التتبع متوقف مؤقتاً ⏸️', 0);
-
-    var btn = document.getElementById('stop-btn');
-    if (btn) btn.innerHTML = '<i class="fas fa-play-circle"></i> استئناف';
-    btn.onclick = resumeTracking;
 }
 
 function resumeTracking(){
@@ -1574,9 +1664,6 @@ function resumeTracking(){
         setTimeout(resumeTracking, 3000);
     });
 
-    var btn = document.getElementById('stop-btn');
-    if (btn) btn.innerHTML = '<i class="fas fa-stop-circle"></i> إيقاف';
-    btn.onclick = stopTracking;
 }
 
 function stopTracking(){
@@ -1607,8 +1694,6 @@ function stopTracking(){
         maxConsecutiveDistractions: 7,
     };
 
-    var btn = document.getElementById('stop-btn');
-    if (btn) btn.innerHTML = '<i class="fas fa-check"></i> تم';
 
     fetch("{% url 'student:attention_stop' %}", {
         method:'POST',
