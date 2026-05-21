@@ -2007,3 +2007,5 @@ WARNING 2026-05-16 02:15:01,539 utils [utils] No WordBoundary events — word high
 WARNING 2026-05-16 02:15:36,030 utils [utils] No WordBoundary events — word highlighting unavailable
 WARNING 2026-05-16 02:22:44,929 utils [utils] No WordBoundary events — word highlighting unavailable
 WARNING 2026-05-16 08:11:12,585 utils [utils] No WordBoundary events — word highlighting unavailable
+WARNING 2026-05-21 18:47:52,389 views save_lesson audio regen failed: No audio was received. Please verify that your parameters are correct.
+WARNING 2026-05-21 18:54:54,406 views save_lesson audio regen failed: No audio was received. Please verify that your parameters are correct.
