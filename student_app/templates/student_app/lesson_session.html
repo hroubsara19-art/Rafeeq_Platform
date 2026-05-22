@@ -831,10 +831,10 @@ function toggleAudioAndTracking(){
     }
 }
 
-// دعم زر المسافة للتحكم في الصوت والتتبع
+// دعم زر Caps Lock للتحكم في الصوت والتتبع
 document.addEventListener('keydown', function(e){
-    // زر المسافة (Space)
-    if (e.code === 'Space') {
+    // زر Caps Lock
+    if (e.code === 'CapsLock') {
         e.preventDefault(); // منع التمرير
         toggleAudioAndTracking();
     }

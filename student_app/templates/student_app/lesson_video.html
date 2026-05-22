@@ -228,9 +228,6 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
     <span id="statusText">مركز</span>
   </div>
 
-  <button class="attention-toggle-btn" id="attentionToggleBtn" onclick="toggleAttentionTracking()" title="تفعيل/تعطيل تتبع الانتباه">
-    <i class="fas fa-camera"></i>
-  </button>
 
   <!-- ══ Hidden audio element for alerts ════════════════════════ -->
   <audio id="attentionAlertSound" preload="auto"></audio>
@@ -272,6 +269,8 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
     </div>
   </div>
 </div>
+
+{% include 'student_app/chatbot_widget.html' %}
 
 <script>
 // ══════════════════════════════════════════════════════════════
