@@ -184,7 +184,8 @@ class LoginRateLimitMiddleware:
             logger.warning(f"[RateLimit] IP محظور مؤقتاً: {ip} — {len(attempts)} محاولة")
             return HttpResponseForbidden(
                 f'تم تجاوز عدد المحاولات المسموح بها ({self.MAX_ATTEMPTS}). '
-                f'يرجى الانتظار {remaining // 60} دقيقة و{remaining % 60} ثانية.'
+                f'يرجى الانتظار {remaining // 60} دقيقة و{remaining % 60} ثانية. '
+                f'أو يمكنك استخدام خيار "نسيت كلمة المرور" لإعادة تعيين كلمة المرور.'
             )
 
         response = self.get_response(request)
