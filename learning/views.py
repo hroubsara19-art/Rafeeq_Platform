@@ -1993,6 +1993,7 @@ def classroom_manage(request):
         'teacher_subjects_json': teacher_subjects_json,
         'teacher_subjects':      _subjects_for_teacher if _subjects_for_teacher else get_all_subjects_flat(),
         'grades_json':           grades_json,
+        'allowed_grades':        ALLOWED_GRADES,
         'sections_json':         sections_json,
         'uploaded_curricula':    uploaded_curricula,
         'current_year':          current_year,
@@ -2035,8 +2036,9 @@ def classroom_api(request):
                 {'error': 'الشعبة يجب أن تكون من القائمة (أ، ب، ج، د)'}, status=400
             )
  
-        full_name = ('الصف ' + build_class_name(grade_name, section))[:50]
+        full_name = build_class_name(grade_name, section)[:50]
  
+        # منع تكرار اسم الصف (بما في ذلك الشعبة إذا وُجدت) داخل نفس السنة الدراسية
         if Class.objects.filter(**_yr(classname=full_name, teacherid=teacher)).exists():
             return JsonResponse(
                 {'error': f'الصف "{full_name}" موجود مسبقاً في السنة الدراسية {current_year}'}, status=400
@@ -2066,12 +2068,15 @@ def classroom_api(request):
         ).select_related('userid', 'classid').first()
         if not student:
             return JsonResponse({'error': 'الطالب غير موجود'}, status=404)
+        # ✅ التحقق من تخصص المعلم الحالي والمعلم الجديد
         if (student.classid
                 and student.classid.teacherid != teacher
                 and student.classid.teacherid is not None):
-            return JsonResponse(
-                {'error': 'هذا الطالب مُعيَّن لصف معلم آخر. لا يمكن إضافته.'}, status=400
-            )
+            # ✅ السماح إذا كان التخصص مختلف
+            if student.classid.teacherid.specialization == teacher.specialization:
+                return JsonResponse(
+                    {'error': 'هذا الطالب موجود لدى معلم آخر من نفس التخصص. لا يمكن إضافته.'}, status=400
+                )
 
         # ══════════════════════════════════════════════════════════════
         # التحقق من فترة التسجيل
@@ -2107,23 +2112,52 @@ def classroom_api(request):
             if not is_valid:
                 return JsonResponse({'error': progression_error}, status=400)
 
-        student.classid = cls
-        student.save(update_fields=['classid'])
-        
-        # ✅ إنشاء StudentTeacherAssignment للربط بين الطالب والمعلم
+        # إذا لم يكن للطالب صف رئيسي، نعيّنه
         from learning.models import StudentTeacherAssignment
-        StudentTeacherAssignment.objects.get_or_create(
-            studentid=student,
-            teacherid=teacher,
-            classid=cls,
-            defaults={'is_active': True}
-        )
-        
-        return JsonResponse({
-            'ok': True,
-            'student_name': student.userid.fullname,
-            'studentid':    student.studentid,
-        })
+        if not student.classid:
+            student.classid = cls
+            student.save(update_fields=['classid'])
+            StudentTeacherAssignment.objects.get_or_create(
+                studentid=student,
+                teacherid=teacher,
+                classid=cls,
+                defaults={'is_active': True}
+            )
+            return JsonResponse({
+                'ok': True,
+                'student_name': student.userid.fullname,
+                'studentid':    student.studentid,
+                'note': 'primary_assigned',
+                'classname': cls.classname,
+                'classid': cls.classid
+            })
+        else:
+            # لدى الطالب صف رئيسي بالفعل — نربط المعلم بالصف المحدد في الطلب
+            target_class_for_assignment = cls
+            assignment, created = StudentTeacherAssignment.objects.get_or_create(
+                studentid=student,
+                teacherid=teacher,
+                classid=target_class_for_assignment,
+                defaults={'is_active': True}
+            )
+            if created:
+                return JsonResponse({
+                    'ok': True,
+                    'student_name': student.userid.fullname,
+                    'studentid':    student.studentid,
+                    'classname':    target_class_for_assignment.classname if target_class_for_assignment else None,
+                    'classid':       target_class_for_assignment.classid if target_class_for_assignment else None,
+                    'note': 'assigned_as_additional'
+                })
+            else:
+                return JsonResponse({
+                    'ok': True,
+                    'student_name': student.userid.fullname,
+                    'studentid':    student.studentid,
+                    'classname':    target_class_for_assignment.classname if target_class_for_assignment else None,
+                    'classid':       target_class_for_assignment.classid if target_class_for_assignment else None,
+                    'note': 'already_assigned'
+                })
  
     elif action == 'remove_student':
         studentid = data.get('studentid')
@@ -2349,10 +2383,13 @@ def classroom_api(request):
         student = Student.objects.filter(userid=user).select_related('classid').first()
         if not student:
             return JsonResponse({'error': 'هذا المستخدم ليس طالباً'}, status=404)
+        # ✅ التحقق من تخصص المعلم الحالي والمعلم الجديد
         if (student.classid
                 and student.classid.teacherid != teacher
                 and student.classid.teacherid is not None):
-            return JsonResponse({'error': 'هذا الطالب مُعيَّن لصف معلم آخر.'}, status=400)
+            # ✅ السماح إذا كان التخصص مختلف
+            if student.classid.teacherid.specialization == teacher.specialization:
+                return JsonResponse({'error': 'هذا الطالب موجود لدى معلم آخر من نفس التخصص. لا يمكن إضافته.'}, status=400)
         cls = Class.objects.filter(**_yr(classid=classid)).filter(_teacher_class_filter(teacher)).first()
         if not cls:
             return JsonResponse({'error': 'الصف غير موجود'}, status=404)
@@ -2365,35 +2402,48 @@ def classroom_api(request):
                 'error': 'إضافة الطلاب متاحة فقط خلال فترة التسجيل (شهر سبتمبر)'
             }, status=400)
 
+        # نستخدم الصف المحدد في الطلب
+        from learning.models import StudentTeacherAssignment
+        target_cls = cls
+
         # ══════════════════════════════════════════════════════════════
-        # التحقق من أن الصف مناسب لعمر الطالب
+        # التحقق من أن الصف المستهدف مناسب لعمر الطالب
         # ══════════════════════════════════════════════════════════════
-        is_appropriate, age_error = _is_grade_appropriate_for_age(cls.classname, student.age)
+        is_appropriate, age_error = _is_grade_appropriate_for_age(target_cls.classname, student.age)
         if not is_appropriate:
             return JsonResponse({'error': age_error}, status=400)
 
-        # ══════════════════════════════════════════════════════════════
-        # التحقق من أن الانتقال منطقي (زيادة صف واحد فقط)
-        # ══════════════════════════════════════════════════════════════
-        current_grade = student.classid.classname if student.classid else None
-        if current_grade:
-            is_valid, progression_error = _is_grade_progression_valid(current_grade, cls.classname)
-            if not is_valid:
-                return JsonResponse({'error': progression_error}, status=400)
+        # إذا لم يكن للطالب صف رئيسي، نعيّنه
+        if not student.classid:
+            # تحقق أن الصف المختار يتطابق مع الصف الفعلي حسب العمر
+            actual_grade = _get_grade_for_age(student.age)
+            if target_cls.classname != actual_grade:
+                return JsonResponse({
+                    'error': f'الصف الفعلي للطالب بناءً على عمره ({student.age} سنة) هو "{actual_grade}". لا يمكن إضافته لصف "{target_cls.classname}".'
+                }, status=400)
 
-        student.classid = cls
-        student.save(update_fields=['classid'])
-        
-        # ✅ إنشاء StudentTeacherAssignment للربط بين الطالب والمعلم
-        from learning.models import StudentTeacherAssignment
-        StudentTeacherAssignment.objects.get_or_create(
-            studentid=student,
-            teacherid=teacher,
-            classid=cls,
-            defaults={'is_active': True}
-        )
-        
-        return JsonResponse({'ok': True, 'student_name': user.fullname})
+            student.classid = target_cls
+            student.save(update_fields=['classid'])
+            StudentTeacherAssignment.objects.get_or_create(
+                studentid=student,
+                teacherid=teacher,
+                classid=target_cls,
+                defaults={'is_active': True}
+            )
+            return JsonResponse({'ok': True, 'student_name': user.fullname, 'note': 'primary_assigned', 'classname': target_cls.classname, 'classid': target_cls.classid})
+        else:
+            # لدى الطالب صف رئيسي — نربط المعلم بالصف المحدد في الطلب
+            target_class_for_assignment = cls
+            assignment, created = StudentTeacherAssignment.objects.get_or_create(
+                studentid=student,
+                teacherid=teacher,
+                classid=target_class_for_assignment,
+                defaults={'is_active': True}
+            )
+            if created:
+                return JsonResponse({'ok': True, 'student_name': user.fullname, 'classname': target_class_for_assignment.classname, 'classid': target_class_for_assignment.classid, 'note': 'assigned_as_additional'})
+            else:
+                return JsonResponse({'ok': True, 'student_name': user.fullname, 'classname': target_class_for_assignment.classname, 'classid': target_class_for_assignment.classid, 'note': 'already_assigned'})
  
     elif action == 'get_students_by_directorate':
         # ── جلب الطلاب المسجلين حسب المديرية المختارة ──────────
@@ -2459,43 +2509,56 @@ def classroom_api(request):
             if not student:
                 skipped_count += 1
                 continue
+            # ✅ التحقق من تخصص المعلم الحالي والمعلم الجديد
             if (student.classid
                     and student.classid.teacherid
                     and student.classid.teacherid != teacher):
-                skipped_count += 1
-                continue
+                # ✅ السماح إذا كان التخصص مختلف
+                if student.classid.teacherid.specialization == teacher.specialization:
+                    skipped_count += 1
+                    continue
+
+            # تحديد الصف المستهدف: نستخدم الصف المحدد في الطلب
+            target_for_student = cls
 
             # ══════════════════════════════════════════════════════════════
-            # التحقق من أن الصف مناسب لعمر الطالب
+            # التحقق من أن الصف المستهدف مناسب لعمر الطالب
             # ══════════════════════════════════════════════════════════════
-            is_appropriate, age_error = _is_grade_appropriate_for_age(cls.classname, student.age)
+            is_appropriate, age_error = _is_grade_appropriate_for_age(target_for_student.classname, student.age)
             if not is_appropriate:
                 age_skip_count += 1
                 continue
 
             # ══════════════════════════════════════════════════════════════
-            # التحقق من أن الانتقال منطقي (زيادة صف واحد فقط)
+            # التحقق من أن الانتقال منطقي (زيادة صف واحد فقط) — فقط عند تعيين صف أساسي جديد
             # ══════════════════════════════════════════════════════════════
-            current_grade = student.classid.classname if student.classid else None
-            if current_grade:
-                is_valid, progression_error = _is_grade_progression_valid(current_grade, cls.classname)
-                if not is_valid:
-                    progression_skip_count += 1
-                    continue
+            if not student.classid:
+                current_grade = None
+                # لا يوجد صف سابق، ولكن يمكن التحقق من منطق الانتقال إذا لزم
+                # (حالتنا الحالية لا تتطلب تحقق إضافي عند أول تعيين)
 
-            student.classid = cls
-            student.save(update_fields=['classid'])
-            
-            # ✅ إنشاء StudentTeacherAssignment للربط بين الطالب والمعلم
+            # إنشاء/ربط التعيين
             from learning.models import StudentTeacherAssignment
-            StudentTeacherAssignment.objects.get_or_create(
-                studentid=student,
-                teacherid=teacher,
-                classid=cls,
-                defaults={'is_active': True}
-            )
-            
-            added_count += 1
+            if not student.classid:
+                student.classid = cls
+                student.save(update_fields=['classid'])
+                StudentTeacherAssignment.objects.get_or_create(
+                    studentid=student,
+                    teacherid=teacher,
+                    classid=cls,
+                    defaults={'is_active': True}
+                )
+                added_count += 1
+            else:
+                # لدى الطالب صف رئيسي بالفعل — نربط المعلم بالصف المحدد في الطلب
+                assignment, created = StudentTeacherAssignment.objects.get_or_create(
+                    studentid=student,
+                    teacherid=teacher,
+                    classid=cls,
+                    defaults={'is_active': True}
+                )
+                if created:
+                    added_count += 1
 
         msg = f'تم إضافة {added_count} طالب إلى {cls.classname}.'
         if skipped_count:

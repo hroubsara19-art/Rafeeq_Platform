@@ -54,7 +54,7 @@ def _avatar_url(user) -> str:
 # ══════════════════════════════════════════════════════════════
 
 def _allowed_contacts(user):
-    from learning.models import Teacher, Student, Parent
+    from learning.models import Teacher, Student, Parent, StudentTeacherAssignment
     User = get_user_model()
     role = getattr(user, 'userrole', None)
 
@@ -62,31 +62,43 @@ def _allowed_contacts(user):
         teacher = Teacher.objects.filter(userid=user).first()
         if not teacher:
             return User.objects.none()
-        student_ids = Student.objects.filter(
-            classid__teacherid=teacher
-        ).values_list('userid_id', flat=True)
+        # ✅ جلب الطلاب الذين لديهم تعيين مع المعلم عبر StudentTeacherAssignment
+        student_ids = StudentTeacherAssignment.objects.filter(
+            teacherid=teacher,
+            is_active=True
+        ).values_list('studentid__userid_id', flat=True).distinct()
+        # ✅ جلب أولياء الأمور للطلاب الذين لديهم تعيين مع المعلم
         parent_ids = Parent.objects.filter(
-            childid__classid__teacherid=teacher
-        ).values_list('userid_id', flat=True)
+            childid__in=Student.objects.filter(
+                studentid__in=StudentTeacherAssignment.objects.filter(
+                    teacherid=teacher,
+                    is_active=True
+                ).values_list('studentid', flat=True).distinct()
+            )
+        ).values_list('userid_id', flat=True).distinct()
         ids = set(list(student_ids) + list(parent_ids))
         return User.objects.filter(pk__in=ids).exclude(pk=user.pk).order_by('fullname')
 
     elif role == 'Student':
         student = Student.objects.filter(userid=user).first()
-        if not student or not student.classid:
+        if not student:
             return User.objects.none()
-        teacher_ids = Teacher.objects.filter(
-            subject__classid=student.classid
-        ).values_list('userid_id', flat=True)
+        # ✅ جلب جميع المعلمين الذين لديهم تعيين مع الطالب عبر StudentTeacherAssignment
+        teacher_ids = StudentTeacherAssignment.objects.filter(
+            studentid=student,
+            is_active=True
+        ).values_list('teacherid__userid_id', flat=True).distinct()
         return User.objects.filter(pk__in=teacher_ids).exclude(pk=user.pk).order_by('fullname')
 
     elif role == 'Parent':
         parent = Parent.objects.filter(userid=user).first()
-        if not parent or not parent.childid or not parent.childid.classid:
+        if not parent or not parent.childid:
             return User.objects.none()
-        teacher_ids = Teacher.objects.filter(
-            subject__classid=parent.childid.classid
-        ).values_list('userid_id', flat=True)
+        # ✅ جلب جميع المعلمين الذين لديهم تعيين مع الطالب عبر StudentTeacherAssignment
+        teacher_ids = StudentTeacherAssignment.objects.filter(
+            studentid=parent.childid,
+            is_active=True
+        ).values_list('teacherid__userid_id', flat=True).distinct()
         return User.objects.filter(pk__in=teacher_ids).exclude(pk=user.pk).order_by('fullname')
 
     return User.objects.none()

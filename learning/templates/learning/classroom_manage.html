@@ -464,20 +464,9 @@ body{background:var(--bg);font-family:'Cairo',sans-serif;color:var(--ink);direct
                 <label class="fw-bold mb-2 d-block">الصف الدراسي <span class="required-star">*</span></label>
                 <select id="newClassGrade" class="cm-select mb-3">
                     <option value="">— اختر الصف —</option>
-                    <option value="الثاني">الصف الثاني</option>
-                    <option value="الثالث">الصف الثالث</option>
-                    <option value="الرابع">الصف الرابع</option>
-                    <option value="الخامس">الصف الخامس</option>
-                    <option value="السادس">الصف السادس</option>
-                    <option value="السابع">الصف السابع</option>
-                    <option value="الثامن">الصف الثامن</option>
-                    <option value="التاسع">الصف التاسع</option>
-                    <option value="العاشر">الصف العاشر</option>
-                    <option value="الحادي عشر العلمي">الصف الحادي عشر العلمي</option>
-                    <option value="الحادي عشر الأدبي">الصف الحادي عشر الأدبي</option>
-                    <option value="الحادي عشر الصناعي">الصف الحادي عشر الصناعي</option>
-                    <option value="الحادي عشر التجاري">الصف الحادي عشر التجاري</option>
-                    <option value="الحادي عشر الزراعي">الصف الحادي عشر الزراعي</option>
+                    {% for grade in allowed_grades %}
+                        <option value="{{ grade }}">{{ grade }}</option>
+                    {% endfor %}
                 </select>
                 <label class="fw-bold mb-2 d-block">الشعبة <span class="optional-badge">اختياري</span></label>
                 <select id="newClassSection" class="cm-select mb-3">
@@ -611,15 +600,59 @@ var pendingAction = null;
 var API_URL    = "{% url 'learning:classroom_api' %}";
 var CSRF_TOKEN = "{{ csrf_token }}";
 
+function updateClassCountById(classid, delta){
+    if(!classid) return;
+    var el = document.getElementById('classcount-'+classid);
+    if(el){
+        var n = parseInt(el.textContent.trim()) || 0;
+        n = n + (parseInt(delta)||0);
+        if(n<0) n=0;
+        el.textContent = n;
+    }
+    var sb = document.getElementById('studentsCountBadge');
+    if(sb){
+        var txt = sb.textContent.trim();
+        var m = txt.match(/^(\d+)/);
+        var cur = m?parseInt(m[1]):(parseInt(txt)||0);
+        cur = cur + (parseInt(delta)||0);
+        if(cur<0) cur=0;
+        sb.textContent = cur + ' طالب';
+    }
+}
+
 function toast(msg,type){
     var t=document.getElementById('toast');
     t.textContent=msg; t.className='show '+(type||'');
-    setTimeout(function(){t.className='';},8000);
+    setTimeout(function(){t.className='';},12000);
 }
 function api(payload,onSuccess){
     fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF_TOKEN},body:JSON.stringify(payload)})
     .then(function(r){return r.json();})
-    .then(function(d){if(d.ok)onSuccess(d);else toast(d.error||'حدث خطأ','error');})
+    .then(function(d){
+        if(d.ok){
+            // عرض رسائل مخصّصة عند وجود ملاحظة من الخادم
+            if(d.note){
+                var noteMsgs = {
+                    'primary_assigned': { msg: 'تمت إضافة ' + (d.student_name || 'الطالب') + ' إلى الصف بنجاح.', type: 'success' },
+                    'assigned_as_additional': { msg: 'تمت إضافة ' + (d.student_name || 'الطالب') + ' كمعلم إضافي لصف الطالب دون تغيير صفه الأساسي.', type: 'success' },
+                    'already_assigned': { msg: (d.student_name || 'الطالب') + ' مُضاف لديك بالفعل.', type: 'success' }
+                };
+                var n = noteMsgs[d.note];
+                if(n) toast(n.msg, n.type);
+                else if(d.message) toast(d.message, 'success');
+
+                // تحديث عداد الطلاب إن عاد الخادم بـ classid وتم إنشاء ربط جديد
+                if(d.classid){
+                    if(d.note === 'primary_assigned' || d.note === 'assigned_as_additional'){
+                        try{ updateClassCountById(d.classid, 1); }catch(e){}
+                    }
+                }
+            }
+            onSuccess(d);
+        }else{
+            toast(d.error||'حدث خطأ','error');
+        }
+    })
     .catch(function(){toast('تعذّر الاتصال','error');});
 }
 function openModal(id){new bootstrap.Modal(document.getElementById(id)).show();}
@@ -647,8 +680,16 @@ document.addEventListener('DOMContentLoaded',function(){
     function updatePreview(){
         var g=document.getElementById('newClassGrade'),s=document.getElementById('newClassSection');
         var p=document.getElementById('classNamePreview'),pt=document.getElementById('classNamePreviewText');
-        if(g&&g.value&&p&&pt){pt.textContent='الصف '+g.value+(s&&s.value?' '+s.value:'');p.style.display='block';}
-        else if(p)p.style.display='none';
+        if(g&&p&&pt){
+            var selectedText = '';
+            try{ selectedText = g.options[g.selectedIndex].textContent.trim(); }catch(e){}
+            if(selectedText){
+                pt.textContent = 'الصف ' + selectedText + (s&&s.value?(' '+s.value):'');
+                p.style.display='block';
+                return;
+            }
+        }
+        if(p) p.style.display='none';
     }
     var ge=document.getElementById('newClassGrade'),se=document.getElementById('newClassSection');
     if(ge)ge.addEventListener('change',updatePreview);

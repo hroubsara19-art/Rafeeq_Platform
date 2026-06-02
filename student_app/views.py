@@ -220,10 +220,17 @@ def student_home(request):
     """لوحة تحكم الطالب: عرض المواد والدروس المشاهدة والاختبارات."""
     student = request.student
 
-    if student and student.classid:
+    # ✅ جلب المواد من جميع المعلمين الذين تم تعيينهم للطالب عبر StudentTeacherAssignment
+    from learning.models import StudentTeacherAssignment
+    if student:
+        assigned_classes = StudentTeacherAssignment.objects.filter(
+            studentid=student,
+            is_active=True
+        ).values_list('classid', flat=True).distinct()
+        
         subjects_qs = (
             Subject.objects
-            .filter(classid=student.classid)
+            .filter(classid__in=assigned_classes)
             .select_related('classid', 'teacherid__userid')
             .order_by('subjectname')
         )
@@ -241,15 +248,21 @@ def student_home(request):
             'is_subject_completed': False,
         }
 
-    if student and student.classid:
+    # ✅ جلب الدروس من جميع المعلمين الذين تم تعيينهم للطالب عبر StudentTeacherAssignment
+    if student:
+        assigned_classes = StudentTeacherAssignment.objects.filter(
+            studentid=student,
+            is_active=True
+        ).values_list('classid', flat=True).distinct()
+        
         lessons_qs = (
             Lessoncontent.objects
-            .filter(status='Published', subjectid__classid=student.classid)
+            .filter(status='Published', subjectid__classid__in=assigned_classes)
             .select_related('subjectid', 'teacherid__userid')
             .order_by('subjectid__subjectname', 'createdat')
         )
     else:
-        lessons_qs = Lessoncontent.objects.none()
+        lessons_qs = Lessoncontent.none()
 
     for lesson in lessons_qs:
         subj = lesson.subjectid

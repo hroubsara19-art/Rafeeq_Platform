@@ -266,28 +266,20 @@ class StudentTeacherAssignment(models.Model):
         from django.core.exceptions import ValidationError
         
         # التحقق من أن الطالب ليس عند معلمين بنفس التخصص
-        if self.subjectid:
-            existing_assignments = StudentTeacherAssignment.objects.filter(
-                studentid=self.studentid,
-                subjectid__teacherid__specialization=self.teacherid.specialization
-            ).exclude(pk=self.pk)
-            
-            if existing_assignments.exists():
-                raise ValidationError(
-                    'الطالب موجود بالفعل عند معلم بنفس التخصص'
-                )
-        
-        # التحقق من أن الطالب ليس في صفين مختلفين
-        if self.classid:
-            existing_assignments = StudentTeacherAssignment.objects.filter(
-                studentid=self.studentid
-            ).exclude(pk=self.pk).exclude(classid=None)
-            
-            for assignment in existing_assignments:
-                if assignment.classid != self.classid:
-                    raise ValidationError(
-                        'الطالب موجود بالفعل في صف مختلف'
-                    )
+        # التحقق من أن الطالب ليس عند معلمين بنفس التخصص
+        # يسمح بأن يكون للطالب معلمين متعددين بشرط أن تكون تخصصاتهم مختلفة.
+        existing_same_spec = StudentTeacherAssignment.objects.filter(
+            studentid=self.studentid,
+        ).exclude(pk=self.pk).select_related('teacherid')
+
+        for assignment in existing_same_spec:
+            other_spec = getattr(assignment.teacherid, 'specialization', None)
+            this_spec = getattr(self.teacherid, 'specialization', None)
+            if other_spec and this_spec and other_spec == this_spec:
+                raise ValidationError('الطالب موجود بالفعل عند معلم بنفس التخصص')
+
+        # ملاحظة: أُزيل القيد الذي يمنع وجود تعيينات في صفوف مختلفة،
+        # لأن المعلم ذو تخصص مختلف قد يدرّس نفس الطالب في صف مناسب لمادة مختلفة.
 
 
 # ════════════════════════════════════════════════════════════════
