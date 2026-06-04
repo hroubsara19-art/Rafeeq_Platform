@@ -5,6 +5,53 @@
 {% block content %}
 <div class="ap-card">
   <div class="ap-card-h">
+    <div class="ap-card-t"><i class="fas fa-user-shield"></i> إنشاء مشرف إداري جديد</div>
+  </div>
+  <div class="ap-card-b">
+    {% if error %}
+    <div class="ap-alert error">
+      <i class="fas fa-exclamation-circle"></i>
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" style="max-width:500px;">
+      {% csrf_token %}
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.83rem;font-weight:700;color:var(--ink);margin-bottom:.35rem;">الاسم الكامل *</label>
+        <input type="text" name="fullname" class="ap-input" style="width:100%;" required>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.83rem;font-weight:700;color:var(--ink);margin-bottom:.35rem;">اسم المستخدم *</label>
+        <input type="text" name="username" class="ap-input" style="width:100%;" required pattern="[a-z0-9]+" title="الرجاء استخدام حروف صغيرة وأرقام فقط">
+        <div style="font-size:.73rem;color:var(--muted);margin-top:.25rem;">حروف صغيرة وأرقام فقط (بدون مسافات)</div>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.83rem;font-weight:700;color:var(--ink);margin-bottom:.35rem;">البريد الإلكتروني *</label>
+        <input type="email" name="email" class="ap-input" style="width:100%;" required>
+      </div>
+
+      <div style="margin-bottom:1rem;">
+        <label style="display:block;font-size:.83rem;font-weight:700;color:var(--ink);margin-bottom:.35rem;">كلمة المرور *</label>
+        <input type="password" name="password" class="ap-input" style="width:100%;" required minlength="8">
+      </div>
+
+      <div style="margin-bottom:1.5rem;">
+        <label style="display:block;font-size:.83rem;font-weight:700;color:var(--ink);margin-bottom:.35rem;">تأكيد كلمة المرور *</label>
+        <input type="password" name="confirm_password" class="ap-input" style="width:100%;" required>
+      </div>
+
+      <div style="display:flex;gap:.65rem;">
+        <button type="submit" class="ap-btn ap-btn-primary"><i class="fas fa-plus"></i> إنشاء الحساب</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="ap-card">
+  <div class="ap-card-h">
     <div class="ap-card-t"><i class="fas fa-user-shield"></i> المشرفون الإداريون الآخرون</div>
   </div>
   <div style="overflow-x:auto;">

@@ -28,10 +28,13 @@ urlpatterns = [
     path('directorates/',                              views.directorates_list,     name='directorates_list'),
     path('directorates/<str:directorate_name>/teachers/', views.directorate_teachers, name='directorate_teachers_list'),
 
-    # ── المشرفون الإداريون ────────────────────────────────────
+    # ─ـ المشرفون الإداريون ────────────────────────────────────
     path('sysadmins/',               views.sysadmins_list,   name='sysadmins_list'),
     path('sysadmins/create/',        views.create_sysadmin,  name='create_sysadmin'),
 
-    # ── تفعيل/تعطيل ───────────────────────────────────────────
+    # ─ـ إدارة مفاتيح جيميني ───────────────────────────────────
+    path('add-gemini-key/',          views.add_gemini_key,    name='add_gemini_key'),
+
+    # ─ـ تفعيل/تعطيل ───────────────────────────────────────────
     path('users/<int:user_id>/toggle/', views.toggle_user_active, name='toggle_user_active'),
 ]

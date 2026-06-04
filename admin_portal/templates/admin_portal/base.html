@@ -23,6 +23,8 @@
       --r:.875rem;--sh:0 2px 8px rgba(0,0,0,.07);
       /* ── ألوان navbar Bootstrap متناسقة ── */
       --navbar-grad:linear-gradient(135deg,#5a91e6 0%,#4a7bc7 100%);
+      /* ── متغيرات Developer Mode ── */
+      --admin-dark:#1e293b;
     }
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     body{
@@ -78,6 +80,20 @@
     .ap-nav-badge{margin-right:auto;background:rgba(255,255,255,.15);color:#fff;border-radius:100px;font-size:.65rem;padding:.1rem .45rem;font-weight:700;}
 
     /* ✅ لا logout في sidebar — موجود في navbar */
+
+    /* ══ Developer Mode Bar ══ */
+    .admin-bar {
+      background: var(--admin-dark); color: #fbbf24;
+      padding: 10px; font-size: 0.85rem; text-align: center;
+      border-bottom: 3px solid #fbbf24;
+      position: sticky; top: 0; z-index: 1050;
+    }
+    .admin-bar a {
+      color: #f8fafc; text-decoration: none;
+      margin: 0 10px; padding: 4px 10px;
+      border-radius: 5px; transition: 0.3s;
+    }
+    .admin-bar a:hover { background: rgba(255,255,255,0.1); color: #fbbf24; }
 
     /* ══ Main ══ */
     .ap-main{flex:1;display:flex;flex-direction:column;min-width:0;}
@@ -262,6 +278,21 @@
 </head>
 <body>
 
+<!-- ══ Developer Mode Bar (للأدمن التقني فقط) ══ -->
+{% if user.is_staff %}
+<div class="admin-bar shadow-sm d-none d-md-block">
+    <i class="fas fa-shield-alt text-warning me-2"></i>
+    <strong>Developer Mode:</strong>
+    <a href="{% url 'learning:teacher_dashboard' %}"><i class="fas fa-chalkboard-teacher text-warning"></i> المعلم</a>
+    <a href="{% url 'student:student_home' %}"><i class="fas fa-user-graduate text-info"></i> الطالب</a>
+    <a href="{% url 'parent:parent_portal' %}"><i class="fas fa-user-friends text-success"></i> ولي الأمر</a>
+    <a href="{% url 'admin_portal:dashboard' %}"><i class="fas fa-user-shield text-primary"></i> المشرف الإداري</a>
+    <a href="/admin/" target="_blank" class="bg-warning text-dark fw-bold rounded-pill ms-2 px-3">
+        قاعدة البيانات <i class="fas fa-database"></i>
+    </a>
+</div>
+{% endif %}
+
 <!-- ══ Navbar المشترك مع جميع الأدوار ══════════════════════ -->
 <nav class="navbar navbar-expand-lg navbar-dark sticky-top shadow-sm ap-navbar">
   <div class="container d-flex justify-content-between align-items-center">
@@ -372,6 +403,10 @@
       <a href="{% url 'admin_portal:sysadmins_list' %}"
          class="ap-nav-a {% if 'sysadmin' in request.resolver_match.url_name %}active{% endif %}">
         <i class="fas fa-user-shield"></i> المشرفون الإداريون
+      </a>
+      <a href="{% url 'admin_portal:add_gemini_key' %}"
+         class="ap-nav-a {% if request.resolver_match.url_name == 'add_gemini_key' %}active{% endif %}">
+        <i class="fas fa-key"></i> إضافة مفتاح جيميني
       </a>
     </nav>
 

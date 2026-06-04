@@ -47,7 +47,8 @@ def redirect_by_role(user):
     if role == 'SysAdmin':
         return redirect('admin_portal:dashboard')
     if role == 'Admin':
-        return redirect('learning:teacher_dashboard')
+        # الأدمن التقني يرى واجهة الطالب
+        return redirect('student:student_home')
     if role not in _VALID_ROLES:
         return redirect('accounts:login')
 

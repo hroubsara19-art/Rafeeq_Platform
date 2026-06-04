@@ -262,7 +262,7 @@ def student_home(request):
             .order_by('subjectid__subjectname', 'createdat')
         )
     else:
-        lessons_qs = Lessoncontent.none()
+        lessons_qs = Lessoncontent.objects.none()
 
     for lesson in lessons_qs:
         subj = lesson.subjectid

@@ -81,13 +81,31 @@ def _normalize_model(version: str) -> str:
 # ══════════════════════════════════════════════════════════════
 # ✅ جلب مفتاح API — الأولوية: env/settings أولاً
 # ══════════════════════════════════════════════════════════════
-def _get_api_key(lesson: Lessoncontent) -> tuple[str | None, str]:
+def _get_api_key(lesson: Lessoncontent, student: Student = None) -> tuple[str | None, str]:
     """
     ترتيب الأولوية:
-      1. GEMINI_API_KEY من settings.py / .env  ← أولاً دائماً
-      2. AiAgent في DB (المفتاح الخام فقط، نتجنب decrypt المعطوب)
-      3. مفتاح المعلم الشخصي
+      1. مفتاح جيميني الخاص بالطالب ← أولاً للشات بوت
+      2. GEMINI_API_KEY من settings.py / .env
+      3. AiAgent في DB (المفتاح الخام فقط، نتجنب decrypt المعطوب)
+      4. مفتاح المعلم الشخصي
     """
+
+    # ── الأولوية 1: مفتاح جيميني الخاص بالطالب ✅ ─────────────
+    if student:
+        try:
+            fn = getattr(student, 'get_gemini_key', None)
+            if fn and callable(fn):
+                try:
+                    key = fn()
+                    if key and str(key).strip():
+                        key = str(key).strip()
+                        if key.startswith('AIza') or key.startswith('AQ.') or len(key) >= 20:
+                            logger.info('[chat] ✓ Student personal Gemini key')
+                            return key, _DEFAULT_MODEL
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     # ── الأولوية 1: settings / .env ✅ ─────────────────────────
     env_key = None
@@ -99,18 +117,20 @@ def _get_api_key(lesson: Lessoncontent) -> tuple[str | None, str]:
     if not env_key:
         env_key = os.environ.get('GEMINI_API_KEY', '')
 
-    if env_key and str(env_key).strip().startswith('AIza'):
+    if env_key and str(env_key).strip():
         key = str(env_key).strip()
-        # نحاول قراءة الموديل من AiAgent إن وُجد
-        model = _DEFAULT_MODEL
-        try:
-            agent = AiAgent.objects.filter(isactive=True).first()
-            if agent:
-                model = _normalize_model(getattr(agent, 'version', '') or '')
-        except Exception:
-            pass
-        logger.info(f'[chat] ✓ Using GEMINI_API_KEY from env, model={model!r}')
-        return key, model
+        # ✅ التحقق من صحة المفتاح - يدعم المفاتيح القديمة (AIza) والجديدة (AQ.Ab8RN6)
+        if key.startswith('AIza') or key.startswith('AQ.') or len(key) >= 20:
+            # نحاول قراءة الموديل من AiAgent إن وُجد
+            model = _DEFAULT_MODEL
+            try:
+                agent = AiAgent.objects.filter(isactive=True).first()
+                if agent:
+                    model = _normalize_model(getattr(agent, 'version', '') or '')
+            except Exception:
+                pass
+            logger.info(f'[chat] ✓ Using GEMINI_API_KEY from env, model={model!r}')
+            return key, model
 
     # ── الأولوية 2: AiAgent — المفتاح الخام فقط ───────────────
     try:
@@ -128,13 +148,15 @@ def _get_api_key(lesson: Lessoncontent) -> tuple[str | None, str]:
             # fallback: قراءة api_key الخام
             if not raw_key:
                 raw = str(getattr(agent, 'api_key', '') or '').strip()
-                if raw.startswith('AIza'):
+                if raw.startswith('AIza') or raw.startswith('AQ.') or len(raw) >= 20:
                     raw_key = raw
 
-            if raw_key and str(raw_key).strip().startswith('AIza'):
-                model = _normalize_model(getattr(agent, 'version', '') or '')
-                logger.info(f'[chat] ✓ AiAgent key, model={model!r}')
-                return str(raw_key).strip(), model
+            if raw_key and str(raw_key).strip():
+                key = str(raw_key).strip()
+                if key.startswith('AIza') or key.startswith('AQ.') or len(key) >= 20:
+                    model = _normalize_model(getattr(agent, 'version', '') or '')
+                    logger.info(f'[chat] ✓ AiAgent key, model={model!r}')
+                    return key, model
     except Exception as e:
         logger.warning(f'[chat] AiAgent lookup error: {e}')
 
@@ -151,11 +173,13 @@ def _get_api_key(lesson: Lessoncontent) -> tuple[str | None, str]:
                     pass
             if not key:
                 raw = str(getattr(teacher, 'gemini_api_key', '') or '').strip()
-                if raw.startswith('AIza'):
+                if raw.startswith('AIza') or raw.startswith('AQ.') or len(raw) >= 20:
                     key = raw
-            if key and str(key).strip().startswith('AIza'):
-                logger.info('[chat] ✓ Teacher personal key')
-                return str(key).strip(), _DEFAULT_MODEL
+            if key and str(key).strip():
+                key = str(key).strip()
+                if key.startswith('AIza') or key.startswith('AQ.') or len(key) >= 20:
+                    logger.info('[chat] ✓ Teacher personal key')
+                    return key, _DEFAULT_MODEL
     except Exception as e:
         logger.warning(f'[chat] Teacher key error: {e}')
 
@@ -398,7 +422,7 @@ def lesson_chat(request, lesson_id: int):
         lesson_ctx = f'[محتوى الدرس "{lesson_title}" غير متاح حالياً]'
 
     # ── مفتاح API ────────────────────────────────────────────
-    api_key, model = _get_api_key(lesson)
+    api_key, model = _get_api_key(lesson, student)
     if not api_key:
         return JsonResponse({
             'error': 'مفتاح API غير متاح',

@@ -34,7 +34,8 @@ def sysadmin_required(view_func):
     @wraps(view_func)
     @login_required(login_url='/login/')
     def wrapper(request, *args, **kwargs):
-        if getattr(request.user, 'userrole', None) != 'SysAdmin':
+        role = getattr(request.user, 'userrole', None)
+        if role != 'SysAdmin' and not (request.user.is_staff or request.user.is_superuser):
             return redirect('accounts:login')
         return view_func(request, *args, **kwargs)
     return wrapper
@@ -460,6 +461,34 @@ def directorate_teachers(request, directorate_name):
 # ══════════════════════════════════════════════════════════════
 @sysadmin_required
 def sysadmins_list(request):
+    error = None
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip().lower()
+        fullname = request.POST.get('fullname', '').strip()
+        email    = request.POST.get('email', '').strip()
+        password = request.POST.get('password', '')
+        confirm  = request.POST.get('confirm_password', '')
+
+        if not all([username, fullname, email, password]):
+            error = 'جميع الحقول المطلوبة يجب تعبئتها.'
+        elif password != confirm:
+            error = 'كلمة المرور وتأكيدها غير متطابقَين.'
+        elif len(password) < 8:
+            error = 'كلمة المرور يجب أن تكون 8 أحرف على الأقل.'
+        elif User.objects.filter(username=username).exists():
+            error = f'اسم المستخدم "{username}" مُستخدم مسبقاً.'
+        elif User.objects.filter(email=email).exists():
+            error = f'البريد الإلكتروني "{email}" مُستخدم مسبقاً.'
+        else:
+            User.objects.create_user(
+                username=username, password=password,
+                fullname=fullname, email=email,
+                userrole='SysAdmin',
+                is_active=True, is_staff=False, is_superuser=False,
+            )
+            messages.success(request, f'✅ تم إنشاء حساب المشرف الإداري "{fullname}" بنجاح.')
+            return redirect('admin_portal:sysadmins_list')
+
     sysadmins = (
         User.objects
         .filter(userrole='SysAdmin')
@@ -469,6 +498,7 @@ def sysadmins_list(request):
     return render(request, 'admin_portal/sysadmins_list.html', {
         'sysadmins':    sysadmins,
         'current_user': request.user,
+        'error': error,
     })
 
 
@@ -522,3 +552,87 @@ def create_sysadmin(request):
             return redirect('/admin/')
 
     return render(request, 'admin_portal/create_sysadmin.html', {'error': error})
+
+
+# ══════════════════════════════════════════════════════════════
+# إضافة مفتاح جيميني للمعلم/الطالب — للمشرف الإداري
+# ══════════════════════════════════════════════════════════════
+@sysadmin_required
+def add_gemini_key(request):
+    """إضافة مفتاح جيميني للمعلم أو الطالب"""
+    error = None
+    success = None
+
+    # جلب قائمة المستخدمين (المعلمين والطلاب)
+    users = (
+        User.objects
+        .filter(Q(userrole='Teacher') | Q(userrole='Student'))
+        .order_by('fullname')
+    )
+
+    role_filter = request.GET.get('role', '')
+    search = request.GET.get('q', '').strip()
+
+    if role_filter:
+        users = users.filter(userrole=role_filter)
+    if search:
+        users = users.filter(
+            Q(fullname__icontains=search) |
+            Q(username__icontains=search)
+        )
+
+    if request.method == 'POST':
+        user_id = request.POST.get('user_id')
+        api_key = request.POST.get('api_key', '').strip()
+        daily_limit = request.POST.get('daily_limit', '').strip()
+
+        if not user_id:
+            error = 'يجب اختيار مستخدم.'
+        elif not api_key:
+            error = 'يجب إدخال مفتاح API.'
+        elif not (api_key.startswith('AIza') or api_key.startswith('AQ.') or len(api_key) >= 20):
+            error = 'مفتاح API غير صالح.'
+        else:
+            # فحص المفتاح للتأكد من عدم التكرار
+            if Teacher.objects.filter(gemini_api_key__isnull=False).exists():
+                for teacher in Teacher.objects.filter(gemini_api_key__isnull=False):
+                    if teacher.get_gemini_key() == api_key:
+                        error = 'مفتاح جيميني مُستخدم مسبقاً لحساب آخر.'
+                        break
+            if not error and Student.objects.filter(gemini_api_key__isnull=False).exists():
+                for student in Student.objects.filter(gemini_api_key__isnull=False):
+                    if student.get_gemini_key() == api_key:
+                        error = 'مفتاح جيميني مُستخدم مسبقاً لحساب آخر.'
+                        break
+
+            if not error:
+                user_obj = get_object_or_404(User, pk=user_id)
+
+                if user_obj.userrole == 'Teacher':
+                    teacher = get_object_or_404(Teacher, userid=user_obj)
+                    teacher.set_gemini_key(api_key)
+                    if daily_limit:
+                        teacher.daily_gemini_limit = int(daily_limit)
+                    teacher.save(update_fields=['gemini_api_key', 'daily_gemini_limit'])
+                    success = f'✅ تم إضافة مفتاح جيميني للمعلم "{user_obj.fullname}" بنجاح.'
+                elif user_obj.userrole == 'Student':
+                    student = get_object_or_404(Student, userid=user_obj)
+                    student.set_gemini_key(api_key)
+                    if daily_limit:
+                        student.daily_chat_limit = int(daily_limit)
+                    student.save(update_fields=['gemini_api_key', 'daily_chat_limit'])
+                    success = f'✅ تم إضافة مفتاح جيميني للطالب "{user_obj.fullname}" بنجاح.'
+                else:
+                    error = 'يمكن إضافة مفتاح جيميني للمعلم أو الطالب فقط.'
+
+            if success:
+                messages.success(request, success)
+                return redirect('admin_portal:add_gemini_key')
+
+    return render(request, 'admin_portal/add_gemini_key.html', {
+        'error': error,
+        'users': users,
+        'role_filter': role_filter,
+        'search': search,
+        'total': users.count(),
+    })

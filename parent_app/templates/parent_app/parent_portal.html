@@ -116,11 +116,17 @@
                     <p class="text-muted mb-3" style="font-size:0.9rem;">
                         بناء نموذج انتباه شخصي لطفلك من خلال جلسات معايرة قصيرة.
                     </p>
+                    {% if request.user.userrole == 'Admin' %}
+                    <button class="btn btn-primary w-100" id="calibration-btn" onclick="return false;">
+                        <i class="fas fa-cog"></i> إدارة المعايرة
+                    </button>
+                    {% else %}
                     <a href="{% url 'parent:calibration_dashboard' %}"
                        class="btn btn-primary w-100"
                        id="calibration-btn">
                         <i class="fas fa-cog"></i> إدارة المعايرة
                     </a>
+                    {% endif %}
                 </div>
             </div>
 

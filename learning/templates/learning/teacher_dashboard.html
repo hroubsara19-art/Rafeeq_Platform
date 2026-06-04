@@ -591,26 +591,53 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
   <div class="sec-lbl"><i class="fas fa-th-large"></i> الأدوات التعليمية</div>
   <div class="tools-grid mb-5">
 
+    {% if request.user.userrole == 'Admin' %}
+    <div class="tool-card tc-blue" onclick="return false;" style="cursor: default;">
+      <div class="tc-icon"><i class="fas fa-robot"></i></div>
+      <div class="tc-title">منشئ الدروس الذكي</div>
+      <div class="tc-desc">حوّل دروسك إلى محتوى قصصي صوتي تفاعلي بذكاء Gemini AI.</div>
+      <span class="tc-cta"><i class="fas fa-magic"></i> ابدأ الآن</span>
+    </div>
+    {% else %}
     <a href="{% url 'learning:simplify_lesson' %}" class="tool-card tc-blue">
       <div class="tc-icon"><i class="fas fa-robot"></i></div>
       <div class="tc-title">منشئ الدروس الذكي</div>
       <div class="tc-desc">حوّل دروسك إلى محتوى قصصي صوتي تفاعلي بذكاء Gemini AI.</div>
       <span class="tc-cta"><i class="fas fa-magic"></i> ابدأ الآن</span>
     </a>
+    {% endif %}
 
+    {% if request.user.userrole == 'Admin' %}
+    <div class="tool-card tc-teal" onclick="return false;" style="cursor: default;">
+      <div class="tc-icon"><i class="fas fa-pencil-alt"></i></div>
+      <div class="tc-title">إنشاء اختبار</div>
+      <div class="tc-desc">أنشئ اختبارات اختيار من متعدد لطلابك بسرعة وسهولة.</div>
+      <span class="tc-cta"><i class="fas fa-plus-circle"></i> أنشئ الآن</span>
+    </div>
+    {% else %}
     <a href="{% url 'learning:create_test' %}" class="tool-card tc-teal">
       <div class="tc-icon"><i class="fas fa-pencil-alt"></i></div>
       <div class="tc-title">إنشاء اختبار</div>
       <div class="tc-desc">أنشئ اختبارات اختيار من متعدد لطلابك بسرعة وسهولة.</div>
       <span class="tc-cta"><i class="fas fa-plus-circle"></i> أنشئ الآن</span>
     </a>
+    {% endif %}
 
+    {% if request.user.userrole == 'Admin' %}
+    <div class="tool-card tc-purple" onclick="return false;" style="cursor: default;">
+      <div class="tc-icon"><i class="fas fa-tools"></i></div>
+      <div class="tc-title">أدوات تعليمية متقدمة</div>
+      <div class="tc-desc">مجموعة أدوات مساعدة لتطوير تجربة التعليم ورفع تفاعل طلابك.</div>
+      <span class="tc-cta"><i class="fas fa-compass"></i> استكشف</span>
+    </div>
+    {% else %}
     <div class="tool-card tc-purple" onclick="openAdvancedToolsModal()" style="cursor: pointer;">
       <div class="tc-icon"><i class="fas fa-tools"></i></div>
       <div class="tc-title">أدوات تعليمية متقدمة</div>
       <div class="tc-desc">مجموعة أدوات مساعدة لتطوير تجربة التعليم ورفع تفاعل طلابك.</div>
       <span class="tc-cta"><i class="fas fa-compass"></i> استكشف</span>
     </div>
+    {% endif %}
 
   </div>
 

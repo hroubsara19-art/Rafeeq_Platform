@@ -198,15 +198,17 @@ def _resolve_api_key(agent_data=None, teacher=None) -> tuple[str, str]:
             if fn and callable(fn):
                 try:
                     k = fn()
-                    if k and str(k).strip().startswith('AIza'):
-                        model = _normalize_model(getattr(agent, 'version', '') or '')
-                        logger.info(f'[utils] ✓ DB AiAgent.get_api_key(), model={model!r}')
-                        return str(k).strip(), model
+                    if k and str(k).strip():
+                        key = str(k).strip()
+                        if key.startswith('AIza') or key.startswith('AQ.') or len(key) >= 20:
+                            model = _normalize_model(getattr(agent, 'version', '') or '')
+                            logger.info(f'[utils] ✓ DB AiAgent.get_api_key(), model={model!r}')
+                            return key, model
                 except Exception:
                     pass
 
             raw = str(getattr(agent, 'api_key', '') or '').strip()
-            if raw.startswith('AIza'):
+            if raw.startswith('AIza') or raw.startswith('AQ.') or len(raw) >= 20:
                 model = _normalize_model(getattr(agent, 'version', '') or '')
                 logger.info(f'[utils] ✓ DB AiAgent raw, model={model!r}')
                 return raw, model
@@ -219,13 +221,15 @@ def _resolve_api_key(agent_data=None, teacher=None) -> tuple[str, str]:
         if fn and callable(fn):
             try:
                 k = fn()
-                if k and str(k).strip().startswith('AIza'):
-                    logger.info('[utils] ✓ Teacher personal key')
-                    return str(k).strip(), _DEFAULT_MODEL
+                if k and str(k).strip():
+                    key = str(k).strip()
+                    if key.startswith('AIza') or key.startswith('AQ.') or len(key) >= 20:
+                        logger.info('[utils] ✓ Teacher personal key')
+                        return key, _DEFAULT_MODEL
             except Exception:
                 pass
         raw = str(getattr(teacher, 'gemini_api_key', '') or '').strip()
-        if raw.startswith('AIza'):
+        if raw.startswith('AIza') or raw.startswith('AQ.') or len(raw) >= 20:
             logger.info('[utils] ✓ Teacher raw key')
             return raw, _DEFAULT_MODEL
 
@@ -366,13 +370,18 @@ async def generate_audio_async(text: str, file_path: str) -> str | None:
         raise ValueError('النص فارغ بعد التنظيف')
 
     # استخدام صوت بديل إذا لم يكن الصوت الأساسي متاحاً
-    voice = 'ar-SA-HamadaNeural'
+    voice = 'ar-SA'
     try:
         communicate = edge_tts.Communicate(clean, voice)
     except Exception as e:
         # محاولة صوت بديل
-        voice = 'ar-SA'
-        communicate = edge_tts.Communicate(clean, voice)
+        voice = 'ar-EG-SalmaNeural'
+        try:
+            communicate = edge_tts.Communicate(clean, voice)
+        except Exception as e2:
+            # محاولة صوت آخر
+            voice = 'ar-SA-HamadNeural'
+            communicate = edge_tts.Communicate(clean, voice)
     
     audio_bytes: bytearray  = bytearray()
     word_timings: list[dict] = []
@@ -394,8 +403,15 @@ async def generate_audio_async(text: str, file_path: str) -> str | None:
                         'end':   round((offset + dur)  / 10_000_000, 3),
                     })
     except Exception as e:
-        if not audio_bytes:
-            raise ValueError(f'فشل في توليد الصوت: {str(e)}')
+        logger.warning(f'[utils] stream() failed: {e}, trying save() fallback')
+        # fallback: save() مباشرة (بدون WordBoundary)
+        try:
+            communicate2 = edge_tts.Communicate(clean, voice)
+            await communicate2.save(full_path)
+            logger.info(f'[utils] Audio saved via save() fallback: {file_path}')
+            return None  # لا يوجد timing في save()
+        except Exception as e2:
+            raise ValueError(f'فشل في توليد الصوت (stream و save فشلا): {str(e2)}')
 
     # ── حفظ MP3 ────────────────────────────────────────────
     if audio_bytes:
@@ -405,8 +421,12 @@ async def generate_audio_async(text: str, file_path: str) -> str | None:
     else:
         # fallback: save() مباشرة (بدون WordBoundary)
         logger.warning('[utils] stream() returned no audio bytes, using save() fallback')
-        communicate2 = edge_tts.Communicate(clean, 'ar-SA-HamadaNeural')
-        await communicate2.save(full_path)
+        try:
+            communicate2 = edge_tts.Communicate(clean, voice)
+            await communicate2.save(full_path)
+            logger.info(f'[utils] Audio saved via save() fallback: {file_path}')
+        except Exception as e:
+            raise ValueError(f'فشل في توليد الصوت (save fallback): {str(e)}')
 
     # ── حفظ timing JSON ────────────────────────────────────
     timing_rel = None
@@ -714,7 +734,8 @@ def process_lesson_with_ai(
 
         paragraphs_list = []
         try:
-            json_match = re.search(r'\[\s*\{.*?\}\s*\]', full_res, re.DOTALL)
+            # ✅ استخدام greedy match لاستخراج JSON الكامل
+            json_match = re.search(r'\[\s*\{.*\}\s*\]', full_res, re.DOTALL)
             if json_match:
                 # ✅ [JSON-FIX] تنظيف \n الخام داخل strings قبل json.loads
                 # Gemini أحياناً يُرجع أسطراً خام داخل "paragraph": "..."

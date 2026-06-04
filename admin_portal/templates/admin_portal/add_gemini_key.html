@@ -1,0 +1,80 @@
+{% extends 'admin_portal/base.html' %}
+{% block title %}إضافة مفتاح جيميني{% endblock %}
+{% block page_title %}إضافة مفتاح جيميني للمعلم أو الطالب{% endblock %}
+
+{% block content %}
+<div style="max-width:700px;">
+  <div class="ap-alert info">
+    <i class="fas fa-info-circle"></i>
+    هذه الصفحة للمشرف الإداري. يمكنك إضافة مفتاح جيميني لمعلم أو طالب مع تحديد الحصة اليومية.
+  </div>
+
+  {% if error %}
+  <div class="ap-alert error">
+    <i class="fas fa-exclamation-circle"></i>
+    {{ error }}
+  </div>
+  {% endif %}
+
+  <div class="ap-card">
+    <div class="ap-card-h"><div class="ap-card-t"><i class="fas fa-key"></i>إضافة مفتاح جيميني</div></div>
+    <div class="ap-card-b">
+      <form method="POST">
+        {% csrf_token %}
+
+        <!-- البحث والفلترة -->
+        <div style="display:flex;gap:.5rem;margin-bottom:1rem;">
+          <select name="role_filter" class="ap-input" style="flex:1;" onchange="window.location.href='?role='+this.value+'&q={{ search|escapejs }}'">
+            <option value="">كل الأدوار</option>
+            <option value="Teacher" {% if role_filter == 'Teacher' %}selected{% endif %}>المعلمون</option>
+            <option value="Student" {% if role_filter == 'Student' %}selected{% endif %}>الطلاب</option>
+          </select>
+          <input type="text" name="search" class="ap-input" style="flex:2;" placeholder="بحث بالاسم أو اسم المستخدم..." value="{{ search|escapejs }}">
+          <button type="button" class="ap-btn ap-btn-ghost" onclick="window.location.href='?role={{ role_filter|escapejs }}&q='+document.querySelector('input[name=search]').value">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+
+        <div style="margin-bottom:1rem;">
+          <label style="display:block;font-size:.83rem;font-weight:700;color:var(--ink);margin-bottom:.35rem;">اختر المستخدم *</label>
+          <select name="user_id" class="ap-input" style="width:100%;" required>
+            <option value="">-- اختر مستخدم --</option>
+            {% for user in users %}
+            <option value="{{ user.userid }}">
+              {{ user.fullname }} ({{ user.username }}) - {% if user.userrole == 'Teacher' %}معلم{% elif user.userrole == 'Student' %}طالب{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+          <div style="font-size:.73rem;color:var(--muted);margin-top:.25rem;">إجمالي المستخدمين: {{ total }}</div>
+        </div>
+
+        <div style="margin-bottom:1rem;">
+          <label style="display:block;font-size:.83rem;font-weight:700;color:var(--ink);margin-bottom:.35rem;">مفتاح جيميني API *</label>
+          <input type="text" name="api_key" class="ap-input" style="width:100%;" required placeholder="AIza... أو AQ.Ab8RN6...">
+          <div style="font-size:.73rem;color:var(--muted);margin-top:.25rem;">يدعم المفاتيح القديمة (AIza) والجديدة (AQ.Ab8RN6)</div>
+        </div>
+
+        <div style="margin-bottom:1.5rem;">
+          <label style="display:block;font-size:.83rem;font-weight:700;color:var(--ink);margin-bottom:.35rem;">الحصة اليومية (اختياري)</label>
+          <input type="number" name="daily_limit" class="ap-input" style="width:100%;" placeholder="الافتراضي: 20 للطالب، 20 للمعلم" min="1">
+          <div style="font-size:.73rem;color:var(--muted);margin-top:.25rem;">عدد الرسائل/المحاولات المسموحة يومياً</div>
+        </div>
+
+        <div style="display:flex;gap:.65rem;">
+          <button type="submit" class="ap-btn ap-btn-primary"><i class="fas fa-save"></i> حفظ المفتاح</button>
+          <a href="{% url 'admin_portal:dashboard' %}" class="ap-btn ap-btn-ghost">إلغاء</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+    function closeStudentPreview(e) {
+        var overlay = document.getElementById('studentPreviewOverlay');
+        if (overlay && (!e || e.target.id === 'studentPreviewOverlay' || e.target.closest('.sp-close'))) {
+            overlay.classList.remove('open');
+        }
+    }
+</script>
+{% endblock %}

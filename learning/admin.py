@@ -14,7 +14,7 @@ from .models import (
 # ─────────────────────────────────────────────────────────────
 @admin.register(Teacher)
 class TeacherAdmin(admin.ModelAdmin):
-    list_display = ('teacher_name', 'specialization', 'lessons_today', 'daily_lesson_limit', 'last_reset_date')
+    list_display = ('teacher_name', 'specialization', 'lessons_today', 'daily_lesson_limit', 'gemini_attempts_today', 'daily_gemini_limit', 'last_reset_date')
     search_fields = ('userid__fullname', 'specialization')
     list_filter = ('last_reset_date', 'specialization')
     fieldsets = (
@@ -23,8 +23,11 @@ class TeacherAdmin(admin.ModelAdmin):
             'fields': ('gemini_api_key',),
             'description': 'أدخل مفتاح Gemini الشخصي الخاص بالمعلم هنا.'
         }),
-        ('إدارة الحصة اليومية', {
+        ('إدارة الحصة اليومية للدروس', {
             'fields': ('lessons_today', 'daily_lesson_limit', 'videos_today', 'daily_video_limit', 'last_reset_date'),
+        }),
+        ('إدارة الحصة اليومية لجيميني', {
+            'fields': ('gemini_attempts_today', 'daily_gemini_limit', 'gemini_last_reset_date'),
         }),
     )
 
@@ -38,9 +41,19 @@ class TeacherAdmin(admin.ModelAdmin):
 # ─────────────────────────────────────────────────────────────
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ('student_name', 'classid', 'age', 'get_identity')
+    list_display = ('student_name', 'classid', 'age', 'get_identity', 'chats_today', 'daily_chat_limit')
     search_fields = ('userid__fullname', 'userid__identitynumber')
     list_filter = ('classid',)
+    fieldsets = (
+        ('المعلومات الأساسية', {'fields': ('userid', 'classid', 'age')}),
+        ('إعدادات الذكاء الاصطناعي', {
+            'fields': ('chat_api_key', 'gemini_api_key'),
+            'description': 'أدخل مفتاح Gemini الخاص بالطالب للشات بوت هنا.'
+        }),
+        ('إدارة الحصة اليومية للشات', {
+            'fields': ('daily_chat_limit', 'chats_today', 'last_chat_reset'),
+        }),
+    )
 
     def student_name(self, obj):
         return obj.userid.fullname if obj.userid else '—'

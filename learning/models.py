@@ -133,12 +133,23 @@ class Teacher(models.Model):
     daily_video_limit  = models.IntegerField(db_column='DailyVideoLimit',  default=2)
     last_reset_date    = models.DateField(db_column='LastResetDate', default=timezone.now)
 
+    # ✅ حقول حصص جيميني اليومية للمعلم
+    gemini_attempts_today = models.IntegerField(db_column='GeminiAttemptsToday', default=0)
+    daily_gemini_limit = models.IntegerField(db_column='DailyGeminiLimit', default=20)
+    gemini_last_reset_date = models.DateField(db_column='GeminiLastResetDate', default=timezone.now)
+
     def reset_quota_if_needed(self):
         if self.last_reset_date < timezone.now().date():
             self.lessons_today = 0
             self.videos_today  = 0
             self.last_reset_date = timezone.now().date()
             self.save(update_fields=['lessons_today', 'videos_today', 'last_reset_date'])
+
+    def reset_gemini_quota_if_needed(self):
+        if self.gemini_last_reset_date < timezone.now().date():
+            self.gemini_attempts_today = 0
+            self.gemini_last_reset_date = timezone.now().date()
+            self.save(update_fields=['gemini_attempts_today', 'gemini_last_reset_date'])
 
     def __str__(self):
         return f"Teacher: {self.userid.fullname}"
@@ -177,11 +188,22 @@ class Student(models.Model):
     directorate = models.CharField(max_length=150, blank=True, default='')
     address = models.CharField(max_length=255, null=True, blank=True)
     school_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="اسم المدرسة")
+
     def set_chat_key(self, raw_key: str):
         self.chat_api_key = encrypt_api_key(raw_key) if raw_key else None
 
     def get_chat_key(self) -> str:
         return decrypt_api_key(self.chat_api_key) if self.chat_api_key else ''
+
+    # ✅ مفتاح جيميني الخاص بالطالب للشات بوت
+    gemini_api_key = models.CharField(db_column='Student_Gemini_API_Key', max_length=500, blank=True, null=True)
+
+    def set_gemini_key(self, raw_key: str):
+        self.gemini_api_key = encrypt_api_key(raw_key) if raw_key else None
+
+    def get_gemini_key(self) -> str:
+        return decrypt_api_key(self.gemini_api_key) if self.gemini_api_key else ''
+
     daily_chat_limit = models.IntegerField(db_column='DailyChatLimit', default=20)
     chats_today      = models.IntegerField(db_column='ChatsToday',     default=0)
     last_chat_reset  = models.DateField(db_column='LastChatReset',  default=timezone.now)
@@ -330,6 +352,7 @@ class Lessoncontent(models.Model):
         help_text='فيديو تعليمي مرفوع يدوياً (MP4/WebM/MOV/AVI — بحد أقصى 500MB)'
     )
     video_title      = models.CharField(max_length=200, null=True, blank=True, help_text='عنوان الفيديو التعليمي')
+    video_published  = models.BooleanField(db_column='video_published', default=False)
     complexitylevel   = models.CharField(db_column='ComplexityLevel', max_length=10, choices=COMPLEXITY_CHOICES, default='Easy')
     createdat         = models.DateTimeField(db_column='CreatedAt', auto_now_add=True)
     status            = models.CharField(db_column='Status', max_length=10, choices=STATUS_CHOICES, default='Pending')

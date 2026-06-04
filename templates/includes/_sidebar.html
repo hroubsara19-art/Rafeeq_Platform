@@ -101,9 +101,15 @@
                 </li>
 
                 <li class="nav-item">
+                    {% if request.user.userrole == 'Admin' %}
+                    <a href="#" class="nav-link d-flex align-items-center" onclick="return false;">
+                        <i class="fas fa-chart-bar ms-3"></i> <span>رصد الدرجات</span>
+                    </a>
+                    {% else %}
                     <a href="{% url 'accounts:grades_page' %}" class="nav-link d-flex align-items-center">
                         <i class="fas fa-chart-bar ms-3"></i> <span>رصد الدرجات</span>
                     </a>
+                    {% endif %}
                 </li>
             {% endif %}
 
