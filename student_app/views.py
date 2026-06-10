@@ -740,10 +740,19 @@ def test_result(request, attempt_id):
     max_score  = sum(q.points for q in questions)
     percentage = round((attempt.score / max_score * 100), 1) if max_score else 0
 
+    # تحويل الإجابات إلى JSON لاستخدامها في JavaScript
+    answers_json = {}
+    for qid, ans in answers.items():
+        answers_json[str(qid)] = {
+            'selected': ans.selectedanswer,
+            'is_correct': ans.is_correct
+        }
+
     return render(request, 'student_app/test_result.html', {
         'attempt':    attempt,
         'questions':  questions,
         'answers':    answers,
+        'answers_json': answers_json,
         'percentage': percentage,
     })
 

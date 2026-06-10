@@ -124,9 +124,15 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
   direction:rtl;text-align:right;
 }
 .std-para-img{
-  width:80%;max-height:250px;border-radius:10px;
-  object-fit:cover;border:2px solid #e2e8f0;flex-shrink:0;
-  cursor:zoom-in;transition:transform .2s,box-shadow .2s;
+  display:block;
+  max-width:100%;
+  max-height:250px;
+  border-radius:10px;
+  object-fit:contain;
+  border:2px solid #e2e8f0;
+  margin-top:1rem;
+  cursor:zoom-in;
+  transition:transform .2s,box-shadow .2s;
 }
 .std-para-img:hover{transform:scale(1.02);box-shadow:0 6px 20px rgba(0,0,0,.15);}
 @media(max-width:600px){.std-para-block{flex-direction:column;}.std-para-img{width:100%;height:auto;max-height:220px;}}
