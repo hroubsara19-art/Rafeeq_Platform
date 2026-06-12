@@ -85,6 +85,39 @@
             border: 1px solid #dce4ec; transition: all 0.3s ease; 
         }
         
+        .form-control:focus, .django-field input:focus, .django-field select:focus {
+            border-color: #5a91e6;
+            box-shadow: 0 0 0 3px rgba(90, 145, 230, 0.1);
+            outline: none;
+        }
+        
+        .form-control.is-invalid, .django-field input.is-invalid, .django-field select.is-invalid {
+            border-color: #dc2626;
+            background-color: #fef2f2;
+        }
+        
+        .form-control.is-invalid:focus, .django-field input.is-invalid:focus, .django-field select.is-invalid:focus {
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
+        
+        .error-message {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: #dc2626;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 6px;
+            padding: 8px 12px;
+            background: #fef2f2;
+            border-radius: 6px;
+            border-right: 3px solid #dc2626;
+        }
+        
+        .error-message i {
+            font-size: 0.85rem;
+        }
+        
         .form-label { font-weight: 600; color: #4a5568; font-size: 0.9rem; }
         .brand-logo { text-align: center; margin-bottom: 25px; }
         .brand-logo h2 { color: #2d3748; font-weight: 700; }
@@ -305,7 +338,10 @@
                             {% endif %}
                             {% if field.errors %}
                                 {% for error in field.errors %}
-                                    <span class="text-danger d-block mt-1 fw-bold" style="font-size: 0.75rem;">! {{ error }}</span>
+                                    <div class="error-message">
+                                        <i class="fas fa-exclamation-circle"></i>
+                                        <span>{{ error }}</span>
+                                    </div>
                                 {% endfor %}
                             {% endif %}
                         </div>
@@ -390,6 +426,28 @@
             // تنسيق الحقول تلقائياً
             document.querySelectorAll('input:not([type=hidden]), select').forEach(el => {
                 el.classList.add('form-control');
+            });
+
+            // إضافة class is-invalid للحقول التي بها أخطاء
+            document.querySelectorAll('.error-message').forEach(errorEl => {
+                const fieldDiv = errorEl.closest('.mb-3');
+                if (fieldDiv) {
+                    const input = fieldDiv.querySelector('input, select');
+                    if (input) {
+                        input.classList.add('is-invalid');
+                    }
+                }
+            });
+
+            // إزالة class is-invalid عند الكتابة
+            document.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('input', function() {
+                    this.classList.remove('is-invalid');
+                    const errorMessages = this.closest('.mb-3')?.querySelectorAll('.error-message');
+                    if (errorMessages) {
+                        errorMessages.forEach(msg => msg.remove());
+                    }
+                });
             });
 
             const passwordInput = document.querySelector('input[name="password"]');

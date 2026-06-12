@@ -72,6 +72,26 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     is_active = models.BooleanField(default=True)
     is_staff  = models.BooleanField(default=False)
+
+    # ── حقول التحقق من الإيميل ──────────────────────────────────────
+    email_verification_code = models.CharField(
+        db_column='EmailVerificationCode',
+        max_length=8,
+        null=True,
+        blank=True,
+        help_text='رمز التحقق من الإيميل (8 خانات)'
+    )
+    email_verification_sent_at = models.DateTimeField(
+        db_column='EmailVerificationSentAt',
+        null=True,
+        blank=True,
+        help_text='وقت إرسال رمز التحقق'
+    )
+    is_email_verified = models.BooleanField(
+        db_column='IsEmailVerified',
+        default=False,
+        help_text='هل تم التحقق من الإيميل'
+    )
  
     # ── حقول الملف الشخصي ──────────────────────────────────────
     avatar = models.ImageField(

@@ -2,10 +2,14 @@
 accounts/views.py — محسّن بالأمان
 """
 import logging, os, re, traceback
+import random
+import string
+from datetime import datetime, timedelta
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.core.mail import send_mail
 from django.db import transaction
 from django.middleware.csrf import rotate_token
 from django.shortcuts import redirect, render
@@ -126,33 +130,126 @@ def signup_view(request):
             else:
                 try:
                     # ✅ حفظ المستخدم أولاً بشكل مستقل — لا يتأثر بفشل الملف الشخصي
-                    user = form.save()
-                    login(request, user)
-                    rotate_token(request)
+                    user = form.save(commit=False)
+                    user.is_active = False  # غير مفعل حتى يتم التحقق من الإيميل
+                    user.save()
+                    
+                    # إنشاء رمز التحقق من 8 خانات
+                    verification_code = ''.join(random.choices(string.digits, k=8))
+                    user.email_verification_code = verification_code
+                    user.email_verification_sent_at = datetime.now()
+                    user.save()
+                    
+                    # إرسال الإيميل
+                    try:
+                        subject = 'رمز التحقق من EduPal'
+                        message = f'''
+مرحباً {user.fullname}،
+
+شكراً لتسجيلك في منصة EduPal.
+
+رمز التحقق الخاص بك هو: {verification_code}
+
+يرجى إدخال هذا الرمز في صفحة التحقق لتفعيل حسابك.
+
+رمز التحقق صالح لمدة 30 دقيقة.
+
+تحياتنا،
+فريق EduPal
+'''
+                        send_mail(
+                            subject,
+                            message,
+                            settings.DEFAULT_FROM_EMAIL,
+                            [user.email],
+                            fail_silently=False,
+                        )
+                    except Exception as e:
+                        logger.error(f"Email sending error: {e}")
+                        form.add_error(None, 'حدث خطأ أثناء إرسال الإيميل. يرجى المحاولة مرة أخرى.')
+                        user.delete()
+                        return render(request, 'accounts/signup.html', {'form': form})
+                    
+                    # ✅ إنشاء الملف الشخصي منفصلاً — فشله لا يحذف المستخدم
+                    try:
+                        if role == 'Student':
+                            Student.objects.get_or_create(userid=user, defaults={'age': 1})
+                        elif role == 'Teacher':
+                            Teacher.objects.get_or_create(userid=user, defaults={'specialization': 'General'})
+                        elif role == 'Parent':
+                            Parent.objects.get_or_create(userid=user, defaults={'childid': None})
+                    except Exception as e:
+                        logger.error(f"Profile creation error for user {user.pk}: {e}")
+
+                    # حفظ البريد الإلكتروني في session للتحقق
+                    request.session['verification_email'] = user.email
+                    
+                    messages.success(request, 'تم إنشاء الحساب! يرجى التحقق من بريدك الإلكتروني لإدخال رمز التحقق.')
+                    return redirect('accounts:verify_email')
+                    
                 except Exception as e:
                     logger.error(f"Signup user creation error: {e}\n{traceback.format_exc()}")
                     form.add_error(None, 'حدث خطأ أثناء إنشاء الحساب.')
                     return render(request, 'accounts/signup.html', {'form': form})
 
-                # ✅ إنشاء الملف الشخصي منفصلاً — فشله لا يحذف المستخدم
-                try:
-                    if role == 'Student':
-                        Student.objects.get_or_create(userid=user, defaults={'age': 1})
-                    elif role == 'Teacher':
-                        Teacher.objects.get_or_create(userid=user, defaults={'specialization': 'General'})
-                    elif role == 'Parent':
-                        Parent.objects.get_or_create(userid=user, defaults={'childid': None})
-                except Exception as e:
-                    logger.error(f"Profile creation error for user {user.pk}: {e}")
-                    # ← المستخدم موجود ومسجّل دخوله — يكمل بياناته لاحقاً
-
-                messages.success(request, 'تم إنشاء الحساب! يرجى إكمال بياناتك.')
-                return redirect('accounts:complete_profile')
-
     else:
         form = RegistrationForm()
 
     return render(request, 'accounts/signup.html', {'form': form})
+
+
+def verify_email_view(request):
+    """صفحة التحقق من الرمز المرسل للإيميل"""
+    email = request.session.get('verification_email')
+    if not email:
+        messages.warning(request, 'يرجى تسجيل حساب أولاً.')
+        return redirect('accounts:signup')
+    
+    if request.method == 'POST':
+        code = request.POST.get('verification_code', '').strip()
+        
+        if not code:
+            messages.error(request, 'يرجى إدخال رمز التحقق.')
+            return render(request, 'accounts/verify_email.html', {'email': email})
+        
+        # البحث عن المستخدم بالبريد الإلكتروني
+        from learning.models import User
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            messages.error(request, 'المستخدم غير موجود.')
+            return redirect('accounts:signup')
+        
+        # التحقق من الرمز
+        if user.email_verification_code != code:
+            messages.error(request, 'رمز التحقق غير صحيح.')
+            return render(request, 'accounts/verify_email.html', {'email': email})
+        
+        # التحقق من انتهاء صلاحية الرمز (30 دقيقة)
+        if user.email_verification_sent_at:
+            time_diff = datetime.now() - user.email_verification_sent_at
+            if time_diff > timedelta(minutes=30):
+                messages.error(request, 'رمز التحقق منتهي الصلاحية. يرجى طلب رمز جديد.')
+                return render(request, 'accounts/verify_email.html', {'email': email})
+        
+        # تفعيل الحساب
+        user.is_active = True
+        user.is_email_verified = True
+        user.email_verification_code = None
+        user.email_verification_sent_at = None
+        user.save()
+        
+        # تسجيل الدخول
+        login(request, user)
+        rotate_token(request)
+        
+        # مسح البريد من session
+        del request.session['verification_email']
+        
+        messages.success(request, 'تم تفعيل حسابك بنجاح!')
+        return redirect('accounts:complete_profile')
+    
+    return render(request, 'accounts/verify_email.html', {'email': email})
 
 
 @login_required

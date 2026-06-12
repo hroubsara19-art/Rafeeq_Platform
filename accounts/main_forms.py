@@ -2,7 +2,9 @@ from django import forms
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from learning.models import User
+import re
 
 # ترجمة رسائل Django الافتراضية لكلمة المرور إلى العربية
 _PASSWORD_ERRORS_AR = {
@@ -104,32 +106,89 @@ class RegistrationForm(forms.ModelForm):
     # --- التحققات الأمنية ---
 
     def clean_username(self):
-        username = self.cleaned_data.get('username').lower()
+        username = self.cleaned_data.get('username')
+        if not username:
+            raise ValidationError("اسم المستخدم مطلوب.")
+        username = username.lower()
+        if len(username) < 3:
+            raise ValidationError("اسم المستخدم يجب أن يكون 3 أحرف على الأقل.")
         if User.objects.filter(username=username).exists():
-            raise ValidationError("البيانات المدخلة غير متاحة للاستخدام.")
+            raise ValidationError("اسم المستخدم موجود مسبقاً. يرجى اختيار اسم آخر.")
         return username
 
     def clean_email(self):
-        email = self.cleaned_data.get('email').lower()
-        # ✅ لمنع تكرار الإيميل (إنتاج): أزل الـ # من السطرين التاليين
-        # if User.objects.filter(email=email).exists():
-        #     raise ValidationError("البيانات المدخلة غير متاحة للاستخدام.")
+        email = self.cleaned_data.get('email')
+        if not email:
+            raise ValidationError("البريد الإلكتروني مطلوب.")
+        email = email.lower()
+        
+        # التحقق من التنسيق
+        try:
+            validate_email(email)
+        except ValidationError:
+            raise ValidationError("تنسيق البريد الإلكتروني غير صحيح. مثال: user@example.com")
+        
+        # التحقق من الدومين (أكثر مرونة)
+        domain = email.split('@')[1] if '@' in email else ''
+        # التحقق من أن الدومين يحتوي على نقطة واحدة على الأقل وينتهي بـ TLD صالح
+        if not domain or '.' not in domain:
+            raise ValidationError("الدومين غير صالح. تأكد من صحة البريد الإلكتروني.")
+        
+        # التحقق من أن الدومين لا يبدأ أو ينتهي بـ نقطة أو شرطة
+        if domain.startswith('.') or domain.startswith('-') or domain.endswith('.') or domain.endswith('-'):
+            raise ValidationError("الدومين غير صالح. تأكد من صحة البريد الإلكتروني.")
+        
+        # التحقق من أن TLD (الجزء بعد آخر نقطة) يحتوي على حروف فقط و2+ حروف
+        tld = domain.split('.')[-1]
+        if not tld or not tld.isalpha() or len(tld) < 2:
+            raise ValidationError("الدومين غير صالح. تأكد من صحة البريد الإلكتروني.")
+        
+        # التحقق من الجزء قبل النقطة (مثل example في example.com)
+        # يجب أن يحتوي على حروف/أرقام/شرطات فقط ولا يكون فارغاً
+        parts = domain.split('.')
+        for part in parts[:-1]:  # جميع الأجزاء ما عدا TLD
+            if not part:
+                raise ValidationError("الدومين غير صالح. تأكد من صحة البريد الإلكتروني.")
+            # التحقق من أن الجزء يحتوي على حروف/أرقام/شرطات فقط
+            if not re.match(r'^[a-zA-Z0-9-]+$', part):
+                raise ValidationError("الدومين غير صالح. تأكد من صحة البريد الإلكتروني.")
+            # التحقق من أن الجزء لا يبدأ أو ينتهي بـ شرطة
+            if part.startswith('-') or part.endswith('-'):
+                raise ValidationError("الدومين غير صالح. تأكد من صحة البريد الإلكتروني.")
+        
+        # التحقق من التكرار
+        if User.objects.filter(email=email).exists():
+            raise ValidationError("البريد الإلكتروني مسجل مسبقاً. يرجى استخدام بريد آخر أو تسجيل الدخول.")
+        
         return email
 
     def clean_identitynumber(self):
         identity = self.cleaned_data.get('identitynumber')
-        if not str(identity).isdigit() or len(str(identity)) != 9:
-            raise ValidationError("تأكد من إدخال رقم هوية صحيح مكون من 9 أرقام.")
-        if str(identity) == '0' * 9:
+        if not identity:
+            raise ValidationError("رقم الهوية مطلوب.")
+        identity_str = str(identity)
+        
+        if not identity_str.isdigit():
+            raise ValidationError("رقم الهوية يجب أن يتكون من أرقام فقط.")
+        if len(identity_str) != 9:
+            raise ValidationError("رقم الهوية يجب أن يكون مكوناً من 9 أرقام.")
+        if identity_str == '0' * 9:
             raise ValidationError("رقم الهوية غير صالح. لا يمكن أن يتكون من أصفار فقط.")
-        if User.objects.filter(identitynumber=identity).exists():
-            raise ValidationError("البيانات المدخلة غير متاحة للاستخدام.")
-        return int(identity)
+        if User.objects.filter(identitynumber=int(identity_str)).exists():
+            raise ValidationError("رقم الهوية مسجل مسبقاً. يرجى التأكد من الرقم أو التواصل مع الدعم.")
+        
+        return int(identity_str)
+
+    def clean_fullname(self):
+        fullname = self.cleaned_data.get('fullname')
+        if not fullname or len(fullname.strip()) < 3:
+            raise ValidationError("الاسم الكامل مطلوب ويجب أن يكون 3 أحرف على الأقل.")
+        return fullname.strip()
 
     def clean_userrole(self):
         role = self.cleaned_data.get('userrole')
-        if not role:
-            raise ValidationError("يرجى اختيار نوع المستخدم.")
+        if not role or role == '':
+            raise ValidationError("يرجى اختيار نوع الحساب.")
         return role
 
     def clean_password(self):
