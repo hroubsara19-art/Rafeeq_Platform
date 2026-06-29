@@ -306,7 +306,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
         <div class="subj-meta">
           <span>
             <i class="fas fa-chalkboard-teacher" style="margin-left:3px;"></i>
-            {% for lesson in lessons %}{% if forloop.first %}{{ lesson.teacherid.userid.fullname|default:"معلم" }}{% endif %}{% endfor %}
+            {% for lesson in lessons %}{% if forloop.first %}<strong>{{ lesson.teacherid.userid.fullname|default:"معلم" }}</strong>{% endif %}{% endfor %}
           </span>
           <span>
             <i class="fas fa-layer-group" style="margin-left:3px;"></i>

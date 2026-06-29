@@ -142,10 +142,6 @@ LOGOUT_REDIRECT_URL = 'accounts:login'
 # ── مفاتيح API ───────────────────────────────────────────────
 HF_API_TOKEN       = os.environ.get('HF_API_TOKEN', '')
 API_ENCRYPTION_KEY = os.environ.get('API_ENCRYPTION_KEY', '')  # مطلوب لتشفير مفاتيح API
-ALLOWED_HOSTS = ['gigantic-dice-unheated.ngrok-free.dev', 
-    '127.0.0.1', 
-    'localhost']
-ALLOWED_HOSTS = ['*']
 # ── البريد الإلكتروني ────────────────────────────────────────
 EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST          = 'smtp.gmail.com'
@@ -157,9 +153,9 @@ DEFAULT_FROM_EMAIL  = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@edupal.com')
 
 # ── إعدادات الأمان في الإنتاج (DEBUG=False) ──────────────────
 if not DEBUG:
-    SECURE_SSL_REDIRECT            = False
-    SESSION_COOKIE_SECURE          = False
-    CSRF_COOKIE_SECURE             = False
+    SECURE_SSL_REDIRECT            = True
+    SESSION_COOKIE_SECURE          = True
+    CSRF_COOKIE_SECURE             = True
     SECURE_HSTS_SECONDS            = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD            = True
