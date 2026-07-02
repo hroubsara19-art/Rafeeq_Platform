@@ -24,7 +24,7 @@ import asyncio
 from learning.utils import generate_audio_async
 
 logger        = logging.getLogger(__name__)
-FLASK_BASE    = "http://localhost:5050"
+FLASK_BASE    = "http://localhost:5051"
 FLASK_TIMEOUT = 5
 ATTENTION_ALERT_THRESHOLD = 50   # % — إذا انخفض عن هذا يُرسَل إشعار لولي الأمر
 MIN_SIGNIFICANT_INATTENTION_COUNT = 2

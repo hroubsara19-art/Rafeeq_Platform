@@ -1569,7 +1569,7 @@ function connectWebSocket(wsUrl) {
   
   ws.onopen = function() {
     console.log('[Attention] WebSocket connected');
-    showAlert('تم الاتصال بخادم تتبع الانتباه');
+    // تم الاتصال بخادم تتبع الانتباه - لا نعرض رسالة
     startFrameSending();
   };
   
@@ -1613,7 +1613,7 @@ function normalizeWsUrl(wsUrl) {
   }
   
   if (wsUrl.indexOf('/') === 0) {
-    return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.hostname + ':5050' + wsUrl;
+    return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.hostname + ':5051' + wsUrl;
   }
   
   return wsUrl;
@@ -1790,7 +1790,7 @@ function processAttentionState(s) {
   var level3Window = Math.max(5, videoDuration * 0.45); // المستوى 3: أدنى 5 ثواني، أو 45% من مدة الجلسة
   var projectedDistractionTime = _probabilisticModel.totalDistractionTime + (attentive ? 0 : timeSinceLastUpdate);
   var modelLevel = determinePopupLevel(projectedDistractionTime, level1Window, level2Window, level3Window) || 1;
-  var attentionScore = Number(s.attention_score != null ? s.attention_score : (s.score != null ? s.score : (attentive ? 85 : 45)));
+  var attentionScore = Number(s.attention_score != null ? s.attention_score : (attentive ? 85 : 45));
 
   updateBehavioralDisengagementProbability(attentive, attentionScore, timeSinceLastUpdate, modelLevel);
 
@@ -2101,9 +2101,8 @@ function toggleAttentionTracking() {
 }
 
 function showAlert(msg) {
-  // ✅ تعطيل رسائل التنبيه العامة - الحفاظ على سؤال التحقق فقط
-  // يمكن إعادة تفعيلها لرسائل الخطأ المهمة إذا لزم الأمر
-  return;
+  // ✅ تفعيل رسائل التنبيه العامة لعرض الأخطاء
+  alert(msg);
 }
 
 // ══════════════════════════════════════════════════════════════

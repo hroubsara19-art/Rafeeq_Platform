@@ -16,11 +16,11 @@ class LearningConfig(AppConfig):
                     [sys.executable, '-m', 'uvicorn',
                      'fastapi_server:app',
                      '--host', '0.0.0.0',
-                     '--port', '5050',
+                     '--port', '5051',
                      '--log-level', 'warning'],
                     cwd=r'C:\Users\Shaheen\adhd_learning_system\attention_tracker',
                     creationflags=subprocess.CREATE_NO_WINDOW  # Windows فقط
                 )
-                print("✅ خادم الانتباه يعمل تلقائياً على http://localhost:5050")
+                print("✅ خادم الانتباه يعمل تلقائياً على http://localhost:5051")
             except Exception as e:
                 print(f"⚠️ فشل تشغيل خادم الانتباه تلقائياً: {e}")

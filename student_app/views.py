@@ -137,6 +137,27 @@ def _is_valid_watch_local(session_starttime, lesson) -> bool:
     return session_starttime >= lesson_updated
 
 
+def _has_completed_test(student, test):
+    """Return True if the student completed the given test by answering all questions."""
+    from learning.models import Question, Studentanswer
+
+    attempt = Testattempt.objects.filter(
+        studentid=student,
+        testid=test
+    ).order_by('-attemptdate').first()
+    if not attempt:
+        return False
+
+    total_questions = Question.objects.filter(testid=test).count()
+    if total_questions == 0:
+        return True
+
+    answered_questions = Studentanswer.objects.filter(
+        attemptid=attempt
+    ).values_list('questionid', flat=True).distinct().count()
+    return answered_questions >= total_questions
+
+
 def _calc_lesson_status(student, lesson, lesson_test):
     """
     ✅ تحسب حالة إنجاز الطالب للدرس الواحد.
@@ -145,10 +166,11 @@ def _calc_lesson_status(student, lesson, lesson_test):
       is_watched      : bool — وجود جلسة مشاهدة (صالحة أو منتهية)
       is_stale_watch  : bool — الجلسة موجودة لكن قبل آخر تعديل للدرس
       video_watched   : bool — مشاهدة الفيديو
-      test_done       : bool — أكمل الاختبار إن وُجد
-      is_completed    : bool — جلسة صالحة + فيديو + اختبار مكتمل
+      test_done       : bool — أكمل الاختبار إن وُجد وجاوب على جميع أسئلته
+      checkpoints_done : bool — أجاب على جميع نقاط التحقق الدورية
+      is_completed    : bool — جلسة صالحة + فيديو/نقاط تحقق + اختبار مكتمل
     """
-    from learning.models import LessonWatchRecord
+    from learning.models import LessonWatchRecord, Checkpoint, StudentCheckpointAnswer
 
     sessions = (
         Learningsession.objects
@@ -171,21 +193,42 @@ def _calc_lesson_status(student, lesson, lesson_test):
         video_watch_qs = video_watch_qs.filter(watched_at__gte=lesson_updated)
     video_watched = video_watch_qs.exists()
 
+    # التحقق من الإجابة على جميع نقاط التحقق الدورية
+    checkpoints = Checkpoint.objects.filter(lessonid=lesson, checkpoint_type='mandatory')
+    checkpoints_done = True
+    if checkpoints.exists():
+        answered_checkpoints = StudentCheckpointAnswer.objects.filter(
+            studentid=student,
+            checkpoint__in=checkpoints
+        ).values_list('checkpoint_id', flat=True).distinct()
+        checkpoints_done = checkpoints.count() == len(answered_checkpoints)
+    else:
+        # إذا لم تكن هناك نقاط تحقق، نعتبرها مكتملة
+        checkpoints_done = True
+
     if lesson_test:
-        test_done = Testattempt.objects.filter(
-            studentid=student, testid=lesson_test
-        ).exists()
+        test_done = _has_completed_test(student, lesson_test)
     else:
         test_done = True
 
-    is_completed = (is_watched and not is_stale_watch and video_watched and test_done)
+    # إذا هناك نقاط تحقق إجبارية، فإن إكمالها يكفي لإثبات متابعة الجلسة
+    session_completed = video_watched or checkpoints_done
+
+    is_completed = (
+        is_watched and
+        not is_stale_watch and
+        session_completed and
+        test_done
+    )
 
     return {
-        'is_watched':     is_watched,
-        'is_stale_watch': is_stale_watch,
-        'video_watched':  video_watched,
-        'test_done':      test_done,
-        'is_completed':   is_completed,
+        'is_watched':        is_watched,
+        'is_stale_watch':    is_stale_watch,
+        'video_watched':     video_watched,
+        'test_done':         test_done,
+        'checkpoints_done':  checkpoints_done,
+        'session_completed': session_completed,
+        'is_completed':      is_completed,
     }
 
 
@@ -337,13 +380,19 @@ def student_home(request):
         general_tests_by_subject = {}
         if subjects_map:
             subject_ids = list(subjects_map.keys())
-            for t in Test.objects.filter(subjectid__in=subject_ids, lessonid__isnull=True):
+            # جلب جميع اختبارات المادة (العامة ومرتبطة بالدروس)
+            for t in Test.objects.filter(subjectid__in=subject_ids):
                 general_tests_by_subject.setdefault(t.subjectid_id, []).append(t)
 
         for sid, item in subjects_map.items():
             lessons_in_subj = item['lessons']
             subject_general_tests = general_tests_by_subject.get(sid, [])
-            if not lessons_in_subj and not subject_general_tests:
+
+            # استبعاد اختبارات الدروس من التحقق النهائي للمادة
+            lesson_ids_in_subj = [l.pk for l in lessons_in_subj]
+            subject_final_tests = [t for t in subject_general_tests if t.lessonid_id not in lesson_ids_in_subj]
+
+            if not lessons_in_subj and not subject_final_tests:
                 item['is_subject_completed'] = False
                 continue
 
@@ -355,9 +404,9 @@ def student_home(request):
                     all_done = False
                     break
 
-            if all_done and subject_general_tests:
-                for test in subject_general_tests:
-                    if test.testid not in attempted_test_ids:
+            if all_done and subject_final_tests:
+                for test in subject_final_tests:
+                    if not _has_completed_test(student, test):
                         all_done = False
                         break
 
@@ -780,10 +829,11 @@ def view_lesson_student(request, lesson_id):
         status = _calc_lesson_status(student, lesson, lesson_test)
     else:
         status = {
-            'is_watched':     False,
-            'is_stale_watch': False,
-            'test_done':      True,
-            'is_completed':   False,
+            'is_watched':        False,
+            'is_stale_watch':    False,
+            'test_done':         True,
+            'checkpoints_done':  False,
+            'is_completed':      False,
         }
 
     video_url = _build_audio_url(lesson.ai_videopath)

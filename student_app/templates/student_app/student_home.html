@@ -271,7 +271,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
     {% for item in subjects %}
     {% with subj=item.subject lessons=item.lessons count=item.lesson_count cover=item.cover %}
 
-    <div class="subj-card">
+    <div class="subj-card" data-subject-completed="{{ item.is_subject_completed|yesno:"true,false" }}">
 
       <!-- غلاف المادة -->
       <div class="subj-cover subject-emoji-cover" data-subject="{{ subj.subjectname }}">
@@ -306,7 +306,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
         <div class="subj-meta">
           <span>
             <i class="fas fa-chalkboard-teacher" style="margin-left:3px;"></i>
-            {% for lesson in lessons %}{% if forloop.first %}<strong>{{ lesson.teacherid.userid.fullname|default:"معلم" }}</strong>{% endif %}{% endfor %}
+            {% for lesson in lessons %}{% if forloop.first %}{{ lesson.teacherid.userid.fullname|default:"معلم" }}{% endif %}{% endfor %}
           </span>
           <span>
             <i class="fas fa-layer-group" style="margin-left:3px;"></i>
@@ -434,7 +434,8 @@ var LESSON_TEST_MAP = (function(){
     if(badgeEl && watched > 0){
       var badgeSpan = badgeEl.querySelector('.cover-badge-text');
       if(badgeSpan){
-        if(pct >= 100){
+        var isCompleted = card.getAttribute('data-subject-completed') === 'true';
+        if(pct >= 100 && isCompleted){
           badgeSpan.textContent = 'مكتملة ✓';
         } else {
           badgeSpan.textContent = pct + '%';

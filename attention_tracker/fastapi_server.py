@@ -5,8 +5,8 @@ fastapi_server.py
 عبر WebSocket و REST API لتطبيق Django.
 
 المنافذ:
-    FastAPI: http://localhost:5050
-    WS     : ws://localhost:5050/ws/attention/<session_id>
+    FastAPI: http://localhost:5051
+    WS     : ws://localhost:5051/ws/attention/<session_id>
 
 نقاط الـ API:
     POST /api/start   → يبدأ جلسة تتبع
@@ -190,11 +190,15 @@ async def api_start(request: Request):
             return {
                 "ok": True,
                 "session_id": session_id,
-                "ws_url": f"ws://localhost:5050/ws/attention/{session_id}",
+                "ws_url": f"ws://localhost:5051/ws/attention/{session_id}",
                 "has_calibration": existing.get("has_calibration", False),
             }
 
-        session = _make_session(session_id, student_name, camera_index, student_id)
+        try:
+            session = _make_session(session_id, student_name, camera_index, student_id)
+        except Exception as e:
+            logger.error(f"خطأ في إنشاء الجلسة: {e}")
+            raise HTTPException(status_code=500, detail=f"تعذّر إنشاء جلسة التتبع: {e}")
         _sessions[session_id] = session
 
         # تهيئة tracker بدون فتح كاميرا الخادم؛ frames تصل من المتصفح عبر WebSocket.
@@ -212,7 +216,7 @@ async def api_start(request: Request):
     return {
         "ok":              True,
         "session_id":      session_id,
-        "ws_url":          f"ws://localhost:5050/ws/attention/{session_id}",
+        "ws_url":          f"ws://localhost:5051/ws/attention/{session_id}",
         "has_calibration": session.get("has_calibration", False),  # ✅ إرجاع حالة المعايرة
     }
 
@@ -390,10 +394,10 @@ async def ws_attention(websocket: WebSocket, session_id: str):
 # ══════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     import uvicorn
-    print("🚀 خادم تتبع الانتباه يعمل على http://localhost:5050")
+    print("🚀 خادم تتبع الانتباه يعمل على http://localhost:5051")
     
     # تنظيف عند الإغلاق
     import atexit
     if DJANGO_AVAILABLE:
         atexit.register(learning_state_updater.stop)
-    uvicorn.run(app, host="0.0.0.0", port=5050)
+    uvicorn.run(app, host="0.0.0.0", port=5051)

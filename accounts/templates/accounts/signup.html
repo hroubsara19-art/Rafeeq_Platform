@@ -40,25 +40,25 @@
             border-radius: 30px;
             overflow: hidden;
             box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-            max-width: 1100px;
+            max-width: 1000px;
             width: 100%;
         }
 
         /* قسم الصورة (الحجم الأصلي مع التدرج) */
         .signup-image-section {
             background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-            flex: 1.5;
+            flex: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 0;
+            padding: 40px;
         }
 
         .signup-image-section img {
-            width: 100%;
+            max-width: 100%;
             height: auto;
-            border-radius: 0;
+            border-radius: 15px;
             filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));
             transition: transform 0.5s ease;
         }
@@ -278,7 +278,7 @@
     <main class="main-content">
         <div class="main-wrapper">
             <div class="signup-image-section">
-                <img src="{% static 'images/signup_img.png' %}?v=1" alt="EduPal Learning">
+                <img src="{% static 'images/signup_img.png' %}?v={% now "U" %}" alt="EduPal Learning">
                 <div class="mt-4 d-none d-lg-block text-center">
                     <h4 class="fw-bold" style="color: #4a5568;">تعلم بذكاء، لا بعناء</h4>
                     <p class="text-muted small px-3">انضم لآلاف الطلاب في رحلة تعليمية مدعومة بالذكاء الاصطناعي.</p>

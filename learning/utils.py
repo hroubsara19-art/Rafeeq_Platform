@@ -756,10 +756,40 @@ def process_lesson_with_ai(
         if paragraphs_list:
             simplified_text = '\n\n'.join(paragraphs_list)
         else:
-            raw = re.sub(r'[*#_~`]', '', full_res)
-            raw = re.sub(r'^\s*[-–—]\s+', '', raw, flags=re.MULTILINE)
-            raw = re.sub(r'^\s*\d+\.\s+', '', raw, flags=re.MULTILINE)
-            simplified_text = re.sub(r'\n{3,}', '\n\n', raw).strip()
+            # محاولة إزالة JSON إذا كان موجوداً
+            raw = full_res
+            # إزالة JSON array إذا كان موجوداً
+            json_match = re.search(r'\[\s*\{.*\}\s*\]', raw, re.DOTALL)
+            if json_match:
+                # محاولة استخراج الفقرات من JSON مرة أخرى
+                try:
+                    parsed = _json.loads(_sanitize_json_str(json_match.group()))
+                    paragraphs_list = [
+                        re.sub(r'[*#_~`]', '', item.get('paragraph', '')).strip()
+                        for item in parsed
+                        if item.get('paragraph', '').strip()
+                    ]
+                    if paragraphs_list:
+                        simplified_text = '\n\n'.join(paragraphs_list)
+                    else:
+                        # إذا فشل، استخدم النص الأصلي بدون JSON
+                        raw = re.sub(r'\[\s*\{.*\}\s*\]', '', raw, flags=re.DOTALL)
+                        raw = re.sub(r'[*#_~`]', '', raw)
+                        raw = re.sub(r'^\s*[-–—]\s+', '', raw, flags=re.MULTILINE)
+                        raw = re.sub(r'^\s*\d+\.\s+', '', raw, flags=re.MULTILINE)
+                        simplified_text = re.sub(r'\n{3,}', '\n\n', raw).strip()
+                except Exception:
+                    # إذا فشل، استخدم النص الأصلي بدون JSON
+                    raw = re.sub(r'\[\s*\{.*\}\s*\]', '', raw, flags=re.DOTALL)
+                    raw = re.sub(r'[*#_~`]', '', raw)
+                    raw = re.sub(r'^\s*[-–—]\s+', '', raw, flags=re.MULTILINE)
+                    raw = re.sub(r'^\s*\d+\.\s+', '', raw, flags=re.MULTILINE)
+                    simplified_text = re.sub(r'\n{3,}', '\n\n', raw).strip()
+            else:
+                raw = re.sub(r'[*#_~`]', '', raw)
+                raw = re.sub(r'^\s*[-–—]\s+', '', raw, flags=re.MULTILINE)
+                raw = re.sub(r'^\s*\d+\.\s+', '', raw, flags=re.MULTILINE)
+                simplified_text = re.sub(r'\n{3,}', '\n\n', raw).strip()
 
         print('✅ تم تجهيز النص بنجاح.')
 

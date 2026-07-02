@@ -703,11 +703,21 @@ class AttentionTracker:
         calibration_data = tracker.get_calibration_data()
     """
 
-    def __init__(self, student_name: str, is_calibration_mode: bool = False, 
-                 baseline_data: dict = None):
+    def __init__(self, student_name: str = "الطالب", 
+                 is_calibration_mode: bool = False,
+                 baseline_data: dict = None,
+                 camera_index: int = 0,
+                 target_fps: int = 15):
         self.student_name = student_name
         self.is_calibration_mode = is_calibration_mode
         self.baseline_data = baseline_data or {}
+        self.camera_index = camera_index
+        self.target_fps = target_fps
+        self._running = False
+        self.last_error = None
+        self._face_mesh = None  # FaceMesh أو False عند التعطيل
+        self._pose = None  # Pose أو False
+        self._face_detector = None
         
         # مخازن بيانات المعايرة
         self._calibration_data = {
@@ -725,7 +735,6 @@ class AttentionTracker:
         }
         
         # تهيئة المنعمات
-        from .attention_engine import Smoother
         self._yaw_smoother = Smoother(ALPHA_SMOOTHING)
         self._pitch_smoother = Smoother(ALPHA_SMOOTHING)
         self._roll_smoother = Smoother(ALPHA_SMOOTHING)
@@ -739,6 +748,20 @@ class AttentionTracker:
         self._attentive_streak = 0
         self._inattention_count = 0
         self._last_alert = 0
+        self._ear_counter = 0
+        self._session_start = None
+        self._score_buffer = []
+        self._closed_ear_streak = 0
+        self._open_ear_streak = 0
+        self._drowse_active = False
+        self._mp_lock = threading.Lock()  # حماية MediaPipe من multi-threading
+        self._last_face_seen = time.time()  # لتجنب وميض no_face
+        
+        # متغيرات إغماق العينين
+        self._eye_closure_start = None
+        self._eye_closure_count = 0
+        self._eye_closure_threshold = 5.0
+        self._max_eye_closures = 3
         
         # متغيرات اكتشاف احتمال التشوش (المنطق الجديد)
         self._deviation_count = 0  # عدد الانحرافات الحالية عن النموذج الشخصي
@@ -752,21 +775,7 @@ class AttentionTracker:
         self._window_size = 30  # حجم النافذة الزمنية (عدد الإطارات)
         self._probability_threshold = 0.3  # عتبة الاحتمال لتصنيف انخفاض الانخراط
         self._low_probability_duration = 0  # مدة انخفاض الاحتمال
-        self._low_probability_threshold = 10  # عتبة المدة (10 ثواني)ي
-        
-        # متغيرات النعاس
-        self._drowse_active = False
-        self._ear_counter = 0
-        self._closed_ear_streak = 0
-        self._open_ear_streak = 0
-        self._eye_closure_start = None
-        self._eye_closure_threshold = 5.0
-        self._eye_closure_count = 0
-        self._last_face_seen = time.time()
-        
-        # متغيرات إضافية
-        self._session_start = time.time()
-        self._score_buffer = []
+        self._low_probability_threshold = 10  # عتبة المدة (10 ثواني)
 
     def _collect_calibration_data(self, ear: float, head_yaw: float, head_pitch: float, 
                                  head_roll: float, gaze_h_angle: float, gaze_v_angle: float,
@@ -1047,7 +1056,7 @@ class AttentionTracker:
             if score == 90 or score == 0:
                 import logging
                 logger = logging.getLogger(__name__)
-                logger.warning(f"Score is {score} - ear={ear:.3f}, face_ratio={face_ratio:.3f}, gaze={gaze}, drowsy={drowsy}, head_yaw={head_yaw:.2f}, head_pitch={head_pitch:.2f}, head_roll={head_roll:.2f}, gaze_h={gaze_h_angle:.2f}, gaze_v={gaze_v_angle:.2f}, looking_away={looking_away}")
+                logger.warning(f"Score is {score} - ear={ear:.3f}, face_ratio={face_ratio:.3f}, gaze={gaze_zone}, drowsy={drowsy}, head_yaw={head_yaw:.2f}, head_pitch={head_pitch:.2f}, head_roll={head_roll:.2f}, gaze_h={gaze_h_angle:.2f}, gaze_v={gaze_v_angle:.2f}, looking_away={looking_away}")
             attentive = score >= 68
             display_ratio = face_ratio
 
@@ -1119,46 +1128,6 @@ class AttentionTracker:
     def _process(self, lm, w: int, h: int) -> AttentionState:
         """مسار الكاميرا المحلية (بدون Pose) — نفس منطق الوجه فقط."""
         return self._process_focusbuddy(None, lm, w, h)
-
-    def __init__(self, student_name: str = "الطالب",
-                 camera_index: int = 0,
-                 target_fps: int = 15):
-        self.student_name  = student_name
-        self.camera_index  = camera_index
-        self.target_fps    = target_fps
-        self._running      = False
-        self.last_error    = None
-        self._face_mesh    = None  # FaceMesh أو False عند التعطيل
-        self._pose         = None  # Pose أو False
-        self._face_detector = None
-
-        # حالة داخلية
-        self._ear_counter       = 0
-        self._distract_start    = None   # وقت بداية التشتت
-        self._last_alert        = 0.0
-        self._warning_nudge_sent = False  # تنبيه تحذيري واحد لكل فترة تشتت قبل «الملحوظ»
-        self._significant_distraction_active = False  # عد كل تشتت ملحوظ مرة واحدة
-        self._inattention_count = 0
-        self._session_start     = None
-        self._score_buffer      = []     # لحساب المتوسط
-        self._attentive_streak  = 0      # إطارات منتبه متتالية لتصفير المؤقت
-        self._closed_ear_streak = 0
-        self._open_ear_streak   = 0
-        self._drowse_active     = False
-        self._mp_lock           = threading.Lock()  # ✅ حماية MediaPipe من multi-threading
-        self._last_face_seen    = time.time()  # ✅ لتجنب وميض no_face
-        # ✅ نظام إغماض العينين
-        self._eye_closure_start = None  # وقت بداية إغماض العينين
-        self._eye_closure_count = 0     # عدد مرات إغماض العينين
-        self._eye_closure_threshold = 3.0  # 3 ثواني
-        self._max_eye_closures = 3      # توقف بعد 3 مرات
-        
-        # ✅ نظام التنعيم (Smoothing) للقيم المستمرة
-        self._yaw_smoother = Smoother(ALPHA_SMOOTHING)
-        self._pitch_smoother = Smoother(ALPHA_SMOOTHING)
-        self._roll_smoother = Smoother(ALPHA_SMOOTHING)
-        self._gaze_h_smoother = Smoother(ALPHA_SMOOTHING)
-        self._gaze_v_smoother = Smoother(ALPHA_SMOOTHING)
 
     def _init_face_mesh(self):
         """✅ تهيئة face_mesh مرة واحدة فقط."""

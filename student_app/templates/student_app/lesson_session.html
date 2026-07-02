@@ -1139,7 +1139,18 @@ function updateCognitiveSignal(isCorrect, now) {
 function processAttentionState(s) {
     var now = Date.now();
     var attentive = !!s.is_attentive;
-    var score = s.score || 0;
+    var score = s.attention_score || 0;
+    
+    // ✅ تسجيل مؤقت لفحص البيانات القادمة من الخادم
+    console.log('[Attention Debug] Received state:', {
+        is_attentive: s.is_attentive,
+        attention_score: s.attention_score,
+        distraction_cause: s.distraction_cause,
+        ear_value: s.ear_value,
+        gaze_zone: s.gaze_zone,
+        head_yaw: s.head_yaw,
+        head_pitch: s.head_pitch
+    });
 
     // ✅ حساب المستوى الحالي قبل تحديث النموذج الاحتمالي
     // ✅ استخدام مدة التسجيل الصوتي الفعلية بدلاً من وقت بدء الجلسة
@@ -1150,7 +1161,7 @@ function processAttentionState(s) {
     var level3Window = Math.max(15, Math.min(720, sessionDuration * 0.45)); // المستوى 3: أدنى 15 ثانية، أو 45% من مدة الجلسة، حد أقصى 12 دقيقة (720 ثانية)
 
     var distractionLevel = 1; // المستوى الافتراضي
-    var probabilityThreshold1 = 0.3;
+    var probabilityThreshold1 = 0.15; // ✅ تقليل العتبة للسماح برسائل التشتت الأساسية بدون إشارات معرفية
     var probabilityThreshold2 = 0.5;
     var probabilityThreshold3 = 0.7;
 
@@ -1604,6 +1615,7 @@ function hideAttentionBar(isError = false){
 }
 
 function startTracking(){
+    console.log('[Attention] startTracking called');
     updateBar('', 'جارٍ بدء تتبع الانتباه...', 0);
 
     // ✅ جلب بيانات المعايرة الشخصية قبل بدء التتبع
@@ -1656,7 +1668,8 @@ function startTracking(){
                 setTimeout(startTracking, 5000);
             }
         })
-        .catch(function(){
+        .catch(function(e){
+            console.error('[Attention] Failed to start tracking:', e);
             showAlert('تعذر التواصل مع خادم تتبع الانتباه. إعادة المحاولة بعد 5 ثوانٍ.');
             hideAttentionBar(true);
             setTimeout(startTracking, 5000); // إعادة المحاولة بعد 5 ثوانٍ
@@ -1676,13 +1689,15 @@ function normalizeWsUrl(wsUrl){
         return (location.protocol === 'https:' ? 'wss:' : 'ws:') + wsUrl;
     }
     if (wsUrl.indexOf('/') === 0) {
-        return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.hostname + ':5050' + wsUrl;
+        return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.hostname + ':5051' + wsUrl;
     }
     return wsUrl;
 }
 
 function connectWebSocket(wsUrl){
+    console.log('[Attention] connectWebSocket called with ws_url:', wsUrl);
     var normalized = normalizeWsUrl(wsUrl);
+    console.log('[Attention] Normalized ws_url:', normalized);
     if (!normalized){
         console.warn('[Attention] Invalid ws_url:', wsUrl);
         hideAttentionBar();
@@ -1690,7 +1705,7 @@ function connectWebSocket(wsUrl){
     }
     ws = new WebSocket(normalized);
     ws.onopen = function(){
-        showAlert('تم الاتصال بخادم تتبع الانتباه');
+        // تم الاتصال بخادم تتبع الانتباه - لا نعرض رسالة
         startFrameSending();
         // Update UI to show tracking is active after reconnection
         updateBar('attentive', 'التتبع نشط ✅', 100);
@@ -1804,8 +1819,8 @@ function updateBar(cls, label, score){
 }
 
 function showAlert(msg){
-    // تم إخفاء جميع رسائل التنبيه العامة
-    return;
+    // ✅ تفعيل رسائل التنبيه العامة لعرض الأخطاء
+    alert(msg);
 }
 
 // إعادة آخر 5 ثوانٍ من الصوت
