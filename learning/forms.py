@@ -67,11 +67,21 @@ class VRLessonSetupForm(forms.Form):
     vr_url = forms.URLField(
         widget=forms.URLInput(attrs={
             'class': 'form-control form-control-lg shadow-sm',
-            'placeholder': 'ضع رابط موقع الواقع الافتراضي المصمم هنا',
+            'placeholder': 'ضع رابط موقع الواقع الافتراضي المصمم هنا (اختياري)',
             'dir': 'ltr',
         }),
-        label='رابط موقع الواقع الافتراضي',
-        help_text='أدخل الرابط الكامل للموقع الذي صممته في منصة Google AI Studio'
+        label='رابط موقع الواقع الافتراضي (اختياري)',
+        required=False,
+        help_text='أدخل الرابط الكامل للموقع الذي صممته في منصة Google AI Studio. إذا ترك فارغاً، سيتم استخدام الرابط الافتراضي.'
+    )
+
+    vr_attachment = forms.FileField(
+        widget=forms.FileInput(attrs={
+            'class': 'form-control form-control-lg shadow-sm',
+        }),
+        label='مرفق إضافي (اختياري)',
+        required=False,
+        help_text='ارفق ملفاً إضافياً (PDF, ZIP, أو أي ملف آخر) ليتم إرساله للطالب'
     )
     
     def __init__(self, *args, **kwargs):
@@ -80,7 +90,8 @@ class VRLessonSetupForm(forms.Form):
         if teacher:
             # فلتر المواد والدروس حسب المعلم
             self.fields['subject'].queryset = Subject.objects.filter(teacherid=teacher)
-            self.fields['lesson'].queryset = Lessoncontent.objects.filter(teacherid=teacher)
+            # فلتر الدروس المنشورة فقط
+            self.fields['lesson'].queryset = Lessoncontent.objects.filter(teacherid=teacher, status='Published')
             # فلتر الصفوف حسب الصفوف المسندة للمعلم
             from django.db.models import Q
             self.fields['classroom'].queryset = Class.objects.filter(

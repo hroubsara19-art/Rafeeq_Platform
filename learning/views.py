@@ -3165,19 +3165,25 @@ def vr_lesson_setup(request):
     teacher = request.teacher
     
     if request.method == 'POST':
-        form = VRLessonSetupForm(request.POST, teacher=teacher)
+        form = VRLessonSetupForm(request.POST, request.FILES, teacher=teacher)
         if form.is_valid():
             try:
                 classroom = form.cleaned_data['classroom']
                 subject = form.cleaned_data['subject']
                 lesson = form.cleaned_data['lesson']
-                vr_url = form.cleaned_data['vr_url']
-                
+                vr_url = form.cleaned_data.get('vr_url')
+                vr_attachment = form.cleaned_data.get('vr_attachment')
+
                 # التحقق من أن الدرس يخص المعلم
                 if lesson.teacherid != teacher:
                     messages.error(request, 'هذا الدرس لا يخصك.')
                     return render(request, 'learning/vr_lesson_setup.html', {'form': form})
-                
+
+                # استخدام الرابط الافتراضي إذا لم يتم إدخال رابط
+                default_vr_url = 'https://ai.studio/apps/84df996b-346c-484f-a8e5-23b34c70a90d'
+                if not vr_url:
+                    vr_url = default_vr_url
+
                 # إنشاء أو تحديث سجل الواقع الافتراضي
                 vr_lesson, created = VRLesson.objects.update_or_create(
                     lesson=lesson,
@@ -3189,6 +3195,11 @@ def vr_lesson_setup(request):
                         'is_published': True,
                     }
                 )
+
+                # تحديث المرفق إذا تم رفعه
+                if vr_attachment:
+                    vr_lesson.vr_attachment = vr_attachment
+                    vr_lesson.save()
                 
                 message_type = 'إنشاء' if created else 'تحديث'
                 messages.success(
@@ -3212,7 +3223,7 @@ def vr_lesson_setup(request):
         form = VRLessonSetupForm(teacher=teacher)
     
     # بيانات إضافية لتمرير رابط منصة التصميم
-    design_platform_url = 'https://aistudio.google.com/apps/84df996b-346c-484f-a8e5-23b34c70a90d?showAssistant=true&project=gen-lang-client-0321460325&showPreview=true'
+    design_platform_url = 'https://ai.studio/apps/84df996b-346c-484f-a8e5-23b34c70a90d'
     
     return render(request, 'learning/vr_lesson_setup.html', {
         'form': form,
@@ -3232,14 +3243,46 @@ def vr_lesson_edit(request, vr_id):
     vr_lesson = get_object_or_404(VRLesson, vr_id=vr_id, teacher=teacher)
     
     if request.method == 'POST':
-        form = VRLessonSetupForm(request.POST, teacher=teacher)
+        form = VRLessonSetupForm(request.POST, request.FILES, teacher=teacher)
         if form.is_valid():
             try:
                 vr_lesson.classroom = form.cleaned_data['classroom']
                 vr_lesson.subject = form.cleaned_data['subject']
                 vr_lesson.lesson = form.cleaned_data['lesson']
-                vr_lesson.vr_url = form.cleaned_data['vr_url']
+                vr_url = form.cleaned_data.get('vr_url')
+                vr_attachment = form.cleaned_data.get('vr_attachment')
+
+                # استخدام الرابط الافتراضي إذا لم يتم إدخال رابط
+                default_vr_url = 'https://ai.studio/apps/84df996b-346c-484f-a8e5-23b34c70a90d'
+                if not vr_url:
+                    vr_url = default_vr_url
+
+                # التحقق من وجود تغييرات مهمة
+                has_changes = (
+                    vr_lesson.vr_url != vr_url or
+                    vr_lesson.lesson != form.cleaned_data['lesson'] or
+                    vr_lesson.subject != form.cleaned_data['subject'] or
+                    vr_lesson.classroom != form.cleaned_data['classroom'] or
+                    (vr_attachment and vr_lesson.vr_attachment != vr_attachment)
+                )
+
+                vr_lesson.vr_url = vr_url
+
+                # تحديث المرفق إذا تم رفعه
+                if vr_attachment:
+                    vr_lesson.vr_attachment = vr_attachment
+
                 vr_lesson.save()
+
+                # إعادة تعيين حالات التفاعل إذا تم تغيير شيء مهم
+                if has_changes:
+                    from .models import StudentVRInteraction
+                    StudentVRInteraction.objects.filter(vr_lesson=vr_lesson).update(
+                        has_downloaded_attachment=False,
+                        has_explored_vr=False,
+                        download_timestamp=None,
+                        explore_timestamp=None
+                    )
                 
                 messages.success(request, f'تم تحديث تجربة الواقع الافتراضي بنجاح.')
                 return redirect('learning:teacher_dashboard')
@@ -3265,6 +3308,39 @@ def vr_lesson_edit(request, vr_id):
         'design_platform_url': design_platform_url,
         'teacher': teacher,
         'is_edit': True,
+    })
+
+
+@login_required
+@teacher_required
+def vr_lessons_preview(request):
+    """صفحة معاينة تجارب الواقع الافتراضي للمعلم"""
+    from .models import VRLesson, StudentVRInteraction
+
+    teacher = request.teacher
+    vr_lessons = VRLesson.objects.filter(teacher=teacher, is_published=True).select_related(
+        'lesson', 'subject', 'classroom'
+    ).prefetch_related('student_interactions__student__userid')
+
+    # إحصائيات لكل درس
+    vr_lessons_data = []
+    for vr_lesson in vr_lessons:
+        interactions = vr_lesson.student_interactions.all()
+        total_students = interactions.count()
+        downloaded_count = interactions.filter(has_downloaded_attachment=True).count()
+        explored_count = interactions.filter(has_explored_vr=True).count()
+
+        vr_lessons_data.append({
+            'vr_lesson': vr_lesson,
+            'total_students': total_students,
+            'downloaded_count': downloaded_count,
+            'explored_count': explored_count,
+            'interactions': interactions,
+        })
+
+    return render(request, 'learning/vr_lessons_preview.html', {
+        'vr_lessons_data': vr_lessons_data,
+        'teacher': teacher,
     })
 
 
@@ -3351,10 +3427,11 @@ def get_lessons_for_subject(request):
         return JsonResponse({'success': False, 'error': 'المستخدم ليس معلماً'}, status=403)
     
     try:
-        # احصل على الدروس المرتبطة بهذه المادة والمعلم
+        # احصل على الدروس المرتبطة بهذه المادة والمعلم (المنشورة فقط)
         lessons = Lessoncontent.objects.filter(
             teacherid=teacher,
-            subjectid_id=subject_id
+            subjectid_id=subject_id,
+            status='Published'
         ).distinct()
         
         lessons_list = []

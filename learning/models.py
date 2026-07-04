@@ -273,6 +273,9 @@ class Subject(models.Model):
     teacherid   = models.ForeignKey(Teacher, on_delete=models.CASCADE, db_column='TeacherID')
     classid     = models.ForeignKey(Class,   on_delete=models.SET_NULL, db_column='ClassID', blank=True, null=True)
 
+    def __str__(self):
+        return self.subjectname
+
     class Meta:
         managed  = True
         db_table = 'Subject'
@@ -397,6 +400,10 @@ class Lessoncontent(models.Model):
     content_updated_at = models.DateTimeField(
     null=True, blank=True, db_column='ContentUpdatedAt'
     )
+
+    def __str__(self):
+        return self.lessontitle
+
     class Meta:
         managed  = True
         db_table = 'LessonContent'
@@ -922,13 +929,22 @@ class VRLesson(models.Model):
     vr_url = models.URLField(
         db_column='VR_URL',
         max_length=1000,
+        null=True,
+        blank=True,
         help_text='ط±ط§ط¨ط· ظ…ظ†طµط© ط§ظ„ظˆط§ظ‚ط¹ ط§ظ„ط§ظپطھط±ط§ط¶ظٹ ط§ظ„ظ…طµظ…ظ… ظ…ظ† ظ‚ط¨ظ„ ط§ظ„ظ…ط¹ظ„ظ…'
     )
     design_platform_url = models.URLField(
         db_column='DesignPlatformURL',
-        default='https://aistudio.google.com/apps/84df996b-346c-484f-a8e5-23b34c70a90d?showAssistant=true&project=gen-lang-client-0321460325&showPreview=true',
+        default='https://ai.studio/apps/84df996b-346c-484f-a8e5-23b34c70a90d',
         max_length=1000,
         help_text='ط±ط§ط¨ط· ظ…ظ†طµط© طھطµظ…ظٹظ… ط¨ظٹط¦ط© ط§ظ„ظˆط§ظ‚ط¹ ط§ظ„ط§ظپطھط±ط§ط¶ظٹ'
+    )
+    vr_attachment = models.FileField(
+        db_column='VR_Attachment',
+        upload_to='vr_attachments/',
+        null=True,
+        blank=True,
+        help_text='مرفق إضافي للواقع الافتراضي (PDF, ZIP, أو أي ملف آخر)'
     )
     is_published = models.BooleanField(
         db_column='IsPublished',
@@ -956,3 +972,61 @@ class VRLesson(models.Model):
     
     def __str__(self):
         return f"VR: {self.lesson.lessontitle} - {self.teacher.userid.fullname}"
+
+
+class StudentVRInteraction(models.Model):
+    """تتبع تفاعل الطالب مع تجربة الواقع الافتراضي"""
+    vr_lesson = models.ForeignKey(
+        VRLesson,
+        on_delete=models.CASCADE,
+        db_column='VRLessonID',
+        related_name='student_interactions'
+    )
+    student = models.ForeignKey(
+        'Student',
+        on_delete=models.CASCADE,
+        db_column='StudentID',
+        related_name='vr_interactions'
+    )
+    has_downloaded_attachment = models.BooleanField(
+        db_column='HasDownloadedAttachment',
+        default=False,
+        help_text='هل قام الطالب بتحميل المرفق؟'
+    )
+    has_explored_vr = models.BooleanField(
+        db_column='HasExploredVR',
+        default=False,
+        help_text='هل قام الطالب بالضغط على زر استكشاف VR؟'
+    )
+    download_timestamp = models.DateTimeField(
+        db_column='DownloadTimestamp',
+        null=True,
+        blank=True,
+        help_text='وقت تحميل المرفق'
+    )
+    explore_timestamp = models.DateTimeField(
+        db_column='ExploreTimestamp',
+        null=True,
+        blank=True,
+        help_text='وقت استكشاف VR'
+    )
+    created_at = models.DateTimeField(
+        db_column='CreatedAt',
+        auto_now_add=True
+    )
+    updated_at = models.DateTimeField(
+        db_column='UpdatedAt',
+        auto_now=True
+    )
+
+    class Meta:
+        managed = True
+        db_table = 'StudentVRInteraction'
+        unique_together = ['vr_lesson', 'student']
+        indexes = [
+            models.Index(fields=['vr_lesson', 'student'], name='idx_vr_interaction'),
+            models.Index(fields=['student'], name='idx_vr_student'),
+        ]
+
+    def __str__(self):
+        return f"{self.student.userid.username} - {self.vr_lesson.lesson.lessontitle}"

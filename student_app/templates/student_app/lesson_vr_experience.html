@@ -33,26 +33,22 @@ body{direction:rtl;font-family:'Tajawal',sans-serif;background:#f3f6fb;color:#1e
 
   <div class="vr-card">
     <header>
-      <h1>تجربة الواقع الافتراضي: {{ lesson.lessontitle }}</h1>
+      <h1><i class="fas fa-vr-cardboard"></i> تجربة الواقع الافتراضي: {{ lesson.lessontitle }}</h1>
     </header>
     <div class="vr-body">
       <p class="vr-intro">
-        هذه الصفحة تعرض محتوى تجربة الواقع الافتراضي المرتبط بالدرس.
-        اعرض الصور التمهيدية أدناه ثم استعد للاستمتاع ببيئة تفاعلية من إعداد المعلم.
+        استعن بولي أمرك أو شخصا كبيرا من أسرتك لمساعدتك في تشغيل بيئة الواقع الافتراضي للدرس
       </p>
 
-      <div class="vr-gallery">
-        {% for url in visual_urls %}
-        <div class="vr-preview">
-          <img src="{{ url }}" alt="معاينة واقع افتراضي">
-        </div>
-        {% endfor %}
-      </div>
-
       <div class="vr-actions">
-        <a href="#" class="vr-btn">
+        <a href="{{ vr_lesson.vr_url }}" target="_blank" class="vr-btn" data-lesson-id="{{ lesson.pk }}" data-action="explore">
           <i class="fas fa-cube"></i> استكشاف VR
         </a>
+        {% if vr_lesson.vr_attachment %}
+        <a href="{{ vr_lesson.vr_attachment.url }}" download class="vr-btn" style="background:#0ea5e9;" data-lesson-id="{{ lesson.pk }}" data-action="download">
+          <i class="fas fa-download"></i> تحميل المرفق
+        </a>
+        {% endif %}
         <a href="{% url 'student:view_lesson_student' lesson.pk %}" class="vr-btn" style="background:#e5e7eb;color:#1e293b;">
           <i class="fas fa-arrow-left"></i> العودة
         </a>
@@ -60,4 +56,24 @@ body{direction:rtl;font-family:'Tajawal',sans-serif;background:#f3f6fb;color:#1e
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const vrButtons = document.querySelectorAll('[data-action]');
+  vrButtons.forEach(button => {
+    button.addEventListener('click', function(e) {
+      const lessonId = this.getAttribute('data-lesson-id');
+      const action = this.getAttribute('data-action');
+      const url = action === 'download' ? `/vr/${lessonId}/track-download/` : `/vr/${lessonId}/track-explore/`;
+
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        },
+      });
+    });
+  });
+});
+</script>
 {% endblock %}

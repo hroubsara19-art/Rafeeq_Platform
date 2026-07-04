@@ -68,4 +68,8 @@ urlpatterns = [
 
     # ── Video Serve with Range Requests Support ─────────────
     path('media/video/<path:path>/', views.video_serve, name='video_serve'),
+
+    # ── VR Interaction Tracking ─────────────────────────────
+    path('vr/<int:lesson_id>/track-download/', views.track_vr_download, name='track_vr_download'),
+    path('vr/<int:lesson_id>/track-explore/', views.track_vr_explore, name='track_vr_explore'),
 ]

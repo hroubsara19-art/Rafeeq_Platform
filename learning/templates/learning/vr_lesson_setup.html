@@ -238,6 +238,29 @@ body {
     background: #cbd5e1;
 }
 
+.btn-preview {
+    background: #0ea5e9;
+    color: #fff;
+    padding: 1rem 2rem;
+    border: none;
+    border-radius: 0.85rem;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Tajawal', sans-serif;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+}
+
+.btn-preview:hover {
+    background: #0284c7;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(14, 165, 233, 0.3);
+}
+
 .errorlist {
     list-style: none;
     padding: 0;
@@ -422,6 +445,10 @@ body {
             <div class="step-number">3</div>
             <div class="step-label">إدراج الرابط</div>
         </div>
+        <div class="step {% if is_edit %}active{% endif %}">
+            <div class="step-number">4</div>
+            <div class="step-label">مرفق إضافي</div>
+        </div>
     </div>
 
     <!-- Main Card -->
@@ -440,7 +467,7 @@ body {
             </div>
             {% endif %}
 
-            <form method="post" id="vrForm">
+            <form method="post" id="vrForm" enctype="multipart/form-data">
                 {% csrf_token %}
 
                 <!-- Section 1: اختيار الدرس -->
@@ -537,11 +564,38 @@ body {
                     </div>
                 </div>
 
+                <!-- Section 4: مرفق إضافي -->
+                <div class="form-section">
+                    <h3><i class="fas fa-paperclip"></i> الخطوة الرابعة: أرفق ملفاً إضافياً (اختياري)</h3>
+
+                    <div class="form-group">
+                        <label for="{{ form.vr_attachment.id_for_label }}">
+                            <i class="fas fa-file-upload"></i> {{ form.vr_attachment.label }}
+                        </label>
+                        {{ form.vr_attachment }}
+                        {% if form.vr_attachment.errors %}
+                            <div class="errorlist">
+                                {% for error in form.vr_attachment.errors %}
+                                <li>{{ error }}</li>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="url-info-box">
+                            <i class="fas fa-info-circle"></i>
+                            يمكنك رفع ملف إضافي (PDF, ZIP, أو أي ملف آخر) ليتم إرساله للطالب. سيظهر هذا الملف في كارد الواقع الافتراضي عند الطالب لتحميله واستخدامه أثناء تجربة VR.
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Form Actions -->
                 <div class="form-actions">
                     <a href="{% url 'learning:teacher_dashboard' %}" class="btn-cancel">
                         <i class="fas fa-times"></i>
                         إلغاء
+                    </a>
+                    <a href="{% url 'learning:vr_lessons_preview' %}" class="btn-preview">
+                        <i class="fas fa-eye"></i>
+                        معاينة التجارب
                     </a>
                     <button type="submit" class="btn-submit">
                         <i class="fas fa-save"></i>

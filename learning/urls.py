@@ -77,6 +77,7 @@ urlpatterns = [
     path('teacher/vr-setup/', learning_views.vr_lesson_setup, name='vr_lesson_setup'),
     path('teacher/vr-edit/<int:vr_id>/', learning_views.vr_lesson_edit, name='vr_lesson_edit'),
     path('teacher/vr-delete/<int:vr_id>/', learning_views.vr_lesson_delete, name='vr_lesson_delete'),
+    path('teacher/vr-preview/', learning_views.vr_lessons_preview, name='vr_lessons_preview'),
     path('teacher/vr/api/subjects/', learning_views.get_subjects_for_class, name='vr_get_subjects'),
     path('teacher/vr/api/lessons/', learning_views.get_lessons_for_subject, name='vr_get_lessons'),
 ]

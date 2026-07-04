@@ -1,0 +1,127 @@
+{
+  "id": "scene_hzvvkiil4",
+  "title": "رحلة الغذاء العجيبة داخل الجهاز الهضمي",
+  "description": "انضم إلى رحلة غامرة تحاكي مسار اللقمة من الفم إلى المعدة والأمعاء، واكتشف كيف يحول جسمنا الغذاء المعقد إلى طاقة وحياة!",
+  "theme": "cell",
+  "ambientColor": "#2e0d11",
+  "fogColor": "#1c0609",
+  "fogDensity": 0.03,
+  "particleType": "cells",
+  "narrationScript": "مرحباً بكم في رحلتنا المجهرية داخل جسم الإنسان! نحن نقف الآن في قلب الجهاز الهضمي، تلك القناة الطويلة والملتوية التي تبدأ بالفم وتنتهي بفتحة الشرج. انظروا حولكم، ستشاهدون كيف تبدأ الأسنان واللعاب في تفتيت الطعام ميكانيكياً وكيميائياً بواسطة إنزيم الأميلاز. ثم تتبعوا حركة المريء التمعجية الإيقاعية التي تدفع بلعة الطعام نحو المعدة الثائرة، حيث تعمل الأحماض والعصارات على إذابة الغذاء وتحويله إلى كيموس. وأخيراً، انظروا للأمعاء الدقيقة والغليظة حيث يتم امتصاص العناصر الغذائية والماء بكفاءة عالية لتغذية كافة خلايا الجسم وتخليصه من الفضلات. تفاعلوا مع الأعضاء المحيطة بكم لاستكشاف تفاصيل عملها المذهل!",
+  "elements": [
+    {
+      "id": "el_hvye5bqhc",
+      "name": "الفم والغدد اللعابية",
+      "type": "sphere",
+      "color": "#d65a62",
+      "size": 2,
+      "distance": 10,
+      "angle": 0,
+      "height": 2,
+      "emissive": false,
+      "rotationSpeed": 0.005,
+      "description": "تبدأ رحلة الطعام في الفم، حيث تقوم الأسنان بتقطيعه ميكانيكياً، بينما يفرز اللعاب إنزيم الأميلاز لتفكيك النشويات والليباز اللساني لهضم الدهون وتكوين بلعة سهلة البلع.",
+      "texturePattern": "rough",
+      "matchPercentage": 65,
+      "imageUrl": "data:image/jpeg;base64,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"
+    },
+    {
+      "id": "el_sogottuik",
+      "name": "المريء والحركة التمعجية",
+      "type": "cylinder",
+      "color": "#c2404b",
+      "size": 1.5,
+      "distance": 12,
+      "angle": 72,
+      "height": 1,
+      "emissive": false,
+      "rotationSpeed": 0.003,
+      "description": "أنبوب عضلي يربط البلعوم بالمعدة. ينقبض بشكل تمعجي (وهي حركة انقباضية إيقاعية موجية للضلوع العضلية) لدفع بلعة الطعام إلى الأسفل بسلاسة.",
+      "texturePattern": "striped",
+      "matchPercentage": 85,
+      "imageUrl": "data:image/jpeg;base64,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"
+    },
+    {
+      "id": "el_25knxsjm8",
+      "name": "المعدة والعصارة الهاضمة",
+      "type": "sphere",
+      "color": "#b52b37",
+      "size": 3,
+      "distance": 14,
+      "angle": 144,
+      "height": -1,
+      "emissive": true,
+      "rotationSpeed": 0.008,
+      "description": "كيس عضلي قوي يفرز العصارة المعدية الحامضية والمخاط لحماية جدرانه. تقوم المعدة بخض ومزج الطعام وتحويله إلى سائل كثيف القوام يُعرف بالكيموس.",
+      "texturePattern": "glowing",
+      "matchPercentage": 70
+    },
+    {
+      "id": "el_itlois0gh",
+      "name": "الأمعاء الدقيقة وامتصاص الغذاء",
+      "type": "torus",
+      "color": "#de7352",
+      "size": 2.5,
+      "distance": 11,
+      "angle": 216,
+      "height": -2,
+      "emissive": false,
+      "rotationSpeed": 0.01,
+      "description": "قناة طويلة جداً ومتعرجة تحدث فيها معظم عمليات الهضم الكيميائي النهائي وامتصاص المغذيات. يتحول الكيموس هنا إلى كيلوس يمتصه الجهاز اللمفاوي والدم.",
+      "texturePattern": "rough",
+      "matchPercentage": 60
+    },
+    {
+      "id": "el_7jw9zky6g",
+      "name": "الأمعاء الغليظة والقولون",
+      "type": "ring",
+      "color": "#a35638",
+      "size": 3.5,
+      "distance": 15,
+      "angle": 288,
+      "height": -1.5,
+      "emissive": false,
+      "rotationSpeed": 0.004,
+      "description": "تقوم بامتصاص الماء والمعادن المتبقية من الأغذية غير المهضومة وإعادتها إلى مجرى الدم، مما يساهم في تماسك الفضلات وتشكيل البراز قبل خروجه عبر المستقيم وفتحة الشرج.",
+      "texturePattern": "solid",
+      "matchPercentage": 75
+    }
+  ],
+  "quizzes": [
+    {
+      "id": "qz_gwulbuwqz",
+      "question": "ما هو الإنزيم الموجود في اللعاب والذي يبدأ في تفكيك المواد النشوية داخل الفم؟",
+      "options": [
+        "الليباز اللساني",
+        "الأميلاز",
+        "الببسين",
+        "التريبسين"
+      ],
+      "correctAnswer": 1
+    },
+    {
+      "id": "qz_mc3cqb20c",
+      "question": "ما اسم الحركة العضلية الإيقاعية المتموجة التي تدفع الطعام على طول القناة الهضمية؟",
+      "options": [
+        "الحركة التمعجية",
+        "الترشيح النسيجي",
+        "الانتشار البسيط",
+        "الاصطدام العشوائي"
+      ],
+      "correctAnswer": 0
+    },
+    {
+      "id": "qz_b1ew1iik9",
+      "question": "أين تحدث معظم عمليات هضم الطعام الكيميائي وامتصاص المغذيات وتحويلها لكيلوس؟",
+      "options": [
+        "المعدة",
+        "الأمعاء الغليظة",
+        "المريء",
+        "الأمعاء الدقيقة"
+      ],
+      "correctAnswer": 3
+    }
+  ],
+  "createdAt": "2026-07-03T18:24:45.846Z",
+  "durationSeconds": 75
+}

@@ -1009,14 +1009,73 @@ def lesson_vr_experience(request, lesson_id):
                 return redirect('student:student_home')
 
     # البحث عن تجربة الواقع الافتراضي
-    from learning.models import VRLesson
+    from learning.models import VRLesson, StudentVRInteraction
     try:
         vr_lesson = VRLesson.objects.get(lesson=lesson, is_published=True)
-        # إعادة التوجيه إلى رابط VR المصمم من قبل المعلم
-        return redirect(vr_lesson.vr_url)
+
+        # إنشاء أو الحصول على سجل التفاعل
+        interaction, created = StudentVRInteraction.objects.get_or_create(
+            vr_lesson=vr_lesson,
+            student=student
+        )
+
+        # إرجاع البيانات للقالب
+        return render(request, 'student_app/lesson_vr_experience.html', {
+            'lesson': lesson,
+            'vr_lesson': vr_lesson,
+            'interaction': interaction,
+        })
     except VRLesson.DoesNotExist:
         messages.error(request, 'تجربة الواقع الافتراضي غير متوفرة لهذا الدرس.')
         return redirect('student:view_lesson_student', lesson_id=lesson_id)
+
+
+@login_required
+def track_vr_download(request, lesson_id):
+    """تسجيل تحميل الطالب للمرفق"""
+    from learning.models import VRLesson, StudentVRInteraction
+    from django.http import JsonResponse
+
+    student = Student.objects.filter(userid=request.user).first()
+    if not student:
+        return JsonResponse({'success': False, 'error': 'Student not found'}, status=404)
+
+    try:
+        vr_lesson = VRLesson.objects.get(lesson_id=lesson_id, is_published=True)
+        interaction, created = StudentVRInteraction.objects.get_or_create(
+            vr_lesson=vr_lesson,
+            student=student
+        )
+        interaction.has_downloaded_attachment = True
+        interaction.download_timestamp = timezone.now()
+        interaction.save()
+        return JsonResponse({'success': True})
+    except VRLesson.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'VR lesson not found'}, status=404)
+
+
+@login_required
+def track_vr_explore(request, lesson_id):
+    """تسجيل استكشاف الطالب لـ VR"""
+    from learning.models import VRLesson, StudentVRInteraction
+    from django.http import JsonResponse
+
+    student = Student.objects.filter(userid=request.user).first()
+    if not student:
+        return JsonResponse({'success': False, 'error': 'Student not found'}, status=404)
+
+    try:
+        vr_lesson = VRLesson.objects.get(lesson_id=lesson_id, is_published=True)
+        interaction, created = StudentVRInteraction.objects.get_or_create(
+            vr_lesson=vr_lesson,
+            student=student
+        )
+        interaction.has_explored_vr = True
+        interaction.explore_timestamp = timezone.now()
+        interaction.save()
+        return JsonResponse({'success': True})
+    except VRLesson.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'VR lesson not found'}, status=404)
 
 
 @login_required
