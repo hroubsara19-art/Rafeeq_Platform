@@ -1013,11 +1013,13 @@ def lesson_vr_experience(request, lesson_id):
     try:
         vr_lesson = VRLesson.objects.get(lesson=lesson, is_published=True)
 
-        # إنشاء أو الحصول على سجل التفاعل
-        interaction, created = StudentVRInteraction.objects.get_or_create(
-            vr_lesson=vr_lesson,
-            student=student
-        )
+        # إنشاء أو الحصول على سجل التفاعل - فقط إذا كان الطالب موجوداً
+        interaction = None
+        if student:
+            interaction, created = StudentVRInteraction.objects.get_or_create(
+                vr_lesson=vr_lesson,
+                student=student
+            )
 
         # إرجاع البيانات للقالب
         return render(request, 'student_app/lesson_vr_experience.html', {
@@ -1031,51 +1033,77 @@ def lesson_vr_experience(request, lesson_id):
 
 
 @login_required
+@require_POST
 def track_vr_download(request, lesson_id):
     """تسجيل تحميل الطالب للمرفق"""
     from learning.models import VRLesson, StudentVRInteraction
     from django.http import JsonResponse
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"track_vr_download called for lesson_id={lesson_id}, user={request.user}")
 
     student = Student.objects.filter(userid=request.user).first()
     if not student:
+        logger.error(f"Student not found for user {request.user}")
         return JsonResponse({'success': False, 'error': 'Student not found'}, status=404)
 
     try:
-        vr_lesson = VRLesson.objects.get(lesson_id=lesson_id, is_published=True)
+        vr_lesson = VRLesson.objects.get(lesson=lesson_id, is_published=True)
+        logger.info(f"VR lesson found: {vr_lesson}")
         interaction, created = StudentVRInteraction.objects.get_or_create(
             vr_lesson=vr_lesson,
             student=student
         )
+        logger.info(f"Interaction {'created' if created else 'updated'}: {interaction}")
         interaction.has_downloaded_attachment = True
         interaction.download_timestamp = timezone.now()
         interaction.save()
+        logger.info(f"Interaction saved successfully")
         return JsonResponse({'success': True})
     except VRLesson.DoesNotExist:
+        logger.error(f"VR lesson not found for lesson_id={lesson_id}")
         return JsonResponse({'success': False, 'error': 'VR lesson not found'}, status=404)
+    except Exception as e:
+        logger.exception(f"Error in track_vr_download: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @login_required
+@require_POST
 def track_vr_explore(request, lesson_id):
     """تسجيل استكشاف الطالب لـ VR"""
     from learning.models import VRLesson, StudentVRInteraction
     from django.http import JsonResponse
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info(f"track_vr_explore called for lesson_id={lesson_id}, user={request.user}")
 
     student = Student.objects.filter(userid=request.user).first()
     if not student:
+        logger.error(f"Student not found for user {request.user}")
         return JsonResponse({'success': False, 'error': 'Student not found'}, status=404)
 
     try:
-        vr_lesson = VRLesson.objects.get(lesson_id=lesson_id, is_published=True)
+        vr_lesson = VRLesson.objects.get(lesson=lesson_id, is_published=True)
+        logger.info(f"VR lesson found: {vr_lesson}")
         interaction, created = StudentVRInteraction.objects.get_or_create(
             vr_lesson=vr_lesson,
             student=student
         )
+        logger.info(f"Interaction {'created' if created else 'updated'}: {interaction}")
         interaction.has_explored_vr = True
         interaction.explore_timestamp = timezone.now()
         interaction.save()
+        logger.info(f"Interaction saved successfully")
         return JsonResponse({'success': True})
     except VRLesson.DoesNotExist:
+        logger.error(f"VR lesson not found for lesson_id={lesson_id}")
         return JsonResponse({'success': False, 'error': 'VR lesson not found'}, status=404)
+    except Exception as e:
+        logger.exception(f"Error in track_vr_explore: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @login_required

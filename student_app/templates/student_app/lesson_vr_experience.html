@@ -57,7 +57,23 @@ body{direction:rtl;font-family:'Tajawal',sans-serif;background:#f3f6fb;color:#1e
   </div>
 </div>
 
+{% csrf_token %}
 <script>
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   const vrButtons = document.querySelectorAll('[data-action]');
   vrButtons.forEach(button => {
@@ -66,12 +82,25 @@ document.addEventListener('DOMContentLoaded', function() {
       const action = this.getAttribute('data-action');
       const url = action === 'download' ? `/vr/${lessonId}/track-download/` : `/vr/${lessonId}/track-explore/`;
 
-      fetch(url, {
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-        },
-      });
+      const csrfToken = getCookie('csrftoken');
+
+      console.log('Tracking action:', action, 'for lesson:', lessonId, 'CSRF:', csrfToken);
+
+      if (csrfToken) {
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrfToken,
+          },
+        }).then(response => {
+          console.log('Tracking response:', response);
+          return response.json();
+        }).then(data => {
+          console.log('Tracking data:', data);
+        }).catch(err => console.error('Error tracking:', err));
+      } else {
+        console.error('CSRF token not found');
+      }
     });
   });
 });
