@@ -10,6 +10,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
     
     <style>
+        *, *::before, *::after {
+    box-sizing: border-box;
+}
         body {
             font-family: 'Cairo', sans-serif;
             background-color: #f0f4f8; 
@@ -29,19 +32,66 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 40px 20px;
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+            padding: clamp(72px, 9vw, 120px) 20px;
+            scroll-margin-top: 20px;
+            background:
+                radial-gradient(circle at 8% 18%, rgba(223, 129, 90, .1), transparent 20%),
+                radial-gradient(circle at 92% 86%, rgba(79, 133, 131, .12), transparent 24%),
+                linear-gradient(180deg, #edf1e9 0%, #f7f3eb 18%, #f4f1ea 100%);
+        }
+
+        .main-content::before,
+        .main-content::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            pointer-events: none;
+            border-radius: 50%;
+        }
+
+        .main-content::before {
+            width: 280px;
+            height: 280px;
+            top: 9%;
+            right: -165px;
+            border: 1px solid rgba(79, 133, 131, .15);
+            box-shadow: 0 0 0 42px rgba(255, 255, 255, .13);
+        }
+
+        .main-content::after {
+            width: 120px;
+            height: 120px;
+            left: 7%;
+            bottom: 10%;
+            background: rgba(242, 189, 91, .1);
         }
 
         .main-wrapper {
-            background: #ffffff;
+            position: relative;
+            background: rgba(255, 255, 255, .86);
             display: flex;
-            /* التعديل: row-reverse لجعل الصورة يساراً والفورم يميناً في نظام RTL */
-            flex-direction: row-reverse; 
-            border-radius: 30px;
+            flex-direction: row-reverse;
+            border: 1px solid rgba(79, 133, 131, .14);
+            border-radius: 28px;
             overflow: hidden;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-            max-width: 1000px;
+            box-shadow:
+                0 28px 70px rgba(64, 58, 50, .1),
+                0 8px 20px rgba(79, 133, 131, .06);
+            max-width: 720px;
             width: 100%;
+            backdrop-filter: blur(14px);
+        }
+
+        .main-wrapper::before {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto;
+            z-index: 2;
+            height: 5px;
+            background: linear-gradient(90deg, #4f8583, #80aaa0 48%, #df815a 76%, #f2bd5b);
         }
 
         /* قسم الصورة (الحجم الأصلي مع التدرج) */
@@ -66,9 +116,12 @@
         .signup-image-section img:hover { transform: scale(1.02); }
 
         .signup-container {
-            padding: 40px;
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            padding: clamp(34px, 5vw, 58px);
             flex: 1;
-            max-width: 500px;
+            max-width: 720px;
         }
 
         @media (max-width: 768px) {
@@ -77,172 +130,961 @@
         }
 
         /* الأزرار والحقول */
-        .btn-primary { background-color: #5a91e6; border: none; padding: 12px; border-radius: 10px; font-weight: bold; transition: all 0.3s ease; }
-        .btn-primary:hover { background-color: #4a7bc7; transform: translateY(-2px); }
-        
-        .form-control, .django-field input, .django-field select { 
-            display: block; width: 100%; border-radius: 10px; padding: 12px; 
-            border: 1px solid #dce4ec; transition: all 0.3s ease; 
+        .signup-container form {
+            width: 100%;
         }
-        
-        .form-control:focus, .django-field input:focus, .django-field select:focus {
+
+        .signup-container form > .mb-3 {
+            margin-bottom: 18px !important;
+        }
+
+        .btn-primary {
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background-color: #5a91e6;
+            font-weight: bold;
+            transition: all .3s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: #4a7bc7;
+            transform: translateY(-2px);
+        }
+
+        .signup-container .btn-primary {
+            min-height: 52px;
+            padding: 12px 20px;
+            border: 0;
+            border-radius: 14px;
+            background: #4f8583;
+            color: #fff;
+            font-weight: 700;
+            box-shadow: 0 12px 26px rgba(79, 133, 131, .2);
+            transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+        }
+
+        .signup-container .btn-primary:hover,
+        .signup-container .btn-primary:focus {
+            background: #447775;
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 16px 30px rgba(79, 133, 131, .26);
+        }
+
+        .signup-container .btn-primary:disabled {
+            background: #789a92;
+            transform: none;
+            box-shadow: none;
+            opacity: .82;
+        }
+
+        .signup-container .btn-primary.shadow-sm {
+            box-shadow: 0 12px 26px rgba(79, 133, 131, .2) !important;
+        }
+
+        .signup-container .btn-primary.shadow-sm:hover {
+            box-shadow: 0 16px 30px rgba(79, 133, 131, .26) !important;
+        }
+
+        .signup-container .btn-primary.shadow-sm:disabled {
+            box-shadow: none !important;
+        }
+
+        .form-control, .django-field input, .django-field select { 
+            display: block;
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #dce4ec;
+            border-radius: 10px;
+            transition: all .3s ease;
+        }
+
+        .signup-container .form-control,
+        .signup-container .django-field input,
+        .signup-container .django-field select {
+            display: block;
+            width: 100%;
+            min-height: 50px;
+            padding: 12px 15px;
+            border: 1px solid #dddcd4;
+            border-radius: 13px;
+            background: rgba(250, 249, 245, .92);
+            color: #403a32;
+            font-size: .92rem;
+            transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+        }
+
+        .signup-container .form-control::placeholder,
+        .signup-container .django-field input::placeholder {
+            color: #aaa59a;
+        }
+
+        .form-control:focus,
+        .django-field input:focus,
+        .django-field select:focus {
             border-color: #5a91e6;
-            box-shadow: 0 0 0 3px rgba(90, 145, 230, 0.1);
+            box-shadow: 0 0 0 3px rgba(90, 145, 230, .1);
+            outline: none;
+        }
+
+        .signup-container .form-control:focus,
+        .signup-container .django-field input:focus,
+        .signup-container .django-field select:focus {
+            border-color: #6d9a94;
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(79, 133, 131, .11);
             outline: none;
         }
         
-        .form-control.is-invalid, .django-field input.is-invalid, .django-field select.is-invalid {
-            border-color: #dc2626;
-            background-color: #fef2f2;
+        .signup-container .form-control.is-invalid,
+        .signup-container .django-field input.is-invalid,
+        .signup-container .django-field select.is-invalid {
+            border-color: #c96b5d;
+            background-color: #fff8f5;
         }
         
-        .form-control.is-invalid:focus, .django-field input.is-invalid:focus, .django-field select.is-invalid:focus {
-            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        .signup-container .form-control.is-invalid:focus,
+        .signup-container .django-field input.is-invalid:focus,
+        .signup-container .django-field select.is-invalid:focus {
+            box-shadow: 0 0 0 4px rgba(201, 107, 93, .1);
         }
         
         .error-message {
             display: flex;
             align-items: center;
             gap: 6px;
-            color: #dc2626;
+            color: #a74e43;
             font-size: 0.75rem;
             font-weight: 600;
-            margin-top: 6px;
-            padding: 8px 12px;
-            background: #fef2f2;
-            border-radius: 6px;
-            border-right: 3px solid #dc2626;
+            margin-top: 7px;
+            padding: 9px 12px;
+            background: #fff4f0;
+            border-radius: 9px;
+            border-right: 3px solid #c96b5d;
         }
         
         .error-message i {
             font-size: 0.85rem;
         }
         
-        .form-label { font-weight: 600; color: #4a5568; font-size: 0.9rem; }
-        .brand-logo { text-align: center; margin-bottom: 25px; }
-        .brand-logo h2 { color: #2d3748; font-weight: 700; }
+        .form-label {
+            margin-bottom: 8px;
+            color: #5c574f;
+            font-size: .86rem;
+            font-weight: 700;
+        }
+
+        .brand-logo {
+            position: relative;
+            text-align: center;
+            margin-bottom: 34px;
+            padding-bottom: 21px;
+        }
+
+        .brand-logo::after {
+            content: "";
+            position: absolute;
+            right: 50%;
+            bottom: 0;
+            width: 54px;
+            height: 4px;
+            border-radius: 999px;
+            transform: translateX(50%);
+            background: linear-gradient(90deg, #4f8583, #df815a);
+        }
+
+        .brand-logo h2 {
+            margin-bottom: 9px;
+            color: #403a32;
+            font-size: clamp(1.55rem, 3vw, 2rem);
+            font-weight: 700;
+        }
+
+        .brand-logo p {
+            margin: 0;
+            color: #817b70 !important;
+            line-height: 1.8;
+        }
+
+        .signup-container .alert-danger {
+            border: 1px solid rgba(201, 107, 93, .18);
+            border-radius: 11px;
+            background: #fff4f0;
+            color: #a74e43;
+        }
+
+        .signup-container form > .text-center:last-child {
+            margin-top: 7px;
+            color: #817b70;
+        }
+
+        .signup-container form > .text-center:last-child a {
+            margin-right: 4px;
+            color: #4f8583;
+        }
+
+        .signup-container form > .text-center:last-child a:hover {
+            color: #df815a;
+        }
+
+        .signup-container form > p.text-center {
+            color: #5c574f !important;
+        }
+
+        .signup-container .text-primary {
+            color: #4f8583 !important;
+        }
         
         /* قوة كلمة المرور */
-        .strength-meter { height: 4px; background-color: #eee; margin-top: 8px; border-radius: 2px; overflow: hidden; }
-        .strength-meter-fill { height: 100%; width: 0%; transition: all 0.3s ease; }
-        
-        /* الفوتر المعتمد */
-        footer a:hover { color: #5a91e6 !important; }
-        .social-links a { font-size: 1.1rem; transition: color 0.3s; }
-
-        /* ── عبارة تعريفية ── */
-        .intro-banner {
-            background: linear-gradient(135deg, #5a91e6 0%, #4a7bc7 100%);
-            color: #fff;
-            padding: 22px 0 18px;
-            text-align: center;
+        .strength-meter {
+            height: 5px;
+            margin-top: 9px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: #ece9e1;
         }
-        .intro-banner h3 { font-size: 1.35rem; font-weight: 700; margin-bottom: 6px; }
-        .intro-banner p  { font-size: .92rem; opacity: .88; margin: 0; }
-        .intro-features  { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; margin-top: 14px; }
-        .intro-features span { font-size: .82rem; opacity: .9; display: flex; align-items: center; gap: 6px; }
+        .strength-meter-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: inherit;
+            transition: all .3s ease;
+        }
+        
+        /* ── Footer: امتداد لهوية رفيق ── */
+        footer.bg-white {
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at 12% 18%, rgba(242, 189, 91, .13), transparent 25%),
+                radial-gradient(circle at 92% 82%, rgba(223, 129, 90, .15), transparent 27%),
+                linear-gradient(135deg, #315b59 0%, #3f706d 52%, #345f5c 100%) !important;
+            color: #f8f3e9;
+        }
+
+        footer.mt-5 {
+            margin-top: 0 !important;
+        }
+
+        footer.py-5 {
+            padding-top: clamp(58px, 7vw, 84px) !important;
+            padding-bottom: 28px !important;
+        }
+
+        footer.border-top {
+            border-top: 1px solid rgba(255, 255, 255, .14) !important;
+        }
+
+        footer::before,
+        footer::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        footer::before {
+            width: 280px;
+            height: 280px;
+            top: -190px;
+            right: 8%;
+            border: 1px solid rgba(255, 255, 255, .1);
+            box-shadow: 0 0 0 42px rgba(255, 255, 255, .025);
+        }
+
+        footer::after {
+            width: 150px;
+            height: 150px;
+            left: -55px;
+            bottom: -65px;
+            background: rgba(242, 189, 91, .08);
+        }
+
+        footer .container {
+            position: relative;
+            z-index: 1;
+        }
+
+        footer .row {
+            align-items: flex-start;
+        }
+
+        footer h5,
+        footer h6 {
+            color: #fff9ef;
+            letter-spacing: -.01em;
+        }
+
+        footer h5.text-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            color: #fff9ef !important;
+            font-size: 1.16rem;
+        }
+
+        footer h5.text-primary i {
+            display: inline-grid;
+            width: 38px;
+            height: 38px;
+            place-items: center;
+            border-radius: 12px;
+            background: rgba(242, 189, 91, .16);
+            color: #f2bd5b;
+            box-shadow: inset 0 0 0 1px rgba(242, 189, 91, .2);
+        }
+
+        footer h6 {
+            position: relative;
+            padding-bottom: 11px;
+            font-size: .92rem;
+        }
+
+        footer h6::after {
+            content: "";
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 30px;
+            height: 3px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #f2bd5b, #df815a);
+        }
+
+        footer p.text-muted,
+        footer .text-muted {
+            color: rgba(248, 243, 233, .7) !important;
+        }
+
+        footer p {
+            max-width: 360px;
+            line-height: 1.95;
+        }
+
+        footer ul li {
+            margin-bottom: 9px;
+        }
+
+        footer ul a {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            color: rgba(248, 243, 233, .68) !important;
+            transition: color .2s ease, transform .2s ease;
+        }
+
+        footer ul a::before {
+            content: "";
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: rgba(242, 189, 91, .55);
+            transition: background .2s ease, transform .2s ease;
+        }
+
+        footer ul a:hover {
+            color: #fff9ef !important;
+            transform: translateX(-3px);
+        }
+
+        footer ul a:hover::before {
+            background: #f2bd5b;
+            transform: scale(1.35);
+        }
+
+        .social-links {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin-top: 18px;
+        }
+
+        .social-links a {
+            display: inline-grid;
+            width: 38px;
+            height: 38px;
+            place-items: center;
+            margin: 0 !important;
+            border: 1px solid rgba(255, 255, 255, .13);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .07);
+            color: rgba(255, 255, 255, .78) !important;
+            font-size: .92rem;
+            text-decoration: none;
+            transition: transform .2s ease, background .2s ease, border-color .2s ease, color .2s ease;
+        }
+
+        .social-links a:hover {
+            border-color: rgba(242, 189, 91, .35);
+            background: rgba(242, 189, 91, .14);
+            color: #f2bd5b !important;
+            transform: translateY(-3px);
+        }
+
+        footer .input-group {
+            overflow: hidden;
+            min-height: 50px;
+            border: 1px solid rgba(255, 255, 255, .14);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, .07);
+            box-shadow: 0 12px 30px rgba(28, 60, 57, .18);
+        }
+
+        footer .input-group .form-control {
+            min-height: 50px;
+            padding-inline: 16px;
+            border: 0;
+            background: transparent;
+            color: #fff9ef;
+            box-shadow: none;
+        }
+
+        footer .input-group .form-control::placeholder {
+            color: rgba(248, 243, 233, .55);
+        }
+
+        footer .input-group .form-control:focus {
+            background: rgba(255, 255, 255, .04);
+            box-shadow: none;
+        }
+
+        footer .input-group .btn-primary {
+            min-width: 105px;
+            border: 0;
+            border-radius: 12px !important;
+            background: #df815a;
+            color: #fff;
+            box-shadow: none;
+        }
+
+        footer .input-group .btn-primary:hover {
+            background: #cb704c;
+            color: #fff;
+            transform: none;
+        }
+
+        footer hr {
+            border-color: rgba(255, 255, 255, .18);
+            opacity: 1 !important;
+        }
+
+        footer hr + .text-center {
+            color: rgba(248, 243, 233, .62) !important;
+            line-height: 1.8;
+        }
+
+        @media (max-width: 767.98px) {
+            footer.py-5 {
+                padding-top: 50px !important;
+            }
+
+            footer .row {
+                row-gap: 34px !important;
+            }
+
+            footer .col-lg-4:last-child {
+                margin-top: 2px;
+            }
+        }
+
+        @media (max-width: 420px) {
+            footer .input-group {
+                display: grid;
+                gap: 9px;
+                overflow: visible;
+                border: 0;
+                background: transparent;
+                box-shadow: none;
+            }
+
+            footer .input-group .form-control,
+            footer .input-group .btn-primary {
+                width: 100%;
+                border-radius: 12px !important;
+            }
+
+            footer .input-group .form-control {
+                border: 1px solid rgba(255, 255, 255, .14);
+                background: rgba(255, 255, 255, .07);
+            }
+        }
+
+        /* ── Hero: رفيق ── */
+        .intro-banner {
+            --hero-ink: #403a32;
+            --hero-muted: #716b61;
+            --hero-teal: #4f8583;
+            --hero-coral: #df815a;
+            position: relative;
+            isolation: isolate;
+            min-height: min(760px, calc(100vh - 72px));
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            padding: clamp(52px, 7vw, 96px) 0;
+            color: var(--hero-ink);
+            background:
+                radial-gradient(circle at 82% 22%, rgba(242, 189, 91, .2), transparent 24%),
+                radial-gradient(circle at 14% 74%, rgba(79, 133, 131, .13), transparent 26%),
+                linear-gradient(120deg, #f8f3e9 0%, #edf1e9 55%, #dce9df 100%);
+        }
+        .intro-banner::before,
+        .intro-banner::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .intro-banner::before {
+            width: 360px;
+            height: 360px;
+            inset: -190px auto auto -120px;
+            border: 1px solid rgba(79, 133, 131, .16);
+            box-shadow: 0 0 0 44px rgba(255, 255, 255, .12);
+        }
+        .intro-banner::after {
+            width: 170px;
+            height: 170px;
+            right: 43%;
+            bottom: -105px;
+            background: rgba(223, 129, 90, .09);
+        }
+        .hero-shell {
+            width: min(1180px, calc(100% - 40px));
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: minmax(0, .92fr) minmax(390px, 1.08fr);
+            grid-template-areas: "copy visual";
+            align-items: center;
+            gap: clamp(32px, 6vw, 88px);
+            direction: ltr;
+        }
+        .hero-copy {
+            grid-area: copy;
+            direction: rtl;
+            text-align: right;
+            max-width: 590px;
+            animation: heroCopyIn .75s ease both;
+        }
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            margin: 0 0 18px;
+            padding: 8px 13px;
+            border: 1px solid rgba(79, 133, 131, .2);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .48);
+            color: #477673;
+            font-size: .78rem;
+            font-weight: 700;
+            letter-spacing: .01em;
+            backdrop-filter: blur(7px);
+        }
+        .hero-eyebrow i {
+            color: #d87851;
+            font-size: .72rem;
+        }
+        .hero-title {
+            max-width: 650px;
+            margin: 0;
+            color: var(--hero-ink);
+            font-size: clamp(2.55rem, 5.5vw, 5rem);
+            font-weight: 700;
+            line-height: 1.18;
+            letter-spacing: -.055em;
+        }
+        .brand-word {
+            position: relative;
+            display: inline-block;
+            isolation: isolate;
+            color: #3f7775;
+            padding: 0 .08em;
+            text-shadow: 0 6px 24px rgba(79, 133, 131, .12);
+        }
+        .brand-word::before {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            right: -.03em;
+            bottom: .06em;
+            width: 104%;
+            height: .28em;
+            border-radius: 999px 60% 999px 55%;
+            background: linear-gradient(90deg, rgba(242, 189, 91, .5), rgba(223, 129, 90, .22));
+            transform: rotate(-1.5deg);
+        }
+        .brand-word::after {
+            content: "";
+            position: absolute;
+            width: 7px;
+            height: 7px;
+            top: .12em;
+            left: -.08em;
+            border-radius: 50%;
+            background: #df815a;
+            opacity: .72;
+        }
+        .hero-description {
+            max-width: 570px;
+            margin: 24px 0 0;
+            color: var(--hero-muted);
+            font-size: clamp(1rem, 1.5vw, 1.18rem);
+            line-height: 2;
+        }
+        .hero-actions {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 13px;
+            margin-top: 30px;
+        }
+        .hero-primary,
+        .hero-secondary {
+            min-height: 50px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 0 22px;
+            border-radius: 14px;
+            font-size: .92rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+        }
+        .hero-primary {
+            color: #fff;
+            background: #4f8583;
+            box-shadow: 0 12px 28px rgba(79, 133, 131, .22);
+        }
+        .hero-primary:hover {
+            color: #fff;
+            background: #447775;
+            transform: translateY(-2px);
+            box-shadow: 0 16px 32px rgba(79, 133, 131, .28);
+        }
+        .hero-secondary {
+            color: #625d54;
+            border: 1px solid rgba(64, 58, 50, .13);
+            background: rgba(255, 255, 255, .55);
+        }
+        .hero-secondary:hover {
+            color: #403a32;
+            background: rgba(255, 255, 255, .85);
+            transform: translateY(-2px);
+        }
+        .hero-visual {
+            grid-area: visual;
+            position: relative;
+            min-height: 520px;
+            display: grid;
+            place-items: end center;
+            perspective: 1100px;
+            direction: rtl;
+        }
+        .hero-visual::before {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            width: min(460px, 90%);
+            aspect-ratio: 1;
+            left: 50%;
+            bottom: 4%;
+            transform: translateX(-50%);
+            border-radius: 46% 54% 49% 51%;
+            background:
+                radial-gradient(circle at 48% 40%, rgba(255, 255, 255, .78), rgba(255, 255, 255, .22) 63%, transparent 64%);
+            border: 1px solid rgba(255, 255, 255, .52);
+        }
+        .rafiq-character {
+            position: relative;
+            z-index: 2;
+            display: block;
+            width: min(405px, 88%);
+            max-height: 560px;
+            object-fit: contain;
+            filter: drop-shadow(0 24px 22px rgba(64, 58, 50, .16));
+            animation: none !important;
+            transform: none !important;
+            transition: none !important;
+            will-change: auto;
+            pointer-events: none;
+        }
+        .rafiq-bubble {
+            position: absolute;
+            z-index: 3;
+            top: -3%;
+            right: -20px;
+            left: auto;
+            margin-right: 10px;
+            width: min(260px, 46%);
+            padding: 17px 19px;
+            border: 1px solid rgba(79, 133, 131, .15);
+            border-radius: 19px 19px 7px 19px;
+            background: rgba(255, 255, 255, .9);
+            color: #514b43;
+            box-shadow: 0 16px 38px rgba(69, 80, 72, .11);
+            font-size: clamp(.78rem, 1.15vw, .94rem);
+            font-weight: 700;
+            line-height: 1.85;
+            text-align: right;
+            /* backdrop-filter: blur(10px); */
+            animation: bubbleIn .65s .55s ease both;
+        }
+        .rafiq-bubble::after {
+            content: "";
+            position: absolute;
+            right: auto;
+            left: 28px;
+            bottom: -12px;
+            width: 22px;
+            height: 22px;
+            background: rgba(255, 255, 255, .9);
+            clip-path: polygon(0 0, 100% 0, 0 100%);
+        }
+        .rafiq-bubble span {
+            display: block;
+            margin-bottom: 7px;
+            color: #4f8583;
+            font-size: .88rem;
+            font-weight: 700;
+        }
+        .rafiq-bubble p {
+            margin: 0;
+            color: #514b43;
+            font-size: .8rem;
+            font-weight: 600;
+            line-height: 1.85;
+        }
+        .hero-note {
+            position: absolute;
+            z-index: 3;
+            right: 2%;
+            bottom: 5%;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 9px 12px;
+            border-radius: 12px;
+            background: rgba(248, 243, 233, .82);
+            color: #766f64;
+            font-size: .72rem;
+            font-weight: 700;
+            box-shadow: 0 10px 25px rgba(64, 58, 50, .08);
+        }
+        .hero-note i { color: #df815a; }
+        @keyframes heroCopyIn {
+            from { opacity: 0; transform: translateX(-24px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes rafiqArrive {
+            from { opacity: 0; transform: translateY(30px) rotate(-3deg) scale(.96); }
+            to { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+        }
+        @keyframes rafiqFloat {
+            0%, 100% { transform: translateY(0) rotate(.4deg); }
+            50% { transform: translateY(-9px) rotate(-.5deg); }
+        }
+        @keyframes bubbleIn {
+            from { opacity: 0; transform: translateY(8px) scale(.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
 
         /* ── محدد الدور ── */
-        .role-selector { display: flex; gap: 10px; justify-content: center; margin-bottom: 22px; }
+        .role-selector {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
         .role-btn {
-            flex: 1; max-width: 120px;
-            border: 2px solid #dce4ec; border-radius: 12px;
-            padding: 12px 8px 10px; background: #f8fafc;
-            cursor: pointer; text-align: center;
-            transition: all .22s ease; position: relative;
+            position: relative;
+            flex: 1;
+            max-width: 155px;
+            min-height: 92px;
+            padding: 16px 10px 12px;
+            border: 1px solid #deddd5;
+            border-radius: 15px;
+            background: #faf9f5;
+            cursor: pointer;
+            text-align: center;
+            box-shadow: 0 5px 14px rgba(64, 58, 50, .035);
+            transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
         }
-        .role-btn i { font-size: 1.4rem; display: block; margin-bottom: 6px; color: #94a3b8; transition: color .22s; }
-        .role-btn span { font-size: .82rem; font-weight: 600; color: #64748b; transition: color .22s; }
+        .role-btn:hover {
+            border-color: rgba(79, 133, 131, .45);
+            transform: translateY(-2px);
+            box-shadow: 0 9px 20px rgba(79, 133, 131, .09);
+        }
+        .role-btn i {
+            display: block;
+            margin-bottom: 8px;
+            color: #8d958e;
+            font-size: 1.35rem;
+            transition: color .2s ease, transform .2s ease;
+        }
+        .role-btn span {
+            color: #6e6960;
+            font-size: .82rem;
+            font-weight: 700;
+            transition: color .2s ease;
+        }
         .role-btn.active {
-            border-color: #5a91e6;
-            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border-color: #6d9a94;
+            background: linear-gradient(145deg, #edf5f1 0%, #f8f5eb 100%);
+            box-shadow: 0 10px 24px rgba(79, 133, 131, .13);
         }
-        .role-btn.active i  { color: #5a91e6; }
-        .role-btn.active span { color: #1d4ed8; }
+        .role-btn.active i {
+            color: #4f8583;
+            transform: scale(1.06);
+        }
+        .role-btn.active span { color: #3f706e; }
         .role-btn.active::after {
             content: '\2714';
-            position: absolute; top: -8px; right: -8px;
-            width: 20px; height: 20px; border-radius: 50%;
-            background: #5a91e6; color: #fff;
-            font-size: .7rem; display: flex; align-items: center; justify-content: center;
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 23px;
+            height: 23px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            background: #df815a;
+            color: #fff;
+            font-size: .65rem;
         }
-        .role-hint { text-align: center; font-size: .78rem; color: #94a3b8; margin-bottom: 18px; min-height: 18px; }
-        #role-error { display: none; color: #dc2626; font-size: .78rem; text-align: center; margin-bottom: 12px; font-weight: 600; }
+        .role-hint {
+            min-height: 20px;
+            margin-bottom: 22px;
+            color: #4f8583 !important;
+            text-align: center;
+            font-size: .76rem;
+        }
+        #role-error {
+            display: none;
+            margin: -10px 0 16px;
+            padding: 8px 10px;
+            border-radius: 9px;
+            background: #fff4f0;
+            color: #a74e43;
+            text-align: center;
+            font-size: .76rem;
+            font-weight: 700;
+        }
 
         /* Responsive Design */
         @media(max-width:991.98px){
-            .main-content{padding:35px 18px;}
-            .main-wrapper{max-width:900px;border-radius:26px;}
-            .signup-container{padding:35px;max-width:450px;}
+            .main-content{padding:75px 18px;}
+            .main-wrapper{max-width:680px;border-radius:26px;}
+            .signup-container{padding:42px;max-width:680px;}
             .signup-image-section{padding:35px;}
+            .hero-shell {
+                grid-template-columns: minmax(0, 1fr) minmax(330px, .9fr);
+                gap: 24px;
+            }
+            .hero-visual { min-height: 470px; }
+            .rafiq-bubble { right: -3%; left: auto; }
         }
 
         @media(max-width:768px){
             .signup-image-section{display:none;}
-            .main-wrapper{max-width:500px;border-radius:22px;}
-            .signup-container{padding:30px 25px;}
-            .intro-banner{padding:18px 0 15px;}
-            .intro-banner h3{font-size:1.25rem;}
-            .intro-banner p{font-size:.88rem;}
-            .intro-features{gap:22px;margin-top:12px;}
-            .intro-features span{font-size:.78rem;}
+            .main-wrapper{max-width:620px;border-radius:22px;}
+            .signup-container{padding:36px 30px;max-width:620px;}
+            .intro-banner { min-height: auto; padding: 55px 0 36px; }
+            .hero-shell {
+                width: min(620px, calc(100% - 30px));
+                grid-template-columns: 1fr;
+                grid-template-areas: "copy" "visual";
+                gap: 18px;
+            }
+            .hero-copy { text-align: center; max-width: none; }
+            .hero-title,
+            .hero-description { margin-inline: auto; }
+            .hero-actions { justify-content: center; }
+            .hero-visual { min-height: 430px; }
+            .rafiq-character { width: min(340px, 76%); }
+            .rafiq-bubble { right: 3%; left: auto; top: 9%; width: min(230px, 44%); }
+            .hero-note { right: 7%; }
             .role-selector{gap:8px;margin-bottom:18px;}
-            .role-btn{max-width:105px;padding:10px 6px 8px;}
+            .role-btn{max-width:145px;padding:14px 7px 10px;}
             .role-btn i{font-size:1.25rem;}
             .role-btn span{font-size:.78rem;}
         }
 
         @media(max-width:600px){
-            .main-content{padding:30px 15px;}
+            .main-content{padding:55px 15px;}
             .main-wrapper{max-width:100%;border-radius:18px;}
-            .signup-container{padding:25px 20px;}
+            .signup-container{padding:32px 22px;}
             .brand-logo h2{font-size:1.5rem;}
             .btn-primary{padding:10px;font-size:.9rem;}
             .form-control,.django-field input,.django-field select{padding:10px;font-size:.9rem;}
             .form-label{font-size:.85rem;}
-            .intro-banner{padding:15px 0 12px;}
-            .intro-banner h3{font-size:1.15rem;}
-            .intro-banner p{font-size:.85rem;}
-            .intro-features{gap:18px;margin-top:10px;}
-            .intro-features span{font-size:.75rem;}
             .role-selector{gap:6px;margin-bottom:15px;}
-            .role-btn{max-width:95px;padding:8px 5px 7px;border-radius:10px;}
+            .role-btn{max-width:125px;min-height:82px;padding:12px 5px 9px;border-radius:12px;}
             .role-btn i{font-size:1.15rem;}
             .role-btn span{font-size:.72rem;}
             .role-btn.active::after{width:18px;height:18px;top:-6px;right:-6px;font-size:.65rem;}
         }
 
         @media(max-width:480px){
-            .main-content{padding:25px 12px;}
+            .main-content{padding:42px 12px;}
             .main-wrapper{border-radius:16px;}
-            .signup-container{padding:22px 18px;}
-            .brand-logo{margin-bottom:20px;}
+            .signup-container{padding:30px 17px;}
+            .brand-logo{margin-bottom:28px;}
             .brand-logo h2{font-size:1.35rem;}
             .btn-primary{padding:9px;font-size:.85rem;border-radius:9px;}
             .form-control,.django-field input,.django-field select{padding:9px;font-size:.85rem;border-radius:9px;}
-            .intro-banner{padding:12px 0 10px;}
-            .intro-banner h3{font-size:1.05rem;}
-            .intro-banner p{font-size:.8rem;}
-            .intro-features{gap:15px;margin-top:8px;}
-            .intro-features span{font-size:.7rem;}
+            .hero-shell { width: min(100% - 22px, 430px); }
+            .hero-title { font-size: clamp(2.25rem, 12vw, 3.3rem); }
+            .hero-description { margin-top: 18px; font-size: .92rem; line-height: 1.9; }
+            .hero-actions { margin-top: 23px; }
+            .hero-primary, .hero-secondary { width: 100%; }
+            .hero-visual { min-height: 370px; margin-top: 8px; }
+            .rafiq-character { width: min(290px, 78%); }
+            .rafiq-bubble {
+                top: 2%;
+                right: 0;
+                left: auto;
+                width: 185px;
+                padding: 13px 14px;
+                font-size: .72rem;
+            }
+            .hero-note { right: 1%; bottom: 2%; font-size: .65rem; }
             .role-selector{gap:5px;margin-bottom:12px;}
-            .role-btn{max-width:85px;padding:7px 4px 6px;border-radius:9px;}
+            .role-btn{max-width:105px;min-height:77px;padding:10px 4px 8px;border-radius:11px;}
             .role-btn i{font-size:1.05rem;}
             .role-btn span{font-size:.68rem;}
             .role-hint{font-size:.72rem;margin-bottom:14px;}
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .hero-copy,
+            .rafiq-character,
+            .rafiq-bubble {
+                animation: none !important;
+                transition: none !important;
+            }
+            html { scroll-behavior: auto !important; }
         }
     </style>
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg navbar-dark sticky-top shadow-sm" style="background: linear-gradient(135deg, #5a91e6 0%, #4a7bc7 100%);">
-        <div class="container">
+    <!-- <nav class="navbar navbar-expand-lg navbar-dark sticky-top shadow-sm" style="background: linear-gradient(135deg, #9bb6a7 0%, #9bb6a7 100%);
+    color: #2f2e2e ;"> -->
+        <!-- <div class="container">
             <a class="navbar-brand fw-bold d-flex align-items-center" href="{% url 'accounts:home' %}">
                 <div class="bg-white text-primary rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
                     <i class="fas fa-book-reader"></i>
-                </div>
-                <span class="ms-2">EduPal <span class="fw-light">Platform</span></span>
-            </a>
+                </div> -->
+                <!-- <span class="ms-2">EduPal <span class="fw-light">Platform</span></span> -->
+            <!-- </a>
             
             <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -251,44 +1093,75 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item">
-                        <a class="nav-link text-white fw-bold" href="{% url 'accounts:login' %}">تسجيل الدخول</a>
+                        <a class="nav-link  fw-bold" href="{% url 'accounts:login' %}" style="color: #2f2e2e;">تسجيل الدخول</a>
                     </li>
                     <li class="nav-item ms-lg-2">
-                        <a class="btn btn-warning rounded-pill px-4 fw-bold shadow-sm" href="{% url 'accounts:signup' %}">انضم إلينا الآن</a>
+                        <a class="btn  rounded-pill px-4 fw-bold shadow-sm" href="{% url 'accounts:signup' %}" style="background-color: #fab627;">انضم إلينا الآن</a>
                     </li>
                 </ul>
             </div>
         </div>
-    </nav>
+    </nav> -->
 
-    <!-- ══ عبارة تعريفية ══ -->
-    <div class="intro-banner">
-        <div class="container">
-            <h3>منصة EduPal للتعليم الذكي</h3>
-            <p>بيئة تعليمية متكاملة تربط المعلم بطلابه وأولياء أمورهم بدعم الذكاء الاصطناعي</p>
-            <div class="intro-features">
-                <span><i class="fas fa-robot"></i> دروس مدعومة بـ AI</span>
-                <span><i class="fas fa-chart-line"></i> تتبع الأداء لحظياً</span>
-                <span><i class="fas fa-users"></i> تواصل المعلم والأسرة</span>
-                <span><i class="fas fa-brain"></i> مصمم لطلاب تشتت الانتباه وصعوبات التعلم</span>
+    <section class="intro-banner" aria-labelledby="hero-title">
+        <div class="hero-shell" style="display: flex;flex-direction: row-reverse;">
+                       <div class="hero-copy">
+                <!-- <p class="hero-eyebrow">
+                    <i class="fas fa-sparkles" aria-hidden="true"></i>
+                    تعلّم يراعي اختلاف الانتباه
+                </p> -->
+                <h1 class="hero-title" id="hero-title">
+                    منصة <span class="brand-word">رفيق</span> التعليمية
+                </h1>
+                <p class="hero-description">
+                    مساحة تعليمية مرنة تفهم إيقاعك، تخفّف التشتّت، وتحول كل خطوة صغيرة
+                    إلى تقدّم واضح يمكنك أنت وأسرتك ومعلمك رؤيته.
+                </p>
+                <div class="hero-actions">
+                    <a class="hero-primary" href="#signup-section" style="padding: 15px 30px;">
+                        ابدأ رحلتك الان
+                        <i class="fas fa-arrow-left" aria-hidden="true" style="margin-right: 5px;"></i>
+                    </a>
+                    <a class="hero-secondary" type="button" id="meetRafiq" style="padding: 15px 30px; margin-right: 10px;" href="{% url 'accounts:login' %}">
+                        <!-- <i class="fas fa-comment-dots" aria-hidden="true"></i> -->
+                     سجل الدخول
+                    </a>
+                </div>
+                       </div>
+             <div class="hero-visual" id="rafiqStage" aria-label="رفيق، المساعد التعليمي"style='width: 50%'>
+                <div class="rafiq-bubble" id="rafiqBubble" role="status">
+                    <span>مرحباً، أنا رفيق</span>
+                    <p >المشكلة ليست فيك، بل في توقّعاتٍ لم تُدَر بوعي.</p>
+                </div>
+                <img
+                    class="rafiq-character"
+                    id="rafiqCharacter"
+                    src="{% static 'images/rafiq-hero.png' %}"
+                    alt="رفيق، شخصية روبوت تعليمية ودودة"
+                >
+                <!-- <div class="hero-note">
+                    <i class="fas fa-heart" aria-hidden="true"></i>
+                    خطوة هادئة في كل مرة
+                </div> -->
             </div>
-        </div>
-    </div>
 
-    <main class="main-content">
-        <div class="main-wrapper">
-            <div class="signup-image-section">
-                <img src="{% static 'images/signup_img.png' %}?v={% now "U" %}" alt="EduPal Learning">
+        </div>
+    </section>
+
+    <main class="main-content" id="signup-section">
+        <div class="main-wrapper"style="display: flex;justify-content: center;align-items: center;">
+            <!-- <div class="signup-image-section">
+                <img src="{% static 'images/signup_img.png' %}" alt="EduPal Learning">
                 <div class="mt-4 d-none d-lg-block text-center">
                     <h4 class="fw-bold" style="color: #4a5568;">تعلم بذكاء، لا بعناء</h4>
                     <p class="text-muted small px-3">انضم لآلاف الطلاب في رحلة تعليمية مدعومة بالذكاء الاصطناعي.</p>
                 </div>
-            </div>
+            </div> -->
 
-            <div class="signup-container">
+            <div class="signup-container" >
                 <div class="brand-logo">
                     <h2>إنشاء حساب </h2>
-                    <p class="text-muted small">ابدأ رحلتك التعليمية مع EduPal اليوم</p>
+                    <p class="text-muted small">ابدأ رحلتك التعليمية مع رفيق </p>
                 </div>
 
                 <form method="POST" action="{% url 'accounts:signup' %}" enctype="multipart/form-data" novalidate id="signupForm">
@@ -365,7 +1238,7 @@
         <div class="container">
             <div class="row gy-4 text-start">
                 <div class="col-lg-4">
-                    <h5 class="fw-bold text-primary mb-3"><i class="fas fa-book-reader"></i> EduPal Platform</h5>
+                    <h5 class="fw-bold text-primary mb-3"><i class="fas fa-book-reader"></i> Rafiq Platform</h5>
                     <p class="text-muted small">منصة تعليمية ذكية تدعم المعلم والطالب وولي الأمر باستخدام أحدث تقنيات الذكاء الاصطناعي وربط البيانات اللحظي عبر PostgreSQL.</p>
                     <div class="social-links">
                         <a href="#" class="text-secondary me-3"><i class="fab fa-facebook-f"></i></a>
@@ -462,6 +1335,48 @@
             if (savedRole) {
                 const btn = document.querySelector(`.role-btn[data-role="${savedRole}"]`);
                 if (btn) selectRole(btn);
+            }
+
+            // حركة رفيق هادئة وخفيفة — تُعطّل تلقائياً عند تفضيل تقليل الحركة
+            const rafiqStage = document.getElementById('rafiqStage');
+            const rafiqCharacter = document.getElementById('rafiqCharacter');
+            const rafiqBubble = document.getElementById('rafiqBubble');
+            const meetRafiq = document.getElementById('meetRafiq');
+            const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            if (rafiqStage && rafiqCharacter && !reduceMotion) {
+                rafiqStage.addEventListener('pointermove', (event) => {
+                    const rect = rafiqStage.getBoundingClientRect();
+                    const x = (event.clientX - rect.left) / rect.width - .5;
+                    const y = (event.clientY - rect.top) / rect.height - .5;
+                    rafiqCharacter.style.animation = 'none';
+                    rafiqCharacter.style.transition = 'transform .22s ease-out';
+                    rafiqCharacter.style.transform =
+                        `translate3d(${x * 9}px, ${y * 5}px, 0) rotateY(${x * 7}deg) rotateX(${-y * 3}deg)`;
+                });
+
+                rafiqStage.addEventListener('pointerleave', () => {
+                    rafiqCharacter.style.transform = '';
+                    window.setTimeout(() => {
+                        rafiqCharacter.style.animation = '';
+                        rafiqCharacter.style.transition = '';
+                    }, 220);
+                });
+            }
+
+            if (meetRafiq && rafiqBubble) {
+                meetRafiq.addEventListener('click', () => {
+                    rafiqBubble.animate(
+                        [
+                            { transform: 'translateY(0) scale(1)' },
+                            { transform: 'translateY(-5px) scale(1.025)' },
+                            { transform: 'translateY(0) scale(1)' }
+                        ],
+                        { duration: reduceMotion ? 1 : 520, easing: 'ease-out' }
+                    );
+                    rafiqBubble.setAttribute('tabindex', '-1');
+                    rafiqBubble.focus({ preventScroll: true });
+                });
             }
         });
 

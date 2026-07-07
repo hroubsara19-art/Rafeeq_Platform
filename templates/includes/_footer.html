@@ -1,4 +1,4 @@
-<footer class="bg-white border-top mt-5 py-5">
+<footer class="bg-white border-top  py-5">
     <div class="container">
         <div class="row gy-4">
             <div class="col-lg-4">
@@ -35,6 +35,8 @@
                 </div>
             </div>
         </div>
+
+       
         <hr class="my-4 opacity-25">
         <div class="text-center text-muted small">
             &copy; 2026 EduPal Platform. جميع الحقوق محفوظة. مدعوم بواسطة PostgreSQL
@@ -43,38 +45,266 @@
 </footer>
 
 <style>
-/* Responsive Design for Footer */
-@media(max-width:991.98px){
-  footer{padding:3rem 0;}
-  .social-links a{font-size:1.05rem;}
+footer.bg-white {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(242, 189, 91, .13), transparent 25%),
+    radial-gradient(circle at 92% 82%, rgba(223, 129, 90, .15), transparent 27%),
+    linear-gradient(135deg, #315b59 0%, #3f706d 52%, #345f5c 100%) !important;
+  color: #f8f3e9;
 }
 
-@media(max-width:768px){
-  footer{padding:2.5rem 0;}
-  h5{font-size:1.05rem;}
-  h6{font-size:.95rem;}
-  .small{font-size:.8rem;}
-  .social-links a{font-size:1rem;margin-left:.75rem;}
-  .form-control,.btn{font-size:.85rem;padding:.5rem;}
+
+footer.py-5 {
+  padding-top: clamp(58px, 7vw, 84px) !important;
+  padding-bottom: 28px !important;
 }
 
-@media(max-width:600px){
-  footer{padding:2rem 0;}
-  h5{font-size:1rem;}
-  h6{font-size:.9rem;}
-  .small{font-size:.78rem;}
-  .social-links a{font-size:.95rem;margin-left:.65rem;}
-  .input-group{flex-direction:column;}
-  .input-group .btn{width:100%;margin-top:.5rem;}
+footer.border-top {
+  border-top: 1px solid rgba(255, 255, 255, .14) !important;
 }
 
-@media(max-width:480px){
-  footer{padding:1.75rem 0;}
-  h5{font-size:.95rem;}
-  h6{font-size:.85rem;}
-  .small{font-size:.75rem;}
-  .social-links a{font-size:.9rem;margin-left:.6rem;}
-  .form-control{padding:.45rem;font-size:.8rem;}
-  .btn{padding:.45rem;font-size:.8rem;}
+footer::before,
+footer::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+footer::before {
+  width: 280px;
+  height: 280px;
+  top: -190px;
+  right: 8%;
+  border: 1px solid rgba(255, 255, 255, .1);
+  box-shadow: 0 0 0 42px rgba(255, 255, 255, .025);
+}
+
+footer::after {
+  width: 150px;
+  height: 150px;
+  left: -55px;
+  bottom: -65px;
+  background: rgba(242, 189, 91, .08);
+}
+
+footer .container {
+  position: relative;
+  z-index: 1;
+}
+
+footer .row {
+  align-items: flex-start;
+  text-align: start;
+}
+
+footer h5,
+footer h6 {
+  color: #fff9ef;
+  letter-spacing: -.01em;
+}
+
+footer h5.text-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #fff9ef !important;
+  font-size: 1.16rem;
+}
+
+footer h5.text-primary i {
+  display: inline-grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(242, 189, 91, .16);
+  color: #f2bd5b;
+  box-shadow: inset 0 0 0 1px rgba(242, 189, 91, .2);
+}
+
+footer h6 {
+  position: relative;
+  padding-bottom: 11px;
+  font-size: .92rem;
+}
+
+footer h6::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 30px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f2bd5b, #df815a);
+}
+
+footer p.text-muted,
+footer .text-muted {
+  color: rgba(248, 243, 233, .7) !important;
+}
+
+footer p {
+  max-width: 360px;
+  line-height: 1.95;
+}
+
+footer ul li {
+  margin-bottom: 9px;
+}
+
+footer ul a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: rgba(248, 243, 233, .68) !important;
+  transition: color .2s ease, transform .2s ease;
+}
+
+footer ul a::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(242, 189, 91, .55);
+  transition: background .2s ease, transform .2s ease;
+}
+
+footer ul a:hover,
+footer ul a:focus-visible {
+  color: #fff9ef !important;
+  transform: translateX(-3px);
+}
+
+footer ul a:hover::before,
+footer ul a:focus-visible::before {
+  background: #f2bd5b;
+  transform: scale(1.35);
+}
+
+footer .social-links {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 18px;
+}
+
+footer .social-links a {
+  display: inline-grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  margin: 0 !important;
+  border: 1px solid rgba(255, 255, 255, .13);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .07);
+  color: rgba(255, 255, 255, .78) !important;
+  font-size: .92rem;
+  text-decoration: none;
+  transition: transform .2s ease, background .2s ease, border-color .2s ease, color .2s ease;
+}
+
+footer .social-links a:hover,
+footer .social-links a:focus-visible {
+  border-color: rgba(242, 189, 91, .35);
+  background: rgba(242, 189, 91, .14);
+  color: #f2bd5b !important;
+  transform: translateY(-3px);
+}
+
+footer .input-group {
+  overflow: hidden;
+  min-height: 50px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .07);
+  box-shadow: 0 12px 30px rgba(28, 60, 57, .18);
+}
+
+footer .input-group .form-control {
+  min-height: 50px;
+  padding-inline: 16px !important;
+  border: 0 !important;
+  background: transparent;
+  color: #fff9ef;
+  box-shadow: none !important;
+}
+
+footer .input-group .form-control::placeholder {
+  color: rgba(248, 243, 233, .55);
+}
+
+footer .input-group .form-control:focus {
+  border: 0 !important;
+  background: rgba(255, 255, 255, .04);
+  box-shadow: none !important;
+}
+
+footer .input-group .btn-primary {
+  min-width: 105px;
+  border: 0;
+  border-radius: 12px !important;
+  background: #df815a;
+  color: #fff;
+  box-shadow: none;
+}
+
+footer .input-group .btn-primary:hover,
+footer .input-group .btn-primary:focus-visible {
+  background: #cb704c;
+  color: #fff;
+  transform: none;
+}
+
+footer hr {
+  border-color: rgba(255, 255, 255, .18);
+  opacity: 1 !important;
+}
+
+footer hr + .text-center {
+  color: rgba(248, 243, 233, .62) !important;
+  line-height: 1.8;
+}
+
+@media (max-width: 767.98px) {
+  footer.py-5 {
+    padding-top: 50px !important;
+  }
+
+  footer .row {
+    row-gap: 34px !important;
+  }
+
+  footer .col-lg-4:last-child {
+    margin-top: 2px;
+  }
+}
+
+@media (max-width: 420px) {
+  footer .input-group {
+    display: grid;
+    gap: 9px;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  footer .input-group .form-control,
+  footer .input-group .btn-primary {
+    width: 100%;
+    border-radius: 12px !important;
+  }
+
+  footer .input-group .form-control {
+    border: 1px solid rgba(255, 255, 255, .14) !important;
+    background: rgba(255, 255, 255, .07);
+  }
 }
 </style>

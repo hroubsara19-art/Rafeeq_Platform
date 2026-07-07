@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تسجيل الدخول | EduPal Platform</title>
+    <title>تسجيل الدخول | منصة رفيق</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
@@ -24,9 +24,10 @@
         .main-content {
             flex: 1;
             display: flex;
-            align-items: center;
+            align-items: center; 
             justify-content: center;
-            padding: 40px 20px;
+            padding: 10px 0px;
+            padding-bottom: 40px;
         }
         
         .main-wrapper {
@@ -36,14 +37,17 @@
             border-radius: 30px;
             overflow: hidden;
             box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-            max-width: 1000px; 
-            width: 100%;
+            /* max-width: 1000px;  */
+            width: 40%;
+            margin: 0 auto
         }
 
         .login-image-section {
-            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+            /* background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%); */
+            width: 40%;
             flex: 1.2;
             display: flex;
+            /* margin-left: -20px; */
             flex-direction: column;
             align-items: center;
             justify-content: center;
@@ -52,7 +56,7 @@
         }
 
         .login-image-section img {
-            max-width: 100%;
+            /* max-width: 100%; */
             height: auto;
             filter: drop-shadow(0 10px 15px rgba(0,0,0,0.1));
             transition: transform 0.5s ease;
@@ -60,7 +64,7 @@
         
         .login-image-section img:hover { transform: scale(1.02); }
 
-        .login-container { padding: 40px; flex: 1; max-width: 450px; width: 100%; }
+        .login-container { padding: 40px; flex: 1;  width: 100%; }
         
         @media (max-width: 768px) {
             .login-image-section { display: none; }
@@ -95,17 +99,727 @@
         }
         
         footer a:hover { color: #5a91e6 !important; }
+
+        /* ── هوية رفيق: صفحة تسجيل الدخول ── */
+        :root {
+            --rafiq-ink: #403a32;
+            --rafiq-muted: #7b756b;
+            --rafiq-teal: #4f8583;
+            --rafiq-teal-dark: #3d706e;
+            --rafiq-coral: #df815a;
+            --rafiq-gold: #f2bd5b;
+            --rafiq-cream: #f8f3e9;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            color: var(--rafiq-ink);
+               background:
+                radial-gradient(circle at 82% 22%, rgba(242, 189, 91, .2), transparent 24%),
+                radial-gradient(circle at 14% 74%, rgba(79, 133, 131, .13), transparent 26%),
+                linear-gradient(120deg, #f8f3e9 0%, #edf1e9 55%, #dce9df 100%);
+            /* background:
+                radial-gradient(circle at 10% 18%, rgba(223, 129, 90, .1), transparent 22%),
+                radial-gradient(circle at 90% 84%, rgba(79, 133, 131, .12), transparent 25%),
+                linear-gradient(145deg, #f8f3e9 0%, #edf1e9 52%, #e5eee6 100%); */
+        }
+
+        .navbar {
+            border-bottom: 1px solid rgba(255, 255, 255, .14);
+            background: linear-gradient(135deg, #315b59 0%, #4f8583 100%) !important;
+            box-shadow: 0 10px 30px rgba(49, 91, 89, .15) !important;
+        }
+
+        .navbar-brand > div {
+            color: var(--rafiq-teal) !important;
+            box-shadow: 0 5px 15px rgba(24, 57, 55, .13);
+        }
+
+        .navbar-brand > span {
+            color: #fff9ef;
+        }
+
+        .navbar .btn-warning {
+            border: 0;
+            background: var(--rafiq-gold);
+            color: #59451e;
+            transition: transform .2s ease, box-shadow .2s ease;
+        }
+
+        .navbar .btn-warning:hover {
+            background: #f6c96f;
+            color: #493816;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(30, 60, 57, .2) !important;
+        }
+        
+        .main-content {
+            --hero-ink: #403a32;
+            --hero-muted: #716b61;
+            --hero-teal: #4f8583;
+            --hero-coral: #df815a;
+            position: relative;
+            isolation: isolate;
+            min-height: min(760px, calc(100vh - 72px));
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            /* padding: clamp(52px, 7vw, 96px) 0; */
+            color: var(--hero-ink);
+            /* background:
+                radial-gradient(circle at 82% 22%, rgba(242, 189, 91, .2), transparent 24%),
+                radial-gradient(circle at 14% 74%, rgba(79, 133, 131, .13), transparent 26%),
+                linear-gradient(120deg, #f8f3e9 0%, #edf1e9 55%, #dce9df 100%); */
+        }
+        .main-content::before,
+        .main-content::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .main-content::before {
+            width: 360px;
+            height: 360px;
+            inset: -190px auto auto -120px;
+            border: 1px solid rgba(79, 133, 131, .16);
+            box-shadow: 0 0 0 44px rgba(255, 255, 255, .12);
+        }
+        .main-content::after {
+            width: 170px;
+            height: 170px;
+            right: 43%;
+            bottom: -105px;
+            background: rgba(223, 129, 90, .09);
+        }
+/* 
+        .main-content {
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+            padding: clamp(58px, 7vw, 96px) 20px;
+        }
+
+        .main-content::before,
+        .main-content::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .main-content::before {
+            width: 280px;
+            height: 280px;
+            top: 8%;
+            right: -165px;
+            border: 1px solid rgba(79, 133, 131, .14);
+            box-shadow: 0 0 0 42px rgba(255, 255, 255, .12);
+        }
+
+        .main-content::after {
+            width: 125px;
+            height: 125px;
+            left: 5%;
+            bottom: 9%;
+            background: rgba(242, 189, 91, .11);
+        } */
+         .character-container {
+  /* لضمان أن الحاوية تأخذ حجم الفيديو */
+  display: inline-block; 
+  /* إذا كنتِ ترغبين في وضع الحاوية فوق عناصر أخرى */
+  position: relative; 
+}
+
+#intro-video {
+  width: 100%; /* اجعلي حجم الفيديو يتناسب مع الحاوية */
+  height: auto;
+  
+  /* هذه هي الخاصية السحرية! */
+  /* mix-blend-mode: screen;  */
+  mix-blend-mode: color-burn;
+  
+  /* إذا كانت الخلفية داكنة، يمكنكِ تجربة: mix-blend-mode: lighten; */
+}
+
+        .main-wrapper {
+            position: relative;
+            max-width: 1080px;
+            min-height: 640px;
+            border: 1px solid rgba(79, 133, 131, .14);
+            border-radius: 30px;
+            background: rgba(255, 255, 255, .88);
+            box-shadow:
+                0 30px 75px rgba(64, 58, 50, .11),
+                0 8px 22px rgba(79, 133, 131, .06);
+            backdrop-filter: blur(15px);
+        }
+
+        .main-wrapper::before {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto;
+            z-index: 5;
+            height: 5px;
+            /* background: linear-gradient(90deg, var(--rafiq-teal), #83aaa1 47%, var(--rafiq-coral) 76%, var(--rafiq-gold)); */
+        }
+
+        .login-container {
+            /* max-width: 470px; */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: clamp(38px, 5vw, 58px);
+        }
+
+        .brand-logo {
+            position: relative;
+            margin-bottom: 34px;
+            padding-bottom: 21px;
+        }
+
+        .brand-logo::after {
+            content: "";
+            position: absolute;
+            right: 50%;
+            bottom: 0;
+            width: 55px;
+            height: 4px;
+            border-radius: 999px;
+            transform: translateX(50%);
+            background: linear-gradient(90deg, var(--rafiq-teal), var(--rafiq-coral));
+        }
+
+        .brand-logo h2 {
+            margin-bottom: 9px;
+            color: var(--rafiq-ink);
+            font-size: clamp(1.7rem, 3vw, 2.15rem);
+        }
+
+        .brand-logo p {
+            margin: 0;
+            color: var(--rafiq-muted) !important;
+            line-height: 1.8;
+        }
+
+        .login-container .form-label {
+            margin-bottom: 8px;
+            color: #5b564e;
+            font-size: .88rem;
+            font-weight: 700;
+        }
+
+        .login-container .form-control {
+            min-height: 52px;
+            padding: 12px 15px;
+            border: 1px solid #dddcd4;
+            border-radius: 13px;
+            background: rgba(250, 249, 245, .94);
+            color: var(--rafiq-ink);
+            transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+        }
+
+        .login-container .form-control::placeholder {
+            color: #aaa59a;
+        }
+
+        .login-container .form-control:focus {
+            border-color: #6d9a94;
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(79, 133, 131, .11) !important;
+        }
+
+        .password-input {
+            border-left: none !important;
+            border-radius: 0 13px 13px 0 !important;
+        }
+
+        .toggle-password-btn {
+            min-width: 52px;
+            justify-content: center;
+            padding: 0 15px;
+            border: 1px solid #dddcd4;
+            border-right: 0 !important;
+            border-radius: 13px 0 0 13px !important;
+            background: #faf9f5;
+            color: #7d8c86;
+            transition: color .2s ease, background .2s ease;
+        }
+
+        .toggle-password-btn:hover {
+            background: #f0f5f1;
+            color: var(--rafiq-teal);
+        }
+
+        .login-container .form-check-input {
+            border-color: #b9c6c0;
+            box-shadow: none;
+        }
+
+        .login-container .form-check-input:checked {
+            border-color: var(--rafiq-teal);
+            background-color: var(--rafiq-teal);
+        }
+
+        .login-container form a {
+            color: var(--rafiq-teal);
+        }
+
+        .login-container form a:hover {
+            color: var(--rafiq-coral);
+        }
+
+        .login-container .btn-primary {
+            min-height: 52px;
+            border: 0;
+            border-radius: 14px;
+            background: var(--rafiq-teal);
+            color: #fff;
+            box-shadow: 0 13px 28px rgba(79, 133, 131, .2) !important;
+        }
+
+        .login-container .btn-primary:hover,
+        .login-container .btn-primary:focus {
+            background: #447775;
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 17px 32px rgba(79, 133, 131, .27) !important;
+        }
+
+        .login-container .btn-primary:disabled {
+            background: #789a92;
+            transform: none;
+            box-shadow: none !important;
+        }
+
+        .login-container .alert {
+            border: 1px solid rgba(201, 107, 93, .16);
+            border-radius: 12px !important;
+            background: #fff4f0;
+            color: #9d4d43;
+        }
+
+        /* ── أفاتار رفيق الحي ── */
+        .login-image-section {
+            position: relative;
+            isolation: isolate;
+            flex: 1.25;
+            min-width: 0;
+            overflow: hidden;
+            padding: 35px 34px 40px;
+            /* background:
+                radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .84), rgba(255, 255, 255, .18) 42%, transparent 43%),
+                radial-gradient(circle at 85% 12%, rgba(242, 189, 91, .18), transparent 25%),
+                linear-gradient(145deg, #dfeae2 0%, #edf1e9 55%, #f8f3e9 100%); */
+        }
+
+        .login-image-section::before,
+        .login-image-section::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .login-image-section::before {
+            width: 360px;
+            height: 360px;
+            border: 1px solid rgba(79, 133, 131, .12);
+            box-shadow: 0 0 0 38px rgba(255, 255, 255, .13);
+        }
+
+        .login-image-section::after {
+            width: 120px;
+            height: 120px;
+            top: 8%;
+            left: -48px;
+            background: rgba(223, 129, 90, .1);
+        }
+
+        .rafiq-avatar-shell {
+            position: relative;
+            width: min(450px, 100%);
+            min-height: 480px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .rafiq-avatar {
+            position: relative;
+            /* width: min(350px, 82%); */
+            animation: rafiqBreathing 4.8s ease-in-out infinite;
+            transform-origin: 50% 84%;
+        }
+
+        .login-image-section .rafiq-avatar img {
+            display: block;
+            width: 90%;
+            max-width: none;
+            height: auto;
+            filter: drop-shadow(0 24px 22px rgba(64, 58, 50, .16));
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .login-image-section .rafiq-avatar img:hover {
+            transform: none;
+        }
+
+        .rafiq-wave-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            clip-path: polygon(56% 29%, 94% 32%, 100% 51%, 82% 61%, 59% 56%);
+            transform-origin: 65% 47%;
+            animation: rafiqWave 4.8s ease-in-out infinite;
+            will-change: transform;
+        }
+
+        .rafiq-eyelid {
+            position: absolute;
+            z-index: 4;
+            top: 27.1%;
+            width: 12.2%;
+            height: 8.4%;
+            border-bottom: 2px solid rgba(74, 70, 58, .34);
+            border-radius: 50%;
+            background: linear-gradient(180deg, #f9e2bd 12%, #edc48f 100%);
+            transform: scaleY(0);
+            transform-origin: center top;
+            animation: rafiqBlink 5.1s linear infinite;
+            pointer-events: none;
+        }
+
+        .rafiq-eye-right { left: 32.5%; }
+        .rafiq-eye-left  { left: 52.4%; }
+
+        .rafiq-login-bubble {
+            position: absolute;
+            z-index: 6;
+            top: 0;
+            right: -80px;
+            min-width: 180px;
+            padding: 23px 26px;
+            /* line-height: 20px; */
+            border: 1px solid rgba(79, 133, 131, .15);
+            border-radius: 17px 17px 6px 17px;
+            background: rgba(255, 255, 255, .92);
+            color: #514b43;
+            text-align: right;
+            /* box-shadow: 0 15px 34px rgba(69, 80, 72, .11); */
+            /* backdrop-filter: blur(9px); */
+            animation: rafiqBubbleIn .7s .35s ease both;
+        }
+
+        .rafiq-login-bubble::after {
+            content: "";
+            position: absolute;
+            left: 24px;
+            bottom: -11px;
+            width: 20px;
+            height: 20px;
+            background: rgba(255, 255, 255, .92);
+            clip-path: polygon(0 0, 100% 0, 0 100%);
+        }
+
+        .rafiq-login-bubble strong,
+        .rafiq-login-bubble span {
+            display: block;
+        }
+
+        .rafiq-login-bubble strong {
+            margin-bottom: 3px;
+            color: var(--rafiq-teal);
+            font-size: .86rem;
+        }
+
+        .rafiq-login-bubble span {
+            color: #6d675e;
+            font-size: .74rem;
+        }
+
+        .login-image-section .mt-4 {
+            position: relative;
+            z-index: 7;
+            margin-top: -8px !important;
+        }
+
+        .login-image-section h4 {
+            color: var(--rafiq-ink) !important;
+        }
+
+        .login-image-section .text-muted {
+            color: var(--rafiq-muted) !important;
+            line-height: 1.8;
+        }
+
+        @keyframes rafiqBreathing {
+            0%, 100% { transform: translateY(0) rotate(-.35deg); }
+            50% { transform: translateY(-7px) rotate(.35deg); }
+        }
+
+        @keyframes rafiqWave {
+            0%, 38%, 66%, 100% { transform: rotate(0deg); }
+            44% { transform: rotate(-5deg); }
+            49% { transform: rotate(4deg); }
+            54% { transform: rotate(-4deg); }
+            59% { transform: rotate(3deg); }
+        }
+
+        @keyframes rafiqBlink {
+            0%, 42%, 46%, 73%, 77%, 100% { transform: scaleY(0); }
+            43.5%, 44.5%, 74.5%, 75.5% { transform: scaleY(1); }
+        }
+
+        @keyframes rafiqBubbleIn {
+            from { opacity: 0; transform: translateY(8px) scale(.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* ── Footer بنفس هوية رفيق ── */
+        footer.bg-white {
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+            margin-top: 0 !important;
+            border-top: 1px solid rgba(255, 255, 255, .14) !important;
+            background:
+                radial-gradient(circle at 12% 18%, rgba(242, 189, 91, .13), transparent 25%),
+                radial-gradient(circle at 92% 82%, rgba(223, 129, 90, .15), transparent 27%),
+                linear-gradient(135deg, #315b59 0%, #3f706d 52%, #345f5c 100%) !important;
+            color: #f8f3e9;
+        }
+
+        footer.py-5 {
+            padding-top: clamp(58px, 7vw, 82px) !important;
+            padding-bottom: 28px !important;
+        }
+
+        footer h5,
+        footer h6 {
+            color: #fff9ef;
+        }
+
+        footer h5.text-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            color: #fff9ef !important;
+        }
+
+        footer h5.text-primary i {
+            display: inline-grid;
+            width: 38px;
+            height: 38px;
+            place-items: center;
+            border-radius: 12px;
+            background: rgba(242, 189, 91, .16);
+            color: var(--rafiq-gold);
+        }
+
+        footer h6 {
+            position: relative;
+            padding-bottom: 11px;
+        }
+
+        footer h6::after {
+            content: "";
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 30px;
+            height: 3px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--rafiq-gold), var(--rafiq-coral));
+        }
+
+        footer .text-muted {
+            color: rgba(248, 243, 233, .7) !important;
+        }
+
+        footer p {
+            line-height: 1.9;
+        }
+
+        footer ul li {
+            margin-bottom: 9px;
+        }
+
+        footer ul a {
+            color: rgba(248, 243, 233, .68) !important;
+            transition: color .2s ease, transform .2s ease;
+        }
+
+        footer ul a:hover {
+            color: #fff9ef !important;
+            transform: translateX(-3px);
+        }
+
+        .social-links {
+            display: flex;
+            gap: 9px;
+            margin-top: 18px;
+        }
+
+        .social-links a {
+            display: inline-grid;
+            width: 38px;
+            height: 38px;
+            place-items: center;
+            margin: 0 !important;
+            border: 1px solid rgba(255, 255, 255, .13);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .07);
+            color: rgba(255, 255, 255, .78) !important;
+            text-decoration: none;
+            transition: transform .2s ease, background .2s ease, color .2s ease;
+        }
+
+        .social-links a:hover {
+            background: rgba(242, 189, 91, .14);
+            color: var(--rafiq-gold) !important;
+            transform: translateY(-3px);
+        }
+
+        footer .input-group {
+            overflow: hidden;
+            min-height: 50px;
+            border: 1px solid rgba(255, 255, 255, .14);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, .07);
+            box-shadow: 0 12px 30px rgba(28, 60, 57, .18);
+        }
+
+        footer .input-group .form-control {
+            border: 0;
+            background: transparent;
+            color: #fff9ef;
+            box-shadow: none;
+        }
+
+        footer .input-group .form-control::placeholder {
+            color: rgba(248, 243, 233, .55);
+        }
+
+        footer .input-group .btn-primary {
+            min-width: 105px;
+            border: 0;
+            border-radius: 12px !important;
+            background: var(--rafiq-coral);
+            box-shadow: none;
+        }
+
+        footer .input-group .btn-primary:hover {
+            background: #cb704c;
+            transform: none;
+        }
+
+        footer hr {
+            border-color: rgba(255, 255, 255, .18);
+            opacity: 1 !important;
+        }
+
+        footer hr + .text-center {
+            color: rgba(248, 243, 233, .62) !important;
+        }
+
+        @media (max-width: 900px) {
+            .main-wrapper {
+                max-width: 650px;
+                flex-direction: column-reverse;
+            }
+
+            .login-container {
+                max-width: none;
+            }
+
+            .login-image-section {
+                display: flex;
+                min-height: 410px;
+                padding: 25px 20px 18px;
+            }
+
+            .rafiq-avatar-shell {
+                min-height: 350px;
+            }
+
+            .rafiq-avatar {
+                width: min(245px, 62%);
+            }
+
+            .rafiq-login-bubble {
+                top: 8%;
+                right: 8%;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .main-content {
+                padding: 30px 12px 46px;
+            }
+
+            .main-wrapper {
+                border-radius: 20px;
+            }
+
+            .login-container {
+                padding: 32px 20px 36px;
+            }
+
+            .login-image-section {
+                min-height: 330px;
+                overflow:visible;
+                padding: 22px 12px 10px;
+            }
+
+            .rafiq-avatar-shell {
+                min-height: 290px;
+            }
+
+            .rafiq-avatar {
+                width: min(205px, 62%);
+            }
+
+            .rafiq-login-bubble {
+                top: 7%;
+                right: 3%;
+                /* z-index: 100; */
+                min-width: 155px;
+                padding: 30px 32px;
+            }
+
+            footer.py-5 {
+                padding-top: 48px !important;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .rafiq-avatar,
+            .rafiq-wave-layer,
+            .rafiq-eyelid,
+            .rafiq-login-bubble {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
     </style>
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg navbar-dark sticky-top shadow-sm" style="background: linear-gradient(135deg, #5a91e6 0%, #4a7bc7 100%);">
+    <!-- <nav class="navbar navbar-expand-lg navbar-dark sticky-top shadow-sm" style="background: linear-gradient(135deg, #5a91e6 0%, #4a7bc7 100%);">
         <div class="container">
             <a class="navbar-brand fw-bold d-flex align-items-center" href="{% url 'accounts:home' %}">
                 <div class="bg-white text-primary rounded-circle me-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
                     <i class="fas fa-book-reader"></i>
                 </div>
-                <span class="ms-2">EduPal <span class="fw-light">Platform</span></span>
+                <span class="ms-2">رفيق <span class="fw-light">التعليمية</span></span>
             </a>
             
             <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -123,14 +837,21 @@
                 </ul>
             </div>
         </div>
-    </nav>
-
+    </nav> -->
+<div class="nav" style="margin: 0 0 ;
+padding: 0 0 ;
+display: flex;justify-content: flex-end;">
+        <li class="nav-item ms-lg-2"
+         style="margin-left: 40px;margin-top:20px" >
+                   <a class="btn  rounded-pill  fw-bold shadow-sm" href="{% url 'accounts:signup' %}" style="background-color: #f7deb3;padding: 10px 30px">انضم إلينا الآن</a>
+                    </li>
+</div>
     <main class="main-content">
         <div class="main-wrapper">
             <div class="login-container">
                 <div class="brand-logo">
-                    <h2>أهلاً بك!</h2>
-                    <p class="text-muted small">سعداءٌ برؤيتك مجدداً في EduPal</p>
+                    <h2>سجل الدخول</h2>
+                    <p class="text-muted small">رفيق بانتظارك لنكمل رحلة التعلّم معًا</p>
                 </div>
 
                 {% if messages %}
@@ -176,21 +897,36 @@
                 </form>
             </div>
 
-            <div class="login-image-section">
-                <img src="{% static 'images/login_img.png' %}" alt="Login Illustration">
-                <div class="mt-4 d-none d-lg-block">
-                    <h4 class="fw-bold" style="color: #4a5568;">عوداً حميداً!</h4>
-                    <p class="text-muted small px-4">استكمل رحلتك التعليمية المخصصة عبر نظامنا الذكي.</p>
-                </div>
-            </div>
+         
         </div>
+           <div class="login-image-section" style="max-width: 40vw;">
+                <div class="rafiq-avatar-shell">
+                    <!-- <div class="rafiq-avatar" aria-label="رفيق يرحب بك">
+                        <img class="rafiq-avatar-base" src="{% static 'images/rafiq-hero.png' %}" alt="رفيق، المساعد التعليمي">
+                       
+                    </div> -->
+                    <div class="character-container">
+                        <div class="character-container">
+  <video id="intro-video" autoplay muted playsinline>
+    <source src="/media/videos/media_videos_ترحيب 1_3-Picsart-BackgroundRemover.webm" type="video/webm">
+    متصفحك لا يدعم تشغيل الفيديو.
+  </video>
+  </div>
+</div>
+                    <div class="rafiq-login-bubble">
+                        <strong style="font-size: 16px;font-weight: bold">مرحباً بعودتكَ </strong>
+                        <span style="font-size: 14px;font-weight: bold">أنا رفيق سجّل دخولكَ لنتخطى العقبات معاً،</span>
+                    </div>
+                </div>
+               
+            </div>
     </main>
 
     <footer class="bg-white border-top mt-5 py-5">
         <div class="container">
             <div class="row gy-4 text-start">
                 <div class="col-lg-4">
-                    <h5 class="fw-bold text-primary mb-3"><i class="fas fa-book-reader"></i> EduPal Platform</h5>
+                    <h5 class="fw-bold text-primary mb-3"><i class="fas fa-book-reader"></i> منصة رفيق</h5>
                     <p class="text-muted small">منصة تعليمية ذكية تدعم المعلم والطالب وولي الأمر باستخدام أحدث تقنيات الذكاء الاصطناعي.</p>
                     <div class="social-links">
                         <a href="#" class="text-secondary me-3"><i class="fab fa-facebook-f"></i></a>
@@ -201,7 +937,7 @@
                 <div class="col-lg-2 col-6">
                     <h6 class="fw-bold mb-3">المنصة</h6>
                     <ul class="list-unstyled small">
-                        <li><a href="#" class="text-decoration-none text-muted">عن EduPal</a></li>
+                        <li><a href="#" class="text-decoration-none text-muted">عن رفيق</a></li>
                         <li><a href="#" class="text-decoration-none text-muted">المميزات</a></li>
                     </ul>
                 </div>
@@ -222,7 +958,7 @@
             </div>
             <hr class="my-4 opacity-25">
             <div class="text-center text-muted small">
-                &copy; 2026 EduPal Platform. جميع الحقوق محفوظة. مدعوم بواسطة PostgreSQL
+                &copy; 2026 منصة رفيق. جميع الحقوق محفوظة. مدعوم بواسطة PostgreSQL
             </div>
         </div>
     </footer>

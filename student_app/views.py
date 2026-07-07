@@ -1489,3 +1489,63 @@ def video_serve(request, path):
     response['Accept-Ranges'] = 'bytes'
     
     return response
+@_student_required
+def unfinished_subjects(request):
+    """Returns subject names the student hasn't finished, for Rafiq to speak."""
+    student = request.student
+    from learning.models import StudentTeacherAssignment
+    if not student:
+        return JsonResponse({'unfinished_subjects': []})
+    assigned_classes = StudentTeacherAssignment.objects.filter(
+        studentid=student,
+        is_active=True
+    ).values_list('classid', flat=True).distinct()
+    subjects_qs = (
+        Subject.objects
+        .filter(classid__in=assigned_classes)
+        .select_related('classid')
+    )
+    subjects_map = {}
+    for subj in subjects_qs:
+        subjects_map[subj.pk] = {'subject': subj, 'lessons': []}
+    lessons_qs = (
+        Lessoncontent.objects
+        .filter(status='Published', subjectid__classid__in=assigned_classes)
+        .select_related('subjectid')
+    )
+    for lesson in lessons_qs:
+        sid = lesson.subjectid_id
+        if sid in subjects_map:
+            subjects_map[sid]['lessons'].append(lesson)
+    tests_by_lesson = {}
+    all_lesson_ids = [l.pk for item in subjects_map.values() for l in item['lessons']]
+    if all_lesson_ids:
+        for t in Test.objects.filter(lessonid__in=all_lesson_ids):
+            tests_by_lesson[t.lessonid_id] = t
+    attempted_test_ids = set(
+        Testattempt.objects.filter(studentid=student).values_list('testid_id', flat=True)
+    )
+    general_tests_by_subject = {}
+    for t in Test.objects.filter(subjectid__in=subjects_map.keys(), lessonid__isnull=True):
+        general_tests_by_subject.setdefault(t.subjectid_id, []).append(t)
+    unfinished_names = []
+    for sid, item in subjects_map.items():
+        lessons_in_subj = item['lessons']
+        subject_general_tests = general_tests_by_subject.get(sid, [])
+        if not lessons_in_subj and not subject_general_tests:
+            continue  # empty subject, skip (matches your existing logic)
+        all_done = True
+        for lesson in lessons_in_subj:
+            lt = tests_by_lesson.get(lesson.pk)
+            status = _calc_lesson_status(student, lesson, lt)
+            if not status['is_completed']:
+                all_done = False
+                break
+        if all_done and subject_general_tests:
+            for test in subject_general_tests:
+                if test.testid not in attempted_test_ids:
+                    all_done = False
+                    break
+        if not all_done:
+            unfinished_names.append(item['subject'].subjectname)
+    return JsonResponse({'unfinished_subjects': unfinished_names})

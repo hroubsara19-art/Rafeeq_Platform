@@ -61,6 +61,8 @@ urlpatterns = [
     path('logout/',           views.logout_view,      name='logout'),
     path('complete-profile/', views.complete_profile, name='complete_profile'),
     path('verify-email/',     views.verify_email_view, name='verify_email'),
+    path('api/generate-voice/', views.generate_voice, name='generate_voice'),
+
 
     # ── استعادة كلمة المرور ───────────────────────────────────
     path('password_reset/', RateLimitedPasswordResetView.as_view(),

@@ -19,6 +19,11 @@ from .main_forms import RegistrationForm
 from .info_forms import StudentProfileForm, TeacherProfileForm, ParentProfileForm
 from learning.models import Student, Teacher, Parent
 from django.contrib.auth import logout as auth_logout
+import edge_tts
+import asyncio
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+import io
 
 logger = logging.getLogger(__name__)
 
@@ -300,3 +305,28 @@ def complete_profile(request):
 @login_required
 def home_view(request):
     return redirect_by_role(request.user)
+
+
+@csrf_exempt
+def generate_voice(request):
+    if request.method == 'POST':
+        import json
+        data = json.loads(request.body)
+        text = data.get('text', '')
+        
+        async def get_audio():
+            communicate = edge_tts.Communicate(
+                text, 
+                "ar-SA-ZariyahNeural", 
+                rate="+15%", 
+                pitch="+30Hz"
+            )
+            audio_data = io.BytesIO()
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio_data.write(chunk["data"])
+            return audio_data.getvalue()
+        
+        audio_bytes = asyncio.run(get_audio())
+        
+        return HttpResponse(audio_bytes, content_type='audio/mpeg')

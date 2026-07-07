@@ -58,7 +58,7 @@ urlpatterns = [
     
     # ── Cognitive Check API ─────────────────────────────────────
     path('cognitive-check/', views.show_cognitive_check, name='cognitive_check'),
-    
+    path('student/api/unfinished-subjects/', views.unfinished_subjects, name='unfinished_subjects'),
     # ── Baseline Data API ─────────────────────────────────────
     path('baseline-data/', views.get_baseline_data, name='get_baseline_data'),
     
