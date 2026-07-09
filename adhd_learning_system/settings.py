@@ -189,17 +189,11 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {'verbose': {'format': '%(levelname)s %(asctime)s %(module)s %(message)s'}},
     'handlers': {
-        'file': {
-            'level': 'WARNING',
-            'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs', 'django_security.log'),
-            'formatter': 'verbose',
-        },
         'console': {'class': 'logging.StreamHandler', 'formatter': 'verbose'},
     },
     'loggers': {
         'django': {'handlers': ['console'], 'level': 'WARNING'},
-        'accounts': {'handlers': ['file', 'console'], 'level': 'WARNING', 'propagate': False},
-        'learning': {'handlers': ['file', 'console'], 'level': 'WARNING', 'propagate': False},
+        'accounts': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
+        'learning': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
     },
 }
