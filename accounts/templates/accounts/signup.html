@@ -1381,25 +1381,34 @@
         });
 
         function checkPasswordStrength(password) {
-            let strength = 0;
             let fill = document.getElementById('meter-fill');
             let feedback = document.getElementById('password-feedback');
+
+            if (!fill || !feedback) {
+                console.error('Password meter elements not found');
+                return;
+            }
+
+            let strength = 0;
             if (password.length >= 8) strength++;
-            if (/[A-Z]/.test(password) || /[a-z]/.test(password)) strength++;
+            if (/[A-Z]/.test(password)) strength++;
+            if (/[a-z]/.test(password)) strength++;
             if (/[0-9]/.test(password)) strength++;
             if (/[^A-Za-z0-9]/.test(password)) strength++;
-            
-            const colors = ['#ff4d4d', '#ffa64d', '#ffff4d', '#4dff4d'];
-            const texts = ['ضعيفة جداً', 'ضعيفة', 'متوسطة', 'قوية جداً'];
-            
+
+            const colors = ['#ff4d4d', '#ff4d4d', '#ffa64d', '#ffff4d', '#4dff4d'];
+            const texts = ['ضعيفة جداً', 'ضعيفة', 'متوسطة', 'قوية', 'قوية جداً'];
+
             if (password.length === 0) {
                 fill.style.width = '0%';
                 feedback.innerText = '';
             } else {
-                fill.style.width = (strength * 25) + '%';
+                fill.style.width = (strength * 20) + '%';
                 fill.style.background = colors[strength-1] || colors[0];
                 feedback.innerText = texts[strength-1] || texts[0];
             }
+
+            console.log('Password strength:', strength, 'Text:', texts[strength-1] || texts[0]);
         }
 
         document.getElementById('signupForm').onsubmit = function(e) {
