@@ -87,7 +87,6 @@ TEMPLATES = [{
 WSGI_APPLICATION = 'adhd_learning_system.wsgi.application'
 
 # ── قاعدة البيانات (PostgreSQL) ───────────────────────────────
-# الربط عبر رابط DATABASE_URL الموحد لمنصة Render مع الحفاظ على مهلة الاتصال
 DATABASES = {
     'default': dj_database_url.config(
         default=os.environ.get('DATABASE_URL', 'postgresql://postgres:@localhost:5432/ADHD_Learning_System'),
@@ -116,6 +115,10 @@ APPEND_SLASH  = True
 STATIC_URL       = 'static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATIC_ROOT      = os.path.join(BASE_DIR, 'staticfiles')
+
+# إعداد محرك تخزين وضغط ملفات الـ Static على بيئة الإنتاج لـ WhiteNoise
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 MEDIA_URL        = '/media/'
 MEDIA_ROOT       = os.path.join(BASE_DIR, 'media')
 
@@ -132,11 +135,11 @@ CACHES = {
 AUTH_USER_MODEL    = 'learning.User'
 
 # ── الجلسات ──────────────────────────────────────────────────
-SESSION_COOKIE_AGE         = 10800
-SESSION_SAVE_EVERY_REQUEST = True
-SESSION_EXPIRE_AT_BROWSER_CLOSE = False
-SESSION_COOKIE_HTTPONLY    = True
-SESSION_COOKIE_SAMESITE    = 'Lax'
+SESSION_COOKIE_AGE                 = 10800
+SESSION_SAVE_EVERY_REQUEST         = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE    = False
+SESSION_COOKIE_HTTPONLY            = True
+SESSION_COOKIE_SAMESITE            = 'Lax'
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 # ── CSRF ─────────────────────────────────────────────────────
