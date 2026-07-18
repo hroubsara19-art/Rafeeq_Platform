@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('vr_id', models.AutoField(db_column='VR_ID', primary_key=True, serialize=False)),
                 ('vr_url', models.URLField(db_column='VR_URL', help_text='رابط منصة الواقع الافتراضي المصمم من قبل المعلم', max_length=1000)),
-                ('design_platform_url', models.URLField(db_column='DesignPlatformURL', default='https://ai.studio/apps/84df996b-346c-484f-a8e5-23b34c70a90d', help_text='رابط منصة تصميم بيئة الواقع الافتراضي', max_length=1000)),
+                ('design_platform_url', models.URLField(db_column='DesignPlatformURL', default='https://ai.studio/apps/ea0032ea-b331-4cc8-a5fd-e59bbce58fbe?fullscreenApplet=true', help_text='رابط منصة تصميم بيئة الواقع الافتراضي', max_length=1000)),
                 ('is_published', models.BooleanField(db_column='IsPublished', default=False, help_text='هل تم نشر تجربة الواقع الافتراضي للطالب؟')),
                 ('created_at', models.DateTimeField(auto_now_add=True, db_column='CreatedAt')),
                 ('updated_at', models.DateTimeField(auto_now=True, db_column='UpdatedAt')),
