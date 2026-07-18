@@ -234,8 +234,8 @@ body{
 }
 .rafiq-close-btn{
   position:absolute;
-  top:-8px;
-  right:-8px;
+  top:8px;
+  right:8px;
   width:28px;
   height:28px;
   border-radius:50%;
@@ -452,6 +452,10 @@ body{
 </button>
 
 <script>
+/* بيانات من Django */
+const lessonsCount = {{ lessons|length }};
+const subjectName = "{{ subject.subjectname }}";
+
 /* صور الدروس من JSON */
 (function(){
   var thumbs = {};
@@ -591,6 +595,16 @@ async function startRafiqIntro(video) {
   video.play().catch(err => console.log("video play error:", err));
 
   try {
+    // التحقق من وجود دروس
+    const hasLessons = {{ lessons|length }} > 0;
+    
+    if (!hasLessons) {
+      // لا توجد دروس - رسالة انتظار
+      await playRafiqVoice(`أَهْلًا بِكَ يَا بَطَل! انْتَظِرْ مُعَلِّمَكَ حَتَّى يُرْسِلَ لَكَ دُرُوساً.`);
+      setTimeout(showRafiqToggle, 1000);
+      return;
+    }
+    
     // ترحيب في البداية
     await playRafiqVoice(`أَهْلًا بِكَ فِي مَادَّةِ {{ subject.subjectname }}!`);
     

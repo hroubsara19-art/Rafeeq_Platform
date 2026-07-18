@@ -325,34 +325,37 @@ body{
   background:rgba(79,133,131,.11);
 }
 .character-container {
-    
   position: fixed;
-  bottom: 0;
-  left: -3%;
-  width: 50%;
-  height: 60%;
-  overflow: visible;
+  z-index:20;
+  left:1.5rem;
+  bottom:1rem;
+  width:18rem;
+  height:20rem;
+  overflow:visible;
 }
 .rafiq-close-btn{
   position:absolute;
-  top:10px;
-  right:10px;
-  width:36px;
-  height:36px;
+  top:8px;
+  right:8px;
+  width:28px;
+  height:28px;
   border-radius:50%;
-  background:rgba(0,0,0,.3);
-  color:#fff;
-  border:2px solid rgba(255,255,255,.5);
+  background:rgba(255,255,255,.95);
+  border:1.5px solid rgba(79,133,131,.3);
+  color:var(--sky-dk);
+  font-size:1.1rem;
+  font-weight:700;
   cursor:pointer;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:1rem;
   z-index:10;
   transition:all .2s ease;
+  box-shadow:0 2px 8px rgba(0,0,0,.1);
 }
 .rafiq-close-btn:hover{
-  background:rgba(0,0,0,.5);
+  background:#fff;
+  border-color:var(--sky-dk);
   transform:scale(1.1);
 }
 .rafiq-speech{
@@ -400,19 +403,17 @@ height: 100%;
   display:none;
   position:fixed;
   z-index:20;
-  left:3.5rem;
-  bottom:2.5rem;
-  width:6.25rem;
-  height:6.25rem;
-
+  left:1.5rem;
+  bottom:1.5rem;
+  width:6rem;
+  height:6rem;
   overflow:hidden;
   border:0;
   border-radius:50%;
   background:linear-gradient(145deg,#5f958c,#315b59);
   box-shadow:0 10px 24px rgba(49,91,89,.25);
   cursor:pointer;
-  padding:.45rem;
-  transition:transform .2s ease,box-shadow .2s ease;
+  padding:.35rem;
 }
 .character-container + button[data-rafiq-toggle]:hover{
   transform:translateY(-4px) rotate(-2deg);
@@ -571,6 +572,10 @@ height: 100%;
   .ws-item{min-width:0;max-width:72px;flex:1;padding:.55rem .35rem;}
   .welcome-rafiq{left:.25rem;bottom:-.7rem;width:5.7rem;height:7rem;}
   .subj-cover{height:125px;}
+}
+@media(max-width:600px){
+  .character-container{left:.5rem;bottom:.5rem;width:7rem;height:8.5rem;}
+  .character-container + button[data-rafiq-toggle]{left:.75rem;bottom:1rem;width:4rem;height:4rem;}
 }
 @media(max-width:480px){
   .welcome{padding:1.1rem 1.05rem 1.1rem 5.25rem;border-radius:1.2rem;}
@@ -976,7 +981,7 @@ async function startRafiqIntro(video) {
 // })
 function buildUnfinishedSubjectsText(subjects) {
   if (subjects.length === 0) {
-    return " لَقَدْ أَنْهَيْتَ جَمِيعَ المَوَادِّ! أَنَا فَخُورٌ بِكَ.";
+    return "انْتَظِرْ حَتَّى يُضِيفَكَ مُعَلِّمُكَ إِلَى مَوَادِّهِ.";
  
   }
   if (subjects.length === 1) {
