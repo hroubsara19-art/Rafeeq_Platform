@@ -146,11 +146,11 @@
     </div>
     {% endif %}
 
-    {% include "includes/_navbar.html" %}
+    {% block navbar %}{% include "includes/_navbar.html" %}{% endblock %}
 
     <div class="app-container">
         {% if user.is_authenticated %}
-            {% include "includes/_sidebar.html" %}
+            {% block sidebar %}{% include "includes/_sidebar.html" %}{% endblock %}
         {% endif %}
 
         <div class="main-wrapper">

@@ -1496,7 +1496,6 @@ def unfinished_lessons_in_subject(request, subject_id):
     if not student:
         return JsonResponse({
             'unfinished_lessons': [],
-            'pending_tests': [],
             'subject_name': ''
         })
     
@@ -1505,7 +1504,6 @@ def unfinished_lessons_in_subject(request, subject_id):
     except Subject.DoesNotExist:
         return JsonResponse({
             'unfinished_lessons': [],
-            'pending_tests': [],
             'subject_name': ''
         })
     
@@ -1515,40 +1513,29 @@ def unfinished_lessons_in_subject(request, subject_id):
         status='Published'
     )
     
-    # Get watched lessons
-    watched_lesson_ids = set(
-        LessonWatch.objects.filter(
-            studentid=student,
-            lessonid__in=lessons
-        ).values_list('lessonid_id', flat=True)
-    )
-    
-    # Get unfinished lessons
+    # Get unfinished lessons with reasons
     unfinished_lessons = []
     for lesson in lessons:
-        if lesson.pk not in watched_lesson_ids:
-            unfinished_lessons.append(lesson.lessontitle)
-    
-    # Get tests for this subject
-    tests = Test.objects.filter(subjectid=subject)
-    
-    # Get attempted test IDs
-    attempted_test_ids = set(
-        Testattempt.objects.filter(
-            studentid=student,
-            testid__in=tests
-        ).values_list('testid_id', flat=True)
-    )
-    
-    # Get pending tests
-    pending_tests = []
-    for test in tests:
-        if test.pk not in attempted_test_ids:
-            pending_tests.append(test.testtitle)
+        lt = Test.objects.filter(lessonid=lesson).first()
+        status = _calc_lesson_status(student, lesson, lt)
+        
+        if not status['is_completed']:
+            reasons = []
+            if not status['is_watched']:
+                reasons.append('الجلسة التعليمية النصية')
+            if not status['video_watched']:
+                reasons.append('جلسة الفيديو')
+            if not status['test_done'] and lt:
+                reasons.append('الاختبار')
+            
+            reason_text = ' و '.join(reasons) if reasons else 'غير مكتمل'
+            unfinished_lessons.append({
+                'title': lesson.lessontitle,
+                'reason': reason_text
+            })
     
     return JsonResponse({
         'unfinished_lessons': unfinished_lessons,
-        'pending_tests': pending_tests,
         'subject_name': subject.subjectname
     })
 

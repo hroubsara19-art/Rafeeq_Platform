@@ -3180,7 +3180,7 @@ def vr_lesson_setup(request):
                     return render(request, 'learning/vr_lesson_setup.html', {'form': form})
 
                 # استخدام الرابط الافتراضي إذا لم يتم إدخال رابط
-                default_vr_url = 'https://ai.studio/apps/84df996b-346c-484f-a8e5-23b34c70a90d'
+                default_vr_url = 'https://ai.studio/apps/ea0032ea-b331-4cc8-a5fd-e59bbce58fbe?fullscreenApplet=true'
                 if not vr_url:
                     vr_url = default_vr_url
 
@@ -3223,7 +3223,7 @@ def vr_lesson_setup(request):
         form = VRLessonSetupForm(teacher=teacher)
     
     # بيانات إضافية لتمرير رابط منصة التصميم
-    design_platform_url = 'https://ai.studio/apps/84df996b-346c-484f-a8e5-23b34c70a90d'
+    design_platform_url = 'https://ai.studio/apps/ea0032ea-b331-4cc8-a5fd-e59bbce58fbe?fullscreenApplet=true'
     
     return render(request, 'learning/vr_lesson_setup.html', {
         'form': form,
@@ -3253,7 +3253,7 @@ def vr_lesson_edit(request, vr_id):
                 vr_attachment = form.cleaned_data.get('vr_attachment')
 
                 # استخدام الرابط الافتراضي إذا لم يتم إدخال رابط
-                default_vr_url = 'https://ai.studio/apps/84df996b-346c-484f-a8e5-23b34c70a90d'
+                default_vr_url = 'https://ai.studio/apps/ea0032ea-b331-4cc8-a5fd-e59bbce58fbe?fullscreenApplet=true'
                 if not vr_url:
                     vr_url = default_vr_url
 

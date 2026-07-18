@@ -576,14 +576,44 @@ background:linear-gradient(145deg,#5f958c,#315b59);
     if(badge) badge.textContent = Math.max(0, chatRemaining) + ' رسالة متبقية';
   }
 
+  function cleanBotText(text) {
+    // إزالة الإيموجي والرموز غير المرغوبة مع الحفاظ على علامات الترقيم العربية
+    var cleanText = text
+      // إزالة النص بين علامات النجمة المزدوجة **
+      .replace(/\*\*[^*]+\*\*/g, '')
+      // إزالة الإيموجي
+      .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // emoticons
+      .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // symbols & pictographs
+      .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // transport & map symbols
+      .replace(/[\u{1F700}-\u{1F77F}]/gu, '') // alchemical symbols
+      .replace(/[\u{1F780}-\u{1F7FF}]/gu, '') // Geometric Shapes Extended
+      .replace(/[\u{1F800}-\u{1F8FF}]/gu, '') // Supplemental Arrows-C
+      .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental Symbols and Pictographs
+      .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '') // Chess Symbols
+      .replace(/[\u{1FA70}-\u{1FAFF}]/gu, '') // Symbols and Pictographs Extended-A
+      .replace(/[\u{2600}-\u{26FF}]/gu, '')   // misc symbols
+      .replace(/[\u{2700}-\u{27BF}]/gu, '')   // dingbats
+      // إزالة الرموز الخاصة
+      .replace(/[★☆✓✗✓✔✕❌❎⭕❌]/g, '')
+      .replace(/[⭐🌟💫]/g, '')
+      .replace(/[🔥💪🎯📚✨🎉]/g, '')
+      // إزالة الحروف الإنجليزية
+      .replace(/[a-zA-Z]/g, '')
+      // تنظيف المسافات الزائدة
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    return cleanText;
+  }
+
   function appendMsg(type, text, isErr, isNewBotMsg) {
     var m = document.getElementById('chat-messages');
     if(!m) return;
     var d = document.createElement('div');
     d.className = 'chat-msg ' + type + (isErr ? ' error-msg' : '');
     
-    // إزالة الحروف الإنجليزية من النص
-    var cleanText = text.replace(/[a-zA-Z]/g, '').trim();
+    // تنظيف النص من الإيموجي والرموز
+    var cleanText = cleanBotText(text);
     
     // إضافة زر تشغيل الصوت لرسائل البوت
     if (type === 'bot' && !isErr) {

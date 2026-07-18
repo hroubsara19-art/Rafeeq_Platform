@@ -153,9 +153,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700&display=swap');
 
 :root {
-    --blue:      #1d4ed8;
-    --blue-lt:   #eff4ff;
-    --blue-bd:   #bfdbfe;
+    --blue:      #315b59;
+    --blue-lt:   #e5efea;
+    --blue-bd:   #a8d5d0;
     --teal:      #0f766e;
     --teal-lt:   #f0fdfa;
     --slate:     #475569;
@@ -240,10 +240,10 @@ body {
 
 /* ── Hero ── */
 .hero-bar {
-    background: linear-gradient(120deg, #1e3a5f 0%, #1d4ed8 100%);
+    background: linear-gradient(120deg, #134e4a 0%, #315b59 100%);
     border-radius: var(--r);
     padding: 2.25rem 2.5rem;
-    box-shadow: 0 6px 32px rgba(29,78,216,0.22);
+    box-shadow: 0 6px 32px rgba(49,91,89,0.22);
 }
 .hero-icon {
     width: 72px; height: 72px;
@@ -299,13 +299,13 @@ body {
 }
 .progress-fill {
     height: 100%; border-radius: 8px;
-    background: var(--blue); transition: width 0.6s ease;
+    background: var(--teal); transition: width 0.6s ease;
 }
-.progress-pct { font-size: 0.85rem; font-weight: 700; color: var(--blue); white-space: nowrap; min-width: 36px; }
+.progress-pct { font-size: 0.85rem; font-weight: 700; color: var(--teal); white-space: nowrap; min-width: 36px; }
 
 .grade-badge {
-    background: var(--blue-lt); color: var(--blue);
-    border: 1px solid var(--blue-bd);
+    background: var(--teal-lt); color: var(--teal);
+    border: 1px solid var(--teal-bd);
     border-radius: 6px; padding: 0.28rem 0.7rem;
     font-size: 0.88rem; font-weight: 700;
     font-family: 'Cairo', sans-serif; white-space: nowrap;
@@ -324,7 +324,7 @@ body {
 
 /* ── Notes ── */
 .note-card {
-    border-right: 4px solid var(--blue);
+    border-right: 4px solid var(--teal);
     background: var(--slate-lt);
     border-radius: 0.65rem;
     padding: 1rem 1.1rem;
@@ -342,7 +342,7 @@ body {
 /* ── Tip Card ── */
 .tip-card {
     background: var(--white);
-    border: 1.5px solid var(--blue-bd);
+    border: 1.5px solid var(--teal-bd);
     border-radius: var(--r);
     padding: 1.5rem 1.75rem;
     box-shadow: var(--sh);
@@ -352,7 +352,7 @@ body {
 }
 .tip-icon {
     width: 40px; height: 40px; border-radius: 10px;
-    background: var(--blue-lt); color: var(--blue);
+    background: var(--teal-lt); color: var(--teal);
     display: flex; align-items: center; justify-content: center;
     font-size: 1.1rem; flex-shrink: 0;
 }
@@ -491,10 +491,10 @@ body {
                     {
                         label: 'مستوى التركيز',
                         data: chartData.attention_scores,
-                        borderColor: '#1d4ed8',
-                        backgroundColor: 'rgba(29,78,216,0.07)',
+                        borderColor: '#315b59',
+                        backgroundColor: 'rgba(49,91,89,0.07)',
                         borderWidth: 2.5,
-                        pointBackgroundColor: '#1d4ed8',
+                        pointBackgroundColor: '#315b59',
                         pointRadius: 5,
                         pointHoverRadius: 7,
                         fill: true,

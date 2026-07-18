@@ -232,6 +232,31 @@ body{
   height:16rem;
   overflow:visible;
 }
+.rafiq-close-btn{
+  position:absolute;
+  top:-8px;
+  right:-8px;
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  background:rgba(255,255,255,.95);
+  border:1.5px solid rgba(79,133,131,.3);
+  color:var(--sky-dk);
+  font-size:1.1rem;
+  font-weight:700;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:10;
+  transition:all .2s ease;
+  box-shadow:0 2px 8px rgba(0,0,0,.1);
+}
+.rafiq-close-btn:hover{
+  background:#fff;
+  border-color:var(--sky-dk);
+  transform:scale(1.1);
+}
 .rafiq-speech{
   position:absolute;
   z-index:2;
@@ -415,9 +440,10 @@ body{
 
 <div id="lesson-thumbs-data" style="display:none;">{{ lesson_thumb_json }}</div>
 <div class="character-container">
+  <button class="rafiq-close-btn" aria-label="إخفاء رفيق">×</button>
   <div class="rafiq-speech" role="status" aria-live="polite"></div>
   <video id="intro-video" muted playsinline>
-    <source src="/media/videos/كلام_new.webm" type="video/webm">
+    <source src="/media/lesson_videos/كلام_new.webm" type="video/webm">
     متصفحك لا يدعم تشغيل الفيديو.
   </video>
 </div>
@@ -470,7 +496,11 @@ body{
   var el = document.getElementById('subj-emoji');
   if(el) el.textContent = emoji;
 })();
-  function showRafiqSpeech(text) {
+
+/* ══════════════════════════════════════════════════════
+   نظام رفيق - نفس تصميم الصفحة الرئيسية
+   ══════════════════════════════════════════════════════ */
+function showRafiqSpeech(text) {
   const speechBubble = document.querySelector('.rafiq-speech');
   if (!speechBubble || !text) return;
 
@@ -478,75 +508,134 @@ body{
   speechBubble.classList.add('is-visible');
 }
 
+const video = document.getElementById('intro-video');
+const rafiqToggle = document.querySelector('[data-rafiq-toggle]');
+let currentAudio = null;
+
+function showRafiqToggle() {
+  video.pause();
+  video.style.display = 'none';
+  document.querySelector('.character-container').style.display = 'none';
+  rafiqToggle.style.display = 'block';
+  document.querySelector('.rafiq-speech')?.classList.remove('is-visible');
+  // إيقاف الصوت إذا كان يعمل
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+}
+
+function playRafiqIntroFromStart() {
+  rafiqToggle.style.display = 'none';
+  document.querySelector('.character-container').style.display = 'block';
+  video.style.display = 'block';
+  startRafiqIntro(video);
+}
+
 async function playRafiqVoice(text) {
   showRafiqSpeech(text);
   try {
     const response = await fetch('/api/generate-voice/', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({text: text})
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text })
     });
+
     if (!response.ok) throw new Error('Voice generation failed');
 
-    const audioUrl = URL.createObjectURL(await response.blob());
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
-    audio.addEventListener('ended', () => URL.revokeObjectURL(audioUrl), {once: true});
-    await audio.play();
+    
+    currentAudio = audio;
+
+    return new Promise((resolve, reject) => {
+      audio.addEventListener('ended', () => {
+        URL.revokeObjectURL(audioUrl);
+        currentAudio = null;
+        resolve();
+      });
+      audio.addEventListener('error', (e) => {
+        URL.revokeObjectURL(audioUrl);
+        currentAudio = null;
+        reject(e);
+      });
+      audio.play().catch(err => {
+        console.log(err);
+        currentAudio = null;
+        reject(err);
+      });
+    });
   } catch (error) {
     console.error('Error playing Rafiq voice:', error);
+    currentAudio = null;
   }
 }
 
-const video = document.getElementById('intro-video');
-const rafiqToggle = document.querySelector('[data-rafiq-toggle]');
-let rafiqMessage = '';
-
-function playRafiqMessage(text) {
-  if (!text) return;
-  rafiqMessage = text;
-  rafiqToggle.style.display = 'none';
-  document.querySelector('.character-container').style.display = 'block';
-  video.style.display = 'block';
-  video.currentTime = 0;
-  video.play().catch(() => {});
-  playRafiqVoice(text);
-}
 function buildRafiqMessage(data) {
   const parts = [];
 
   if (data.unfinished_lessons.length > 0) {
-    const lessonsText = data.unfinished_lessons.join('، ');
-    parts.push(`لسا عندك دروس ما خلصتها بمادة ${data.subject_name}: ${lessonsText}.`);
-  }
-
-  if (data.pending_tests.length > 0) {
-    const testsText = data.pending_tests.join('، ');
-    parts.push(`وكمان في اختبارات لسا ما قدمتها: ${testsText}.`);
+    const lessonsInfo = data.unfinished_lessons.map(lesson => {
+      return `${lesson.title} (${lesson.reason})`;
+    }).join('، ');
+    parts.push(`لَدَيْكَ دُرُوسٌ لَمْ تُكْمِلْهَا فِي مَادَّةِ ${data.subject_name}: ${lessonsInfo}.`);
   }
 
   return parts.join(' ');
 }
 
-rafiqToggle.addEventListener('click', () => playRafiqMessage(rafiqMessage));
-video.addEventListener('ended', () => {
-  video.style.display = 'none';
-  document.querySelector('.character-container').style.display = 'none';
-  rafiqToggle.style.display = 'block';
-});
+async function startRafiqIntro(video) {
+  video.currentTime = 0;
+  video.play().catch(err => console.log("video play error:", err));
 
-
-fetch("{% url 'student:unfinished_lessons_in_subject' subject.subjectid %}")
-  .then(r => r.json())
-  .then(data => {
+  try {
+    // ترحيب في البداية
+    await playRafiqVoice(`أَهْلًا بِكَ فِي مَادَّةِ {{ subject.subjectname }}!`);
+    
+    // جلب الدروس غير المكتملة مع الأسباب
+    const response = await fetch("{% url 'student:unfinished_lessons_in_subject' subject.subjectid %}");
+    const data = await response.json();
+    
     let msg;
-    if (data.unfinished_lessons.length === 0 && data.pending_tests.length === 0) {
-      msg = `مَا هَذَا الإِنْجَازُ! لَقَدْ أَنْهَيْتَ كُلَّ دُرُوسِ وَاخْتِبَارَاتِ المَادَّةِ ${data.subject_name}. `;
+    if (data.unfinished_lessons.length === 0) {
+      msg = `مَا هَذَا الإِنْجَازُ! لَقَدْ أَنْهَيْتَ كُلَّ دُرُوسِ المَادَّةِ ${data.subject_name}.`;
     } else {
       msg = buildRafiqMessage(data);
     }
-    playRafiqMessage(msg);
-  })
-  .catch(err => console.error('Failed to load unfinished lessons:', err));
+    
+    await playRafiqVoice(msg);
+    
+    // بعد انتهاء الصوت، أغلق رفيق تلقائياً
+    setTimeout(showRafiqToggle, 1000);
+  } catch (err) {
+    console.error('Failed to load unfinished lessons:', err);
+    showRafiqToggle();
+  }
+}
 
+document.addEventListener('DOMContentLoaded', function() {
+  // التحقق من أول زيارة للمادة في هذه الجلسة
+  let hasPlayed = sessionStorage.getItem('subject_{{ subject.subjectid }}_rafiq_intro');
+  
+  if (!hasPlayed) {
+    // أول زيارة في هذه الجلسة - تشغيل رفيق تلقائياً
+    sessionStorage.setItem('subject_{{ subject.subjectid }}_rafiq_intro', 'true');
+    playRafiqIntroFromStart();
+  } else {
+    // زيارة لاحقة في نفس الجلسة - إظهار الزر فقط
+    showRafiqToggle();
+  }
+  
+  // ربط زر الإغلاق بوظيفة إخفاء رفيق
+  const closeBtn = document.querySelector('.rafiq-close-btn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', showRafiqToggle);
+  }
+  
+  // ربط زر رفيق بوظيفة التشغيل
+  rafiqToggle.addEventListener('click', playRafiqIntroFromStart);
+});
 </script>
 {% endblock %}

@@ -301,6 +301,28 @@ textarea.form-control{min-height:auto;}
   transform:rotate(45deg);
 }
 #intro-video{width:100%;height:100%;}
+.rafiq-close-btn{
+  position:absolute;
+  top:10px;
+  right:10px;
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  background:rgba(0,0,0,.3);
+  color:#fff;
+  border:2px solid rgba(255,255,255,.5);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:1rem;
+  z-index:10;
+  transition:all .2s ease;
+}
+.rafiq-close-btn:hover{
+  background:rgba(0,0,0,.5);
+  transform:scale(1.1);
+}
 .character-container + button[data-rafiq-toggle]{
   display:none;
   position:fixed;
@@ -337,7 +359,7 @@ textarea.form-control{min-height:auto;}
   <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
     <div>
       <h3 class="fw-bold mb-0" style="color:#1e3a5f;">
-        <i class="fas fa-calendar-alt me-2" style="color:#1d4ed8;"></i>جدول المهام الأسبوعي
+        <i class="fas fa-calendar-alt me-2" style="color:#315b59;"></i>جدول المهام الأسبوعي
       </h3>
       <p class="text-muted mb-0 small" id="weekRangeLabel"></p>
     </div>
@@ -372,9 +394,10 @@ textarea.form-control{min-height:auto;}
 
 {% if role == 'Student' %}
 <div class="character-container">
+  <button class="rafiq-close-btn" aria-label="إخفاء رفيق">×</button>
   <div class="rafiq-speech" role="status" aria-live="polite"></div>
   <video id="intro-video" muted playsinline>
-    <source src="/media/videos/كلام_new.webm" type="video/webm">
+    <source src="/media/lesson_videos/كلام_new.webm" type="video/webm">
     متصفحك لا يدعم تشغيل الفيديو.
   </video>
 </div>
@@ -389,7 +412,7 @@ textarea.form-control{min-height:auto;}
   <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
     <div class="modal-content" style="border-radius:16px;font-family:'Cairo',sans-serif;" dir="rtl">
       <div class="modal-header border-0 pb-0"
-           style="background:linear-gradient(120deg,#1e3a5f,#1d4ed8);border-radius:16px 16px 0 0;">
+           style="background:linear-gradient(120deg,#1e3a5f,#315b59);border-radius:16px 16px 0 0;">
         <h5 class="modal-title text-white fw-bold" id="entryModalTitle">إضافة موعد</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
@@ -753,7 +776,7 @@ function placeEntry(e, monDt){
   div.dataset.id  = e.id;
   div.title       = e.subject+' ('+e.type_display+')';
   div.innerHTML   =
-    '<div class="fw-bold" style="font-size:.73rem;">'+escH(e.subject)+'</div>'+
+    '<div style="display:flex;align-items:center;gap:4px;"><img src="/static/images/rafiq-avatar.jpeg" alt="رفيق" style="width:20px;height:20px;border-radius:50%;object-fit:cover;"><div class="fw-bold" style="font-size:.73rem;">'+escH(e.subject)+'</div></div>'+
     '<div style="font-size:.67rem;opacity:.8;">'+e.start_time+' - '+e.end_time+'</div>'+
     (height>40?'<div style="font-size:.66rem;opacity:.7;">'+e.type_display+'</div>':'');
   div.onclick = function(ev){ ev.stopPropagation(); openDetail(e); };
@@ -1029,7 +1052,7 @@ function doSave(force){
 // ─── Modal التفاصيل ───────────────────────────────────────
 function openDetail(e){
   var isRO   = currentWeek===-1;
-  var color  = e.type==='exam'?'#4338ca':'#1d4ed8';
+  var color  = e.type==='exam'?'#4338ca':'#315b59';
   document.getElementById('detailModalHeader').style.background =
     'linear-gradient(120deg,'+color+','+color+'cc)';
   document.getElementById('detailModalTitle').textContent =
@@ -1042,7 +1065,7 @@ function openDetail(e){
       '<tr><td class="fw-bold text-muted">المعلم</td><td>'+escH(e.teacher)+'</td></tr>'+
       '<tr><td class="fw-bold text-muted">التاريخ</td><td>'+fmtDate(e.date)+'</td></tr>'+
       '<tr><td class="fw-bold text-muted">الوقت</td><td>'+e.start_time+' – '+e.end_time+'</td></tr>'+
-      (e.notes?'<tr><td class="fw-bold text-muted">ملاحظات</td><td>'+escH(e.notes)+'</td></tr>':'')+(e.online_link?'<tr><td class="fw-bold text-muted">رابط الحصة</td><td><a href="'+escH(e.online_link)+'" target="_blank" rel="noopener" style="color:#1d4ed8;"><i class="fas fa-video"></i> دخول للحصة</a></td></tr>':'')+
+      (e.notes?'<tr><td class="fw-bold text-muted">ملاحظات</td><td>'+escH(e.notes)+'</td></tr>':'')+(e.online_link?'<tr><td class="fw-bold text-muted">رابط الحصة</td><td><a href="'+escH(e.online_link)+'" target="_blank" rel="noopener" style="color:#315b59;"><i class="fas fa-video"></i> دخول للحصة</a></td></tr>':'')+
     '</table>';
 
   var footer = '<button type="button" class="btn btn-secondary btn-sm fw-bold" data-bs-dismiss="modal">إغلاق</button>';
@@ -1180,16 +1203,46 @@ async function playRafiqVoice(text) {
 
     const audioUrl = URL.createObjectURL(await response.blob());
     const audio = new Audio(audioUrl);
-    audio.addEventListener('ended', () => URL.revokeObjectURL(audioUrl), {once: true});
+    audio.addEventListener('ended', () => {
+      URL.revokeObjectURL(audioUrl);
+      hideRafiq();
+    }, {once: true});
+    window.currentRafiqAudio = audio;
     await audio.play();
   } catch (error) {
     console.error('Error playing Rafiq voice:', error);
   }
 }
 
+function hideRafiq() {
+  const video = document.getElementById('intro-video');
+  const rafiqToggle = document.querySelector('[data-rafiq-toggle]');
+  const speechBubble = document.querySelector('.rafiq-speech');
+  
+  if (video) {
+    video.pause();
+    video.style.display = 'none';
+  }
+  if (document.querySelector('.character-container')) {
+    document.querySelector('.character-container').style.display = 'none';
+  }
+  if (speechBubble) {
+    speechBubble.classList.remove('is-visible');
+  }
+  if (rafiqToggle) {
+    rafiqToggle.style.display = 'block';
+  }
+  if (window.currentRafiqAudio) {
+    window.currentRafiqAudio.pause();
+    window.currentRafiqAudio.currentTime = 0;
+    window.currentRafiqAudio = null;
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   const video = document.getElementById('intro-video');
   const rafiqToggle = document.querySelector('[data-rafiq-toggle]');
+  const closeBtn = document.querySelector('.rafiq-close-btn');
   let rafiqMessage = '';
 
   function playRafiqMessage(text) {
@@ -1207,11 +1260,15 @@ document.addEventListener('DOMContentLoaded', function() {
     rafiqToggle.addEventListener('click', () => playRafiqMessage(rafiqMessage));
   }
 
+  if (closeBtn) {
+    closeBtn.addEventListener('click', hideRafiq);
+  }
+
+  // Video ended event - but we don't hide on video end, we hide on audio end
   if (video) {
     video.addEventListener('ended', () => {
-      video.style.display = 'none';
-      document.querySelector('.character-container').style.display = 'none';
-      rafiqToggle.style.display = 'block';
+      // Video ended but audio might still be playing
+      // Keep video visible until audio ends
     });
   }
 

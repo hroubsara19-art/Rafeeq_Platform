@@ -3,6 +3,9 @@
 
 {% block title %}فيديو الدرس — {{ lesson.video_title|default:lesson.lessontitle }}{% endblock %}
 
+{% block navbar %}{% endblock %}
+{% block sidebar %}{% endblock %}
+
 {% block extra_css %}
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700&display=swap');
@@ -29,7 +32,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 html, body { direction: rtl; }
 body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color: var(--ink); }
-.lesson-video-wrap { max-width: 860px; margin: 1.5rem auto; padding: 0 1.2rem 3rem; }
+.lesson-video-wrap { max-width: 1200px; margin: 1rem auto; padding: 0 1rem 2rem; }
 
 /* ══ Back Link ═════════════════════════════════════════════════ */
 .back-link {
@@ -377,7 +380,7 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
         <button id="level3CustomBtn" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;padding:12px 18px;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;font-family:'Tajawal',sans-serif;">
             اطلب من المعلم تخصيص محتوى لك لهذا الدرس
         </button>
-        <button id="level3VrBtn" style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);color:#fff;border:none;padding:12px 18px;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;font-family:'Tajawal',sans-serif;">
+        <button id="level3VrBtn" onclick="window.open('https://ai.studio/apps/ea0032ea-b331-4cc8-a5fd-e59bbce58fbe?fullscreenApplet=true', '_blank')" style="background:linear-gradient(135deg,#315b59,#6c9c89);color:#fff;border:none;padding:12px 18px;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;font-family:'Tajawal',sans-serif;">
             انتقل إلى تجربة تعليمية مع الواقع الافتراضي
         </button>
     </div>
@@ -385,6 +388,7 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
 </div>
 
 {% include 'student_app/chatbot_widget.html' %}
+{% include 'student_app/chatbot_widget_js.html' %}
 
 <script>
 // ══════════════════════════════════════════════════════════════
