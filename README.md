@@ -1,6 +1,6 @@
 ## 🔗 رابط المعاينة الحية (Live Preview)
 يمكنك الوصول إلى النظام حالياً عبر الرابط السحابي المباشر:
-👉 **[منصة رفيق - Rafeeq Platform](https://rafeeq-platform-tpne.onrender.com)**
+ **[منصة رفيق - Rafeeq Platform](https://rafeeq-platform-tpne.onrender.com)**
 
 ---
 
