@@ -66,9 +66,24 @@
 
         .login-container { padding: 40px; flex: 1;  width: 100%; }
         
-        @media (max-width: 768px) {
+        @media (max-width: 992px) {
             .login-image-section { display: none; }
-            .main-wrapper { max-width: 450px; }
+            .main-wrapper { width: 90%; max-width: 500px; }
+        }
+
+        @media (max-width: 576px) {
+            .main-wrapper { 
+                width: 95%; 
+                margin: 0 auto;
+                border-radius: 20px;
+            }
+            .login-container { padding: 30px 25px; }
+            .main-content { padding: 20px 10px 40px; }
+        }
+
+        @media (max-width: 400px) {
+            .main-wrapper { width: 100%; border-radius: 0; margin: 0; }
+            .login-container { padding: 25px 20px; }
         }
 
         .btn-primary { background-color: #5a91e6; border: none; padding: 12px; border-radius: 10px; font-weight: bold; transition: 0.3s; }

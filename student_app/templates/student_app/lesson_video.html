@@ -380,7 +380,7 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
         <button id="level3CustomBtn" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border:none;padding:12px 18px;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;font-family:'Tajawal',sans-serif;">
             اطلب من المعلم تخصيص محتوى لك لهذا الدرس
         </button>
-        <button id="level3VrBtn" onclick="window.open('https://aistudio.google.com/apps/ea0032ea-b331-4cc8-a5fd-e59bbce58fbe?fullscreenApplet=true&showPreview=true&showAssistant=true', '_blank')" style="background:linear-gradient(135deg,#315b59,#6c9c89);color:#fff;border:none;padding:12px 18px;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;font-family:'Tajawal',sans-serif;">
+        <button id="level3VrBtn" style="background:linear-gradient(135deg,#315b59,#6c9c89);color:#fff;border:none;padding:12px 18px;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;font-family:'Tajawal',sans-serif;">
             انتقل إلى تجربة تعليمية مع الواقع الافتراضي
         </button>
     </div>
@@ -933,16 +933,21 @@ var _config = {
 
 // ✅ دالة لتحديد المستوى الذي يجب أن يظهر بناءً على الأولوية
 function determinePopupLevel(totalDistractionTime, level1Window, level2Window, level3Window) {
+    console.log('[PopupLevel] Checking - Distraction time:', totalDistractionTime.toFixed(2) + 's', 'L1:', level1Window.toFixed(2) + 's', 'L2:', level2Window.toFixed(2) + 's', 'L3:', level3Window.toFixed(2) + 's');
     // الأولوية: المستوى 3 > المستوى 2 > المستوى 1
     if (totalDistractionTime >= level3Window) {
+        console.log('[PopupLevel] Returning level 3');
         return 3;
     }
     if (totalDistractionTime >= level2Window) {
+        console.log('[PopupLevel] Returning level 2');
         return 2;
     }
     if (totalDistractionTime >= level1Window) {
+        console.log('[PopupLevel] Returning level 1');
         return 1;
     }
+    console.log('[PopupLevel] Returning 0 (no popup)');
     return 0;
 }
 
@@ -1054,7 +1059,7 @@ function showPopupByLevel(targetLevel) {
         }
 
         var videoDuration = videoElement && videoElement.duration ? videoElement.duration : 600;
-        var level3Window = Math.max(15, videoDuration * 0.45); // المستوى 3: 45% من مدة الجلسة
+        var level3Window = Math.max(5, videoDuration * 0.45); // المستوى 3: أدنى 5 ثواني، أو 45% من مدة الجلسة
 
         // ✅ إظهار نافذة المستوى 3 فقط عند الوصول إلى 45% من مدة الجلسة
         if (_probabilisticModel.totalDistractionTime < level3Window) {
@@ -1111,6 +1116,18 @@ function showAIAssistantPopup() {
     // ✅ تشغيل صوت تنبيه
     playAIAssistantAlert();
 
+    // ✅ قراءة صوتية لنافذة المستوى الثاني
+    var message = "استعن بالمساعد الذكي";
+    if ('speechSynthesis' in window) {
+        // ✅ إلغاء أي قراءة صوتية سابقة لتجنب خطأ interrupted
+        window.speechSynthesis.cancel();
+        var utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = 'ar-SA';
+        utterance.rate = 0.9;
+        utterance.pitch = 1;
+        window.speechSynthesis.speak(utterance);
+    }
+
     // إظهار النافذة
     var popup = document.getElementById('aiAssistantPopup');
     popup.classList.remove('d-none');
@@ -1138,7 +1155,7 @@ function showAIAssistantPopup() {
 
 // ✅ نافذة منبثقة للمستوى 3
 function showLevel3Popup() {
-    console.log('[Level 3] Showing popup');
+    console.log('[Level 3] showLevel3Popup() called');
 
     // ✅ إيقاف الفيديو مؤقتاً
     if (videoElement && !videoElement.paused) {
@@ -1148,7 +1165,13 @@ function showLevel3Popup() {
 
     // إظهار النافذة
     var popup = document.getElementById('level3Popup');
-    popup.classList.remove('d-none');
+    console.log('[Level 3] Popup element:', popup);
+    if (popup) {
+        popup.classList.remove('d-none');
+        console.log('[Level 3] Removed d-none class, popup should be visible');
+    } else {
+        console.error('[Level 3] Popup element not found!');
+    }
 
     // ✅ قراءة صوتية لنافذة المستوى الثالث
     var message = "لاحظنا أن التشتت استمر لفترة طويلة. جرّب أن تغيّر طريقة التعلم الآن، وخذ نفساً هادئاً قبل اختيار الخطوة المناسبة. يمكنك اختيار استراحة قصيرة، أو طلب تخصيص محتوى من المعلم، أو الانتقال إلى تجربة تعليمية مع الواقع الافتراضي.";
@@ -1847,15 +1870,20 @@ function processAttentionState(s) {
     }
 
     // المستوى 3: 45% من مدة الجلسة - تظهر مرة واحدة فقط
-    if (targetLevel === 3 && !_alertState.level3CheckpointShown) {
+    console.log('[Distraction] Checking Level 3 - targetLevel:', targetLevel, 'level3Shown:', level3Shown, 'totalDistractionTime:', _probabilisticModel.totalDistractionTime.toFixed(2) + 's', 'level3Window:', level3Window.toFixed(2) + 's');
+    if (targetLevel === 3 && !level3Shown) {
       console.log('[Distraction] Level 3 threshold reached (45% of session). Total distraction time:', _probabilisticModel.totalDistractionTime.toFixed(2) + 's', 'Window:', level3Window.toFixed(2) + 's');
-      _alertState.level3CheckpointShown = true;
+      console.log('[Distraction] level3Shown flag:', level3Shown);
+      // ✅ إظهار نافذة المستوى 3 أولاً
+      console.log('[Distraction] Calling showPopupByLevel(3)');
+      showPopupByLevel(3);
+      // ✅ ثم تعيين العلامة بعد التأكد من العرض الناجح
+      level3Shown = true;
+      _alertState.level3CheckpointShown = true; // للمزامنة
       if (!_alertState.level3ParentNotificationSent) {
         sendLevel3Notifications('parent');
         _alertState.level3ParentNotificationSent = true;
       }
-      // ✅ إظهار نافذة المستوى 3
-      showPopupByLevel(3);
     }
 
     // Handle alert based on duration (disabled)

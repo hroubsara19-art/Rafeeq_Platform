@@ -677,6 +677,23 @@ body { direction: rtl; font-family: 'Cairo','Tajawal',sans-serif; }
     40%, 80% { transform: translateX(5px); }
 }
 
+@media (max-width: 768px) {
+    .cp-wrapper { border-radius: 1.25rem; }
+    .cp-wrapper .container { padding: 1rem 0.8rem !important; }
+    .cp-card { border-radius: 1.35rem; }
+    .cp-header { padding: 2.5rem 1.5rem 2rem; }
+    .cp-icon { width: 70px; height: 70px; font-size: 1.8rem; }
+    .cp-title { font-size: 1.35rem; }
+    .cp-body { padding: 1.8rem 1.5rem; }
+    .grade-list { grid-template-columns: 1fr; }
+    .grade-row {
+        border-left: none;
+        border-bottom: 1px solid #eeece5;
+    }
+    .grade-row:nth-last-child(-n+2) { border-bottom: 1px solid #eeece5; }
+    .grade-row:last-child { border-bottom: none; }
+}
+
 @media (max-width: 480px) {
     .cp-wrapper { border-radius: 1.25rem; }
     .cp-wrapper .container { padding: 1rem 0.65rem !important; }
