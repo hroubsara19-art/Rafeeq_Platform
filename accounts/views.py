@@ -148,11 +148,11 @@ def signup_view(request):
                     
                     # إرسال الإيميل
                     try:
-                        subject = 'رمز التحقق من EduPal'
+                        subject = 'رمز التحقق من منصة رفيق'
                         message = f'''
 مرحباً {user.fullname}،
 
-شكراً لتسجيلك في منصة EduPal.
+شكراً لتسجيلك في منصة رفيق.
 
 رمز التحقق الخاص بك هو: {verification_code}
 
@@ -161,7 +161,7 @@ def signup_view(request):
 رمز التحقق صالح لمدة 30 دقيقة.
 
 تحياتنا،
-فريق EduPal
+فريق منصة رفيق
 '''
                         send_mail(
                             subject,

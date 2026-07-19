@@ -4,7 +4,7 @@
 $ScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PythonExe = "python"
 $ServerScript = Join-Path $ScriptPath "attention_tracker\flask_server.py"
-$TaskName = "EduPal Attention Tracker Server"
+$TaskName = "منصة رفيق Attention Tracker Server"
 
 Write-Host "Setting up auto-start for Attention Tracker Server..." -ForegroundColor Green
 

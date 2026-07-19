@@ -1,7 +1,7 @@
 """
 learning/utils.py
 ═════════════════
-منشئ الدروس الذكي — EduPal ADHD Platform
+منشئ الدروس الذكي — منصة رفيق ADHD Platform
 
 الإصلاحات:
   ✅ خريطة تصحيح الموديلات: gemini-1.5-flash → gemini-1.5-flash-002

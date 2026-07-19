@@ -1,5 +1,5 @@
 """
-settings.py — EduPal ADHD Learning System (Production Ready)
+settings.py — منصة رفيق ADHD Learning System (Production Ready)
 ══════════════════════════════════════════════════════════
 ملف .env المطلوب في جذر المشروع للتطوير المحلي فقط:
   SECRET_KEY, DEBUG, ALLOWED_HOSTS, DATABASE_URL,
