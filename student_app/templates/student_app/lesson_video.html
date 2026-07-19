@@ -405,7 +405,23 @@ var checkpointCheckInterval = null;
 // ✅ تتبع آخر مستوى ظهر بناءً على نسبة التشتت
 var lastLevel1DistractionTime = 0; // آخر وقت تشتت ظهر فيه المستوى 1
 var lastLevel2DistractionTime = 0; // آخر وقت تشتت ظهر فيه المستوى 2
+var level2Shown = false; // هل ظهرت نافذة المستوى 2 من قبل
 var level3Shown = false; // هل ظهرت نافذة المستوى 3 من قبل
+var voicesLoaded = false; // هل تم تحميل الأصوات
+
+// تحميل الأصوات مسبقاً عند تحميل الصفحة
+if ('speechSynthesis' in window) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = function(){
+        voicesLoaded = true;
+        var voices = window.speechSynthesis.getVoices();
+        console.log('[Video] Voices loaded:', voices.length);
+        var arabicVoices = voices.filter(function(v){
+            return v.lang.indexOf('ar') === 0;
+        });
+        console.log('[Video] Arabic voices:', arabicVoices.length);
+    };
+}
 
 // Load checkpoints from server
 function loadCheckpoints() {
@@ -703,6 +719,9 @@ function saveCheckpointAnswer(checkpointId, answer, responseTime, currentPositio
 function playCheckpointAlert() {
   console.log('[Checkpoint] Playing audio alert: "أجب عن السؤال التالي"');
 
+  // ✅ إيقاف صوت الفيديو لتجنب التضارب
+  stopVideoAudioForTTS();
+
   if ('speechSynthesis' in window) {
     // ✅ إلغاء أي قراءة صوتية سابقة لتجنب خطأ interrupted
     window.speechSynthesis.cancel();
@@ -722,9 +741,13 @@ function playCheckpointAlert() {
 
     utterance.onend = function() {
       console.log('[Checkpoint] Alert audio completed');
+      // ✅ استعادة صوت الفيديو بعد انتهاء TTS
+      resumeVideoAudioAfterTTS();
     };
     utterance.onerror = function(e) {
       console.error('[Checkpoint] Alert audio error:', e);
+      // ✅ استعادة صوت الفيديو في حالة الخطأ
+      resumeVideoAudioAfterTTS();
     };
 
     window.speechSynthesis.speak(utterance);
@@ -1029,26 +1052,26 @@ function showPopupByLevel(targetLevel) {
         }
         return false;
     } else if (targetLevel === 2) {
-        // ✅ تكرار نافذة المساعد الذكي عند 15% و 30% فقط من مدة الجلسة
-        var videoDuration = videoElement && videoElement.duration ? videoElement.duration : 600;
-        var level2Window = Math.max(5, videoDuration * 0.15); // المستوى 2: 15% من مدة الجلسة
-
-        // حساب عدد مرات الوصول إلى 15% من مدة الجلسة
-        var level2Multiplier = Math.floor(_probabilisticModel.totalDistractionTime / level2Window);
-        var lastLevel2Multiplier = Math.floor(lastLevel2DistractionTime / level2Window);
-
-        // ✅ إظهار نافذة المساعد الذكي فقط عند 15% (multiplier=1) و 30% (multiplier=2)
-        // لا تظهر عند 45% (multiplier=3) أو 60% (multiplier=4)
-        if (level2Multiplier <= lastLevel2Multiplier || (level2Multiplier !== 1 && level2Multiplier !== 2)) {
-            console.log('[Popup] Not showing Level 2 popup - distraction time not at 15% or 30% threshold:', _probabilisticModel.totalDistractionTime.toFixed(2) + 's', 'Multiplier:', level2Multiplier, 'Last multiplier:', lastLevel2Multiplier);
+        // ✅ نافذة المساعد الذكي تظهر مرة واحدة فقط عند 15% من مدة الجلسة
+        if (level2Shown) {
+            console.log('[Popup] Level 2 popup already shown - skipping');
             return false;
         }
 
-        // المستوى 2: نافذة توجيهية (المساعد الذكي)
-        console.log('[Popup] Showing Level 2 popup (AI Assistant) - Multiplier:', level2Multiplier);
+        var videoDuration = videoElement && videoElement.duration ? videoElement.duration : 600;
+        var level2Window = Math.max(5, videoDuration * 0.15); // المستوى 2: 15% من مدة الجلسة
+
+        // ✅ إظهار نافذة المساعد الذكي فقط عند الوصول إلى 15% من مدة الجلسة
+        if (_probabilisticModel.totalDistractionTime < level2Window) {
+            console.log('[Popup] Not showing Level 2 popup - distraction time not yet at 15% threshold:', _probabilisticModel.totalDistractionTime.toFixed(2) + 's', 'Threshold:', level2Window.toFixed(2) + 's');
+            return false;
+        }
+
+        // المستوى 2: نافذة توجيهية (المساعد الذكي) - تظهر مرة واحدة فقط
+        console.log('[Popup] Showing Level 2 popup (AI Assistant) - Final popup');
         _alertState.distractionTimerPaused = true;
         _alertState.lastPopupTriggerTime = now;
-        lastLevel2DistractionTime = _probabilisticModel.totalDistractionTime; // تحديث آخر وقت تشتت ظهر فيه المستوى 2
+        level2Shown = true; // تحديث أن نافذة المستوى 2 ظهرت
         showAIAssistantPopup();
         return true;
     } else if (targetLevel === 3) {
@@ -1113,19 +1136,59 @@ function showAIAssistantPopup() {
         videoPausedForAIAssistant = true;
     }
 
-    // ✅ تشغيل صوت تنبيه
-    playAIAssistantAlert();
+    // ✅ إيقاف صوت الفيديو لتجنب التضارب
+    stopVideoAudioForTTS();
 
     // ✅ قراءة صوتية لنافذة المستوى الثاني
-    var message = "استعن بالمساعد الذكي";
+    var message = "يمكنك استخدام المساعد الذكي لمساعدتك في فهم المفهوم";
     if ('speechSynthesis' in window) {
+        console.log('[AI Assistant] Starting TTS for:', message);
+        
         // ✅ إلغاء أي قراءة صوتية سابقة لتجنب خطأ interrupted
         window.speechSynthesis.cancel();
+
+        // ✅ التأكد من تحميل الأصوات
+        var voices = window.speechSynthesis.getVoices();
+        console.log('[AI Assistant] Available voices:', voices.length);
+
         var utterance = new SpeechSynthesisUtterance(message);
         utterance.lang = 'ar-SA';
-        utterance.rate = 0.9;
-        utterance.pitch = 1;
-        window.speechSynthesis.speak(utterance);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+
+        // محاولة اختيار صوت عربي
+        var arabicVoice = voices.filter(function(v){
+            return v.lang.indexOf('ar') === 0;
+        });
+
+        if (arabicVoice.length > 0) {
+            utterance.voice = arabicVoice[0];
+            console.log('[AI Assistant] Using Arabic voice:', arabicVoice[0].name);
+        } else {
+            console.warn('[AI Assistant] No Arabic voice found, using default');
+            utterance.lang = 'ar'; // محاولة عامة للعربية
+        }
+
+        utterance.onstart = function() {
+            console.log('[AI Assistant] TTS started');
+        };
+        utterance.onend = function() {
+            console.log('[AI Assistant] TTS completed');
+            resumeVideoAudioAfterTTS();
+        };
+        utterance.onerror = function(e) {
+            console.error('[AI Assistant] TTS error:', e);
+            resumeVideoAudioAfterTTS();
+        };
+
+        // تشغيل الصوت مع تأخير بسيط لضمان جاهزية المتصفح
+        setTimeout(function(){
+            window.speechSynthesis.speak(utterance);
+            console.log('[AI Assistant] TTS speak() called');
+        }, 100);
+    } else {
+        console.warn('[AI Assistant] Speech synthesis not supported');
     }
 
     // إظهار النافذة
@@ -1139,7 +1202,8 @@ function showAIAssistantPopup() {
             popup.classList.add('d-none');
             _alertState.distractionTimerPaused = false;
             console.log('[AI Assistant] Distraction timer resumed after popup closed');
-            resumeVideo();
+            // ✅ لا يتم استئناف الفيديو عند الانتقال للشات - يبقى متوقفاً
+            console.log('[AI Assistant] Video remains paused while chat is open');
         });
 
         document.getElementById('aiAssistantClose').addEventListener('click', function() {
@@ -1163,6 +1227,9 @@ function showLevel3Popup() {
         videoPausedForLevel3 = true;
     }
 
+    // ✅ إيقاف صوت الفيديو لتجنب التضارب
+    stopVideoAudioForTTS();
+
     // إظهار النافذة
     var popup = document.getElementById('level3Popup');
     console.log('[Level 3] Popup element:', popup);
@@ -1176,13 +1243,54 @@ function showLevel3Popup() {
     // ✅ قراءة صوتية لنافذة المستوى الثالث
     var message = "لاحظنا أن التشتت استمر لفترة طويلة. جرّب أن تغيّر طريقة التعلم الآن، وخذ نفساً هادئاً قبل اختيار الخطوة المناسبة. يمكنك اختيار استراحة قصيرة، أو طلب تخصيص محتوى من المعلم، أو الانتقال إلى تجربة تعليمية مع الواقع الافتراضي.";
     if ('speechSynthesis' in window) {
+        console.log('[Level 3] Starting TTS for Level 3 popup');
+        
         // ✅ إلغاء أي قراءة صوتية سابقة لتجنب خطأ interrupted
         window.speechSynthesis.cancel();
+
+        // ✅ التأكد من تحميل الأصوات
+        var voices = window.speechSynthesis.getVoices();
+        console.log('[Level 3] Available voices:', voices.length);
+
         var utterance = new SpeechSynthesisUtterance(message);
         utterance.lang = 'ar-SA';
         utterance.rate = 0.9;
         utterance.pitch = 1;
-        window.speechSynthesis.speak(utterance);
+        utterance.volume = 1.0;
+
+        // محاولة اختيار صوت عربي
+        var arabicVoice = voices.filter(function(v){
+            return v.lang.indexOf('ar') === 0;
+        });
+
+        if (arabicVoice.length > 0) {
+            utterance.voice = arabicVoice[0];
+            console.log('[Level 3] Using Arabic voice:', arabicVoice[0].name);
+        } else {
+            console.warn('[Level 3] No Arabic voice found, using default');
+            utterance.lang = 'ar'; // محاولة عامة للعربية
+        }
+
+        utterance.onstart = function() {
+            console.log('[Level 3] TTS started');
+        };
+        utterance.onend = function() {
+            console.log('[Level 3] TTS completed');
+            resumeVideoAudioAfterTTS();
+        };
+        utterance.onerror = function(e) {
+            console.error('[Level 3] TTS error:', e);
+            // ✅ استعادة صوت الفيديو في حالة الخطأ
+            resumeVideoAudioAfterTTS();
+        };
+
+        // تشغيل الصوت مع تأخير بسيط لضمان جاهزية المتصفح وتجنب interrupted
+        setTimeout(function(){
+            window.speechSynthesis.speak(utterance);
+            console.log('[Level 3] TTS speak() called');
+        }, 150);
+    } else {
+        console.warn('[Level 3] Speech synthesis not supported');
     }
 
     // إضافة مستمعي الأحداث إذا لم تكن موجودة
@@ -1750,12 +1858,43 @@ function onStream(stream) {
   if (overlay) {
     overlay.style.display = 'block';
   }
-  
+
+  // ✅ إصلاح: بعد إغلاق أي نافذة منبثقة (مستوى 1/2/3) يتم إيقاف الفيديو مؤقتاً،
+  // ما يؤدي إلى stopTracking() وتصفير _mediaStream وإغلاق WebSocket.
+  // عند استئناف الفيديو تُطلب الكاميرا من جديد عبر requestCameraAndStart()،
+  // لكن التتبع (WebSocket) لم يكن يُعاد تشغيله تلقائياً هنا، فيبقى متجمداً
+  // إلى الأبد ولا يصل وقت التشتت المتراكم أبداً إلى عتبة 45% لظهور نافذة المستوى الثالث.
+  // الحل: إذا كان الفيديو قيد التشغيل فعلاً والتتبع متوقف، أعد تشغيله فور جهوزية الكاميرا.
+  if (videoElement && !videoElement.paused && !trackingActive) {
+    console.log('[Attention] Camera ready while video is playing and tracking is inactive - restarting tracking');
+    startTracking();
+  }
 }
 
 function onCameraError(err) {
   console.error('[Attention] Camera error:', err);
   showAlert('يرجى السماح بالوصول للكاميرا');
+}
+
+// ══════════════════════════════════════════════════════════════
+// Audio Conflict Prevention
+// ══════════════════════════════════════════════════════════════
+var _videoAudioPausedForTTS = false; // هل تم إيقاف صوت الفيديو بسبب TTS
+
+function stopVideoAudioForTTS() {
+    if (videoElement && !videoElement.muted) {
+        videoElement.muted = true;
+        _videoAudioPausedForTTS = true;
+        console.log('[Audio] Video audio muted for TTS');
+    }
+}
+
+function resumeVideoAudioAfterTTS() {
+    if (videoElement && _videoAudioPausedForTTS) {
+        videoElement.muted = false;
+        _videoAudioPausedForTTS = false;
+        console.log('[Audio] Video audio resumed after TTS');
+    }
 }
 
 // ══════════════════════════════════════════════════════════════

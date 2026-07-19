@@ -1850,6 +1850,15 @@ function rewindAudio5Seconds(){
 function playCheckpointAlert() {
     console.log('[Checkpoint] Playing audio alert: "أجب عن السؤال التالي"');
 
+    // ✅ إيقاف صوت الدرس لتجنب التضارب
+    var audio = document.getElementById('topAudio');
+    var audioPausedForTTS = false;
+    if (audio && !audio.paused) {
+        audio.pause();
+        audioPausedForTTS = true;
+        console.log('[Checkpoint] Lesson audio paused for TTS');
+    }
+
     // الطريقة الأولى: استخدام Web Speech API
     if ('speechSynthesis' in window) {
         // ✅ إلغاء أي قراءة صوتية سابقة لتجنب خطأ interrupted
@@ -1858,18 +1867,18 @@ function playCheckpointAlert() {
         // التأكد من تحميل الأصوات
         var voices = window.speechSynthesis.getVoices();
         console.log('[Checkpoint] Available voices:', voices.length);
-        
+
         var utterance = new SpeechSynthesisUtterance('أجب عن السؤال التالي');
         utterance.lang = 'ar-SA';
         utterance.rate = 0.9;
         utterance.pitch = 1.0;
         utterance.volume = 1.0;
-        
+
         // محاولة اختيار صوت عربي
         var arabicVoice = voices.filter(function(v){
             return v.lang.indexOf('ar') === 0;
         });
-        
+
         if (arabicVoice.length > 0) {
             utterance.voice = arabicVoice[0];
             console.log('[Checkpoint] Using Arabic voice:', arabicVoice[0].name);
@@ -1877,16 +1886,28 @@ function playCheckpointAlert() {
             console.warn('[Checkpoint] No Arabic voice found, using default');
             utterance.lang = 'ar'; // محاولة عامة للعربية
         }
-        
+
         utterance.onend = function(){
             console.log('[Checkpoint] Alert audio completed');
+            // ✅ استعادة صوت الدرس بعد انتهاء TTS
+            if (audio && audioPausedForTTS) {
+                audio.play().catch(function(e) {
+                    console.log('[Checkpoint] Autoplay blocked:', e);
+                });
+            }
         };
         utterance.onerror = function(e){
             console.error('[Checkpoint] Alert audio error:', e);
+            // ✅ استعادة صوت الدرس في حالة الخطأ
+            if (audio && audioPausedForTTS) {
+                audio.play().catch(function(e) {
+                    console.log('[Checkpoint] Autoplay blocked:', e);
+                });
+            }
             // في حالة فشل Web Speech API، نحاول استخدام ملف صوتي
             playCheckpointAlertAudioFile();
         };
-        
+
         // تشغيل الصوت مع تأخير بسيط لضمان جاهزية المتصفح
         setTimeout(function(){
             window.speechSynthesis.speak(utterance);
@@ -2142,8 +2163,8 @@ function showAIAssistantPopup(paragraphIndex) {
             // ✅ استئناف عداد التشتت
             _sessionState.distractionTimerPaused = false;
             console.log('[AI Assistant] Distraction timer resumed after popup closed');
-            // ✅ استئناف الصوت والتتبع
-            resumeAudioAndTracking();
+            // ✅ لا يتم استئناف الصوت والتتبع عند الانتقال للشات - يبقى متوقفاً
+            console.log('[AI Assistant] Audio and tracking remain paused while chat is open');
         });
 
         document.getElementById('aiAssistantClose').addEventListener('click', function() {
@@ -2152,7 +2173,7 @@ function showAIAssistantPopup(paragraphIndex) {
             // ✅ استئناف عداد التشتت
             _sessionState.distractionTimerPaused = false;
             console.log('[AI Assistant] Distraction timer resumed after popup closed');
-            // ✅ استئناف الصوت والتتبع
+            // ✅ استئناف الصوت والتتبع عند إغلاق النافذة
             resumeAudioAndTracking();
         });
 
@@ -2193,6 +2214,15 @@ function resumeAudioAndTracking() {
 
 // ✅ دالة لتشغيل صوت تنبيه المساعد الذكي
 function playAIAssistantAlert() {
+    // ✅ إيقاف صوت الدرس لتجنب التضارب
+    var audio = document.getElementById('topAudio');
+    var audioPausedForTTS = false;
+    if (audio && !audio.paused) {
+        audio.pause();
+        audioPausedForTTS = true;
+        console.log('[AI Assistant] Lesson audio paused for TTS');
+    }
+
     // استخدام Web Speech API لتشغيل صوت تنبيه
     if ('speechSynthesis' in window) {
         // ✅ إلغاء أي قراءة صوتية سابقة لتجنب خطأ interrupted
@@ -2201,6 +2231,24 @@ function playAIAssistantAlert() {
         utterance.lang = 'ar-SA';
         utterance.rate = 1.0;
         utterance.pitch = 1.0;
+        utterance.onend = function() {
+            console.log('[AI Assistant] TTS completed');
+            // ✅ استعادة صوت الدرس بعد انتهاء TTS
+            if (audio && audioPausedForTTS) {
+                audio.play().catch(function(e) {
+                    console.log('[AI Assistant] Autoplay blocked:', e);
+                });
+            }
+        };
+        utterance.onerror = function(e) {
+            console.error('[AI Assistant] TTS error:', e);
+            // ✅ استعادة صوت الدرس في حالة الخطأ
+            if (audio && audioPausedForTTS) {
+                audio.play().catch(function(e) {
+                    console.log('[AI Assistant] Autoplay blocked:', e);
+                });
+            }
+        };
         window.speechSynthesis.speak(utterance);
     }
 }
@@ -2325,6 +2373,15 @@ function showLevel3Popup() {
 
 // ✅ دالة لتشغيل صوت تنبيه المستوى الثالث
 function playLevel3Alert() {
+    // ✅ إيقاف صوت الدرس لتجنب التضارب
+    var audio = document.getElementById('topAudio');
+    var audioPausedForTTS = false;
+    if (audio && !audio.paused) {
+        audio.pause();
+        audioPausedForTTS = true;
+        console.log('[Level 3] Lesson audio paused for TTS');
+    }
+
     // استخدام Web Speech API لتشغيل صوت تنبيه
     if ('speechSynthesis' in window) {
         // ✅ إلغاء أي قراءة صوتية سابقة لتجنب خطأ interrupted
@@ -2333,6 +2390,24 @@ function playLevel3Alert() {
         utterance.lang = 'ar-SA';
         utterance.rate = 1.0;
         utterance.pitch = 1.0;
+        utterance.onend = function() {
+            console.log('[Level 3] TTS completed');
+            // ✅ استعادة صوت الدرس بعد انتهاء TTS
+            if (audio && audioPausedForTTS) {
+                audio.play().catch(function(e) {
+                    console.log('[Level 3] Autoplay blocked:', e);
+                });
+            }
+        };
+        utterance.onerror = function(e) {
+            console.error('[Level 3] TTS error:', e);
+            // ✅ استعادة صوت الدرس في حالة الخطأ
+            if (audio && audioPausedForTTS) {
+                audio.play().catch(function(e) {
+                    console.log('[Level 3] Autoplay blocked:', e);
+                });
+            }
+        };
         window.speechSynthesis.speak(utterance);
     }
 }
@@ -3004,16 +3079,42 @@ global.WordHighlight = {
 
 // ✅ دالة TTS للرسالة المسموعة
 function speakDrowsyMessage(message) {
+    // ✅ إيقاف صوت الدرس لتجنب التضارب
+    var audio = document.getElementById('topAudio');
+    var audioPausedForTTS = false;
+    if (audio && !audio.paused) {
+        audio.pause();
+        audioPausedForTTS = true;
+        console.log('[Drowsy] Lesson audio paused for TTS');
+    }
+
     if ('speechSynthesis' in window) {
         // إيقاف أي صوت قيد التشغيل
         window.speechSynthesis.cancel();
-        
+
         var utterance = new SpeechSynthesisUtterance(message);
         utterance.lang = 'ar-SA';
         utterance.rate = 0.9;
         utterance.pitch = 1.0;
         utterance.volume = 1.0;
-        
+        utterance.onend = function() {
+            console.log('[Drowsy] TTS completed');
+            // ✅ استعادة صوت الدرس بعد انتهاء TTS
+            if (audio && audioPausedForTTS) {
+                audio.play().catch(function(e) {
+                    console.log('[Drowsy] Autoplay blocked:', e);
+                });
+            }
+        };
+        utterance.onerror = function(e) {
+            console.error('[Drowsy] TTS error:', e);
+            // ✅ استعادة صوت الدرس في حالة الخطأ
+            if (audio && audioPausedForTTS) {
+                audio.play().catch(function(e) {
+                    console.log('[Drowsy] Autoplay blocked:', e);
+                });
+            }
+        };
         window.speechSynthesis.speak(utterance);
     }
 }

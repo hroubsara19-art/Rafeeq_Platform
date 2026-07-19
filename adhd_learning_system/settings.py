@@ -120,6 +120,11 @@ STATIC_ROOT      = os.path.join(BASE_DIR, 'staticfiles')
 # إعداد محرك تخزين وضغط ملفات الـ Static على بيئة الإنتاج لـ WhiteNoise
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# ✅ إضافة دعم WhiteNoise لملفات الوسائط (MEDIA) لتمكين تحميل مرفقات VR
+WHITENOISE_MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+WHITENOISE_MEDIA_PREFIX = '/media/'
+WHITENOISE_MEDIA_FILES = True  # تفعيل خدمة ملفات الوسائط عبر WhiteNoise
+
 MEDIA_URL        = '/media/'
 MEDIA_ROOT       = os.path.join(BASE_DIR, 'media')
 
