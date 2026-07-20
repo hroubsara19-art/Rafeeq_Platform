@@ -676,15 +676,23 @@
             flex-direction: row-reverse;
             align-items: center;
             gap: clamp(32px, 6vw, 88px);
-            direction: ltr;
         }
-        .hero-copy {
-            flex: 1;
-            min-width: 0;
-            direction: rtl;
-            text-align: right;
-            max-width: 590px;
-            animation: heroCopyIn .75s ease both;
+        @media (max-width: 992px) {
+            .hero-shell {
+                flex-direction: column-reverse;
+                text-align: center;
+            }
+            .hero-copy {
+                text-align: center;
+                max-width: 100%;
+            }
+            .hero-visual {
+                width: 100% !important;
+                min-height: 400px;
+            }
+            .hero-actions {
+                justify-content: center;
+            }
         }
         .hero-eyebrow {
             display: inline-flex;
@@ -752,7 +760,7 @@
             font-size: clamp(1rem, 1.5vw, 1.18rem);
             line-height: 2;
             text-align: justify;
-            text-justify: inter-word;
+            text-align-last: right;
         }
         .hero-actions {
             display: flex;
@@ -797,8 +805,7 @@
             transform: translateY(-2px);
         }
         .hero-visual {
-            flex: 1;
-            min-width: 390px;
+            grid-area: visual;
             position: relative;
             min-height: 520px;
             display: grid;
@@ -909,40 +916,9 @@
             0%, 100% { transform: translateY(0) rotate(.4deg); }
             50% { transform: translateY(-9px) rotate(-.5deg); }
         }
-        @media (max-width: 992px) {
-            .hero-shell {
-                flex-direction: column-reverse;
-                text-align: center;
-            }
-            .hero-copy {
-                max-width: 100%;
-                text-align: center;
-            }
-            .hero-visual {
-                min-width: 100%;
-                min-height: 400px;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .hero-shell {
-                gap: 24px;
-            }
-            .hero-visual {
-                min-height: 350px;
-            }
-            .rafiq-character {
-                width: min(320px, 90%);
-            }
-            .rafiq-bubble {
-                width: min(220px, 85%);
-                right: 50%;
-                transform: translateX(50%);
-            }
-            .rafiq-bubble::after {
-                left: 50%;
-                transform: translateX(-50%);
-            }
+        @keyframes bubbleIn {
+            from { opacity: 0; transform: translateY(8px) scale(.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         /* ── محدد الدور ── */
@@ -1164,7 +1140,7 @@
                     منصة <span class="brand-word">رفيق</span> التعليمية
                 </h1>
                 <p class="hero-description">
-                    منصة تعليمية ذكية، تكيفية ومتعددة الوسائط، تتكيف مع أسلوب تعلم كل طالب لدعم الانتباه وتقليل التشتت، من خلال تقديم المحتوى بصورة متدرجة تبدأ بالنص والصوت والصور، ثم الفيديو التفاعلي، وصولًا إلى تجربة واقع افتراضي (VR) مخصصة لكل درس لتعزيز الفهم والتركيز. كما توفر للطالب مسارًا تعليميًا واضحًا، ولولي الأمر والمعلم أدوات لمتابعة التقدم والأداء، ضمن بيئة تفاعلية موحدة تجعل التعلم أكثر تنظيمًا وفاعلية، وتحول كل إنجاز إلى خطوة حقيقية نحو النجاح.
+                    منصة تعليمية ذكية، تكيفية ومتعددة الوسائط، تتكيف مع أسلوب تعلم كل طالب لدعم الانتباه وتقليل التشتت، من خلال تقديم المحتوى بصورة متدرجة تبدأ بـ النص والصوت والصور، ثم الفيديو التفاعلي، وصولًا إلى تجربة واقع افتراضي (VR) مخصصة لكل درس لتعزيز الفهم والتركيز. كما توفر للطالب مسارًا تعليميًا واضحًا، ولولي الأمر والمعلم أدوات لمتابعة التقدم والأداء، ضمن بيئة تفاعلية موحدة تجعل التعلم أكثر تنظيمًا وفاعلية، وتحول كل إنجاز إلى خطوة حقيقية نحو النجاح.
                 </p>
                 <div class="hero-actions">
                     <a class="hero-primary" href="#signup-section" style="padding: 15px 30px;">
