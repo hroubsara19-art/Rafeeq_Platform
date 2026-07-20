@@ -672,15 +672,15 @@
         .hero-shell {
             width: min(1180px, calc(100% - 40px));
             margin: 0 auto;
-            display: grid;
-            grid-template-columns: minmax(0, .92fr) minmax(390px, 1.08fr);
-            grid-template-areas: "copy visual";
+            display: flex;
+            flex-direction: row;
             align-items: center;
             gap: clamp(32px, 6vw, 88px);
             direction: ltr;
         }
         .hero-copy {
-            grid-area: copy;
+            flex: 1;
+            min-width: 0;
             direction: rtl;
             text-align: right;
             max-width: 590px;
@@ -751,6 +751,8 @@
             color: var(--hero-muted);
             font-size: clamp(1rem, 1.5vw, 1.18rem);
             line-height: 2;
+            text-align: justify;
+            text-align-last: right;
         }
         .hero-actions {
             display: flex;
@@ -795,7 +797,8 @@
             transform: translateY(-2px);
         }
         .hero-visual {
-            grid-area: visual;
+            flex: 1;
+            min-width: 390px;
             position: relative;
             min-height: 520px;
             display: grid;
@@ -906,9 +909,122 @@
             0%, 100% { transform: translateY(0) rotate(.4deg); }
             50% { transform: translateY(-9px) rotate(-.5deg); }
         }
-        @keyframes bubbleIn {
-            from { opacity: 0; transform: translateY(8px) scale(.97); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+        @media (max-width: 992px) {
+            .hero-shell {
+                flex-direction: column;
+                text-align: center;
+                direction: rtl;
+                gap: 40px;
+                padding: 0 20px;
+            }
+            .hero-copy {
+                max-width: 100%;
+                text-align: center;
+            }
+            .hero-description {
+                max-width: 100%;
+            }
+            .hero-actions {
+                justify-content: center;
+            }
+            .hero-visual {
+                min-width: 100%;
+                min-height: 400px;
+            }
+            .rafiq-bubble {
+                right: 50%;
+                left: auto;
+                transform: translateX(50%);
+                margin-right: 0;
+            }
+            .rafiq-bubble::after {
+                left: 50%;
+                transform: translateX(-50%);
+                bottom: -12px;
+                clip-path: polygon(50% 100%, 0 0, 100% 0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .intro-banner {
+                min-height: auto;
+                padding: clamp(40px, 6vw, 70px) 0;
+            }
+            .hero-shell {
+                gap: 30px;
+            }
+            .hero-title {
+                font-size: clamp(2rem, 6vw, 3rem);
+            }
+            .hero-description {
+                font-size: clamp(.9rem, 2vw, 1rem);
+                line-height: 1.8;
+            }
+            .hero-primary,
+            .hero-secondary {
+                width: 100%;
+                justify-content: center;
+            }
+            .hero-visual {
+                min-height: 350px;
+            }
+            .rafiq-character {
+                width: min(300px, 80%);
+            }
+            .rafiq-bubble {
+                width: min(220px, 90%);
+                font-size: .85rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .intro-banner {
+                padding: 30px 0;
+            }
+            .hero-shell {
+                gap: 25px;
+            }
+            .hero-title {
+                font-size: clamp(1.8rem, 7vw, 2.5rem);
+            }
+            .hero-description {
+                font-size: .9rem;
+                line-height: 1.7;
+            }
+            .hero-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+            .hero-primary,
+            .hero-secondary {
+                width: 100%;
+            }
+            .hero-visual {
+                min-height: 300px;
+            }
+            .rafiq-character {
+                width: min(250px, 85%);
+            }
+            .rafiq-bubble {
+                width: min(200px, 85%);
+                padding: 14px 16px;
+                font-size: .8rem;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .hero-title {
+                font-size: 1.6rem;
+            }
+            .hero-description {
+                font-size: .85rem;
+            }
+            .hero-visual {
+                min-height: 250px;
+            }
+            .rafiq-character {
+                width: 200px;
+            }
         }
 
         /* ── محدد الدور ── */
@@ -1130,8 +1246,7 @@
                     منصة <span class="brand-word">رفيق</span> التعليمية
                 </h1>
                 <p class="hero-description">
-                    مساحة تعليمية مرنة تفهم إيقاعك، تخفّف التشتّت، وتحول كل خطوة صغيرة
-                    إلى تقدّم واضح يمكنك أنت وأسرتك ومعلمك رؤيته.
+                    منصة تعليمية ذكية، تكيفية ومتعددة الوسائط، تتكيف مع أسلوب تعلم كل طالب لدعم الانتباه وتقليل التشتت، من خلال تقديم المحتوى بصورة متدرجة تبدأ بالنص والصوت والصور، ثم الفيديو التفاعلي، وصولًا إلى تجربة واقع افتراضي (VR) مخصصة لكل درس لتعزيز الفهم والتركيز. كما توفر للطالب مسارًا تعليميًا واضحًا، ولولي الأمر والمعلم أدوات لمتابعة التقدم والأداء، ضمن بيئة تفاعلية موحدة تجعل التعلم أكثر تنظيمًا وفاعلية، وتحول كل إنجاز إلى خطوة حقيقية نحو النجاح.
                 </p>
                 <div class="hero-actions">
                     <a class="hero-primary" href="#signup-section" style="padding: 15px 30px;">
