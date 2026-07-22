@@ -224,7 +224,7 @@ def _sanitize_text(text: str) -> str:
     if not text:
         return ''
     clean = re.sub(r'<[^>]+>', '', str(text))
-    clean = re.sub(r'[*#_\\-]', '', clean)
+    clean = re.sub(r'[*#_\\]', '', clean)
     return clean.strip()
 
 
