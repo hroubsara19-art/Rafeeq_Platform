@@ -403,7 +403,18 @@ body{background:var(--bg);font-family:'Cairo','Tajawal',sans-serif;color:var(--i
 .lr-para-del{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:.5rem;padding:.2rem .55rem;font-size:.78rem;cursor:pointer;transition:all .15s;margin-right:auto;}
 .lr-para-del:hover{background:var(--red-lt);border-color:var(--red-md);color:var(--red);}
 .lr-para-body{padding:1rem;background:var(--white);}
-.lr-para-textarea{width:100%;border:1.5px solid var(--border);border-radius:.6rem;background:var(--white);padding:.75rem 1rem;font-family:'Tajawal',sans-serif;font-size:1rem;color:var(--ink);line-height:1.9;resize:vertical;min-height:100px;direction:rtl;text-align:right;outline:none;transition:border-color .2s;}
+.lr-para-formatting{display:flex;gap:.5rem;margin-bottom:.75rem;}
+.lr-format-btn{background:var(--blue-lt);border:1.5px solid var(--blue-bd);color:var(--blue);border-radius:.5rem;padding:.3rem .7rem;font-family:'Cairo',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:.3rem;transition:all .15s;}
+.lr-format-btn:hover{background:var(--blue);color:#fff;border-color:var(--blue);}
+.lr-format-green{color:#4f8583;border-color:#4f8583;background:rgba(79,133,131,.1);}
+.lr-format-green:hover{background:#4f8583;color:#fff;}
+.lr-format-orange{color:#df815a;border-color:#df815a;background:rgba(223,129,90,.1);}
+.lr-format-orange:hover{background:#df815a;color:#fff;}
+.lr-format-blue{color:#1e3a5f;border-color:#1e3a5f;background:rgba(30,58,95,.1);}
+.lr-format-blue:hover{background:#1e3a5f;color:#fff;}
+.lr-format-erase{color:var(--muted);border-color:var(--border);background:var(--slate-lt);}
+.lr-format-erase:hover{background:var(--red);color:#fff;border-color:var(--red);}
+.lr-para-textarea{width:100%;border:1.5px solid var(--border);border-radius:.6rem;background:var(--white);padding:.75rem 1rem;font-family:'Tajawal',sans-serif;font-size:1rem;color:var(--ink);line-height:1.9;min-height:100px;direction:rtl;text-align:right;outline:none;transition:border-color .2s;}
 .lr-para-textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(49,91,89,.08);}
 .lr-para-img{display:flex;align-items:center;gap:.75rem;margin-top:.75rem;padding:.6rem .75rem;background:var(--blue-xlt);border:1.5px solid var(--blue-bd);border-radius:.6rem;flex-wrap:wrap;}
 .lr-para-img-thumb{width:52px;height:52px;border-radius:.5rem;object-fit:cover;border:2px solid var(--blue-bd);flex-shrink:0;cursor:zoom-in;}
@@ -523,7 +534,7 @@ body{background:var(--bg);font-family:'Cairo','Tajawal',sans-serif;color:var(--i
 </style>
 
 <!-- ✅ بيانات Django -->
-{{ lesson.ai_generatedtext|default:''|json_script:"dj-raw-text" }}
+<script type="application/json" id="dj-raw-text">{{ raw_text_json|safe }}</script>
 {{ image_list|default:"[]"|json_script:"dj-image-list" }}
 {{ timing_url|default:""|json_script:"dj-timing-url" }}
 {{ audio_url|default:""|json_script:"dj-audio-url" }}
@@ -561,7 +572,7 @@ var _checkpointDeleteUrlBase = "/delete-checkpoint/";
 function init(){
     console.log('[DEBUG] init() started...');
 
-    // 1. محاولة استرجاع البيانات مع التحقق من الوجود
+    // قراءة rawText من عنصر dj-raw-text
     var rawEl = document.getElementById('dj-raw-text');
     var rawVal = rawEl ? rawEl.textContent : '""';
 
@@ -572,19 +583,53 @@ function init(){
         rawText = "";
     }
 
-    console.log('[DEBUG] rawText:', rawText);
+    console.log('[DEBUG] rawText from DB:', rawText);
     console.log('[DEBUG] rawText length:', rawText ? rawText.length : 0);
     console.log('[DEBUG] rawText type:', typeof rawText);
+    console.log('[DEBUG] rawText contains HTML:', /<[^>]+>/.test(rawText));
 
-    // 2. تقسيم النص مع معالجة أفضل للفراغات
+    // 2. تقسيم النص مع معالجة أفضل للفراغات والحفاظ على التنسيقات HTML
     var lines = [];
     if (typeof rawText === 'string' && rawText.trim()) {
-        // تقسيم احترافي يعالج تعدد الأسطر
-        lines = rawText.split(/\n\s*\n/).map(function(p){ return p.trim(); }).filter(Boolean);
-        console.log('[DEBUG] After double newline split:', lines.length, 'lines');
+        // التحقق من وجود HTML formatting
+        var hasHTML = /<(strong|b|span|font)[^>]*>/.test(rawText);
+        console.log('[DEBUG] Text has HTML formatting:', hasHTML);
+        
+        if (hasHTML) {
+            // إذا كان النص يحتوي على تنسيقات HTML، نقسمه بحذر شديد
+            // نستخدم placeholder معرف لتجنب تقسيم HTML tags والأسطر داخلها
+            var tempText = rawText.replace(/<[^>]+>/g, function(match) {
+                // استبدال الأسطر داخل HTML tags بplaceholder
+                return match.replace(/\n/g, '___HTML_NEWLINE___');
+            });
+            
+            // تقسيم على سطرين متتاليين (فاصل الفقرات) فقط خارج HTML tags
+            lines = tempText.split(/\n\s*\n/).map(function(p){ 
+                return p.trim().replace(/___HTML_NEWLINE___/g, '\n'); 
+            }).filter(Boolean);
+            
+            console.log('[DEBUG] After double newline split with HTML:', lines.length, 'lines');
+            
+            // إذا لم يوجد فاصل فقرات، نحتفظ بالنص كاملاً كفقرة واحدة
+            if (lines.length === 0) {
+                lines = [rawText.trim()];
+                console.log('[DEBUG] No paragraph separator found in HTML text, keeping as single paragraph');
+            }
+        } else {
+            // إذا لم يكن هناك HTML، نستخدم التقسيم العادي
+            lines = rawText.split(/\n\s*\n/).map(function(p){ return p.trim(); }).filter(Boolean);
+            console.log('[DEBUG] After double newline split (no HTML):', lines.length, 'lines');
+            
+            if (lines.length === 0) {
+                lines = rawText.split(/\n/).map(function(p){ return p.trim(); }).filter(Boolean);
+                console.log('[DEBUG] After single newline split (no HTML):', lines.length, 'lines');
+            }
+        }
+        
+        // إذا لا يزال لا يوجد فقرات، نحتفظ بالنص كاملاً
         if (lines.length === 0) {
-            lines = rawText.split(/\n/).map(function(p){ return p.trim(); }).filter(Boolean);
-            console.log('[DEBUG] After single newline split:', lines.length, 'lines');
+            lines = [rawText.trim()];
+            console.log('[DEBUG] No paragraphs found, keeping text as single paragraph');
         }
     }
 
@@ -622,9 +667,12 @@ if (document.readyState === "complete" || document.readyState === "interactive")
 }
 
 function renderParagraphs() {
+    console.log('[DEBUG] renderParagraphs called with', paragraphs.length, 'paragraphs');
     var container = document.getElementById('paragraphsContainer');
     container.innerHTML = '';
     paragraphs.forEach(function(text, i) {
+        console.log('[DEBUG] Paragraph', i, 'contains HTML:', /<[^>]+>/.test(text));
+        console.log('[DEBUG] Paragraph', i, 'sample:', text.substring(0, 100));
         var block = document.createElement('div');
         block.className = 'lr-para-block';
         block.draggable = true;
@@ -640,8 +688,14 @@ function renderParagraphs() {
             ? '<div class="lr-para-checkpoint lr-para-checkpoint-has"><i class="fas fa-check-circle"></i> نقطة تحقق مضافة <button type="button" class="lr-checkpoint-edit" onclick="openCheckpointModal(' + i + ')"><i class="fas fa-edit"></i> تعديل</button><button type="button" class="lr-checkpoint-delete" onclick="deleteCheckpoint(' + i + ')"><i class="fas fa-trash"></i></button></div>'
             : '<button type="button" class="lr-tool-btn lr-checkpoint-add" style="font-size:.78rem;padding:.3rem .7rem;margin-top:.5rem;" onclick="openCheckpointModal(' + i + ')"><i class="fas fa-question-circle"></i> إضافة نقطة تحقق</button>';
 
-        block.innerHTML = '<div class="lr-para-head"><i class="fas fa-grip-vertical lr-para-drag"></i><div class="lr-para-num">' + (i+1) + '</div><div class="lr-para-label">الفقرة ' + (i+1) + '</div><button type="button" class="lr-para-del" onclick="deleteParagraph(' + i + ')"><i class="fas fa-times"></i></button></div><div class="lr-para-body"><textarea class="lr-para-textarea" rows="4" data-para-idx="' + i + '">' + escHtml(text) + '</textarea>' + imgSection + checkpointSection + '</div>';
-        block.querySelector('textarea').addEventListener('input', function(){ paragraphs[parseInt(this.dataset.paraIdx)] = this.value; _refreshPreviewIfOpen(); });
+        block.innerHTML = '<div class="lr-para-head"><i class="fas fa-grip-vertical lr-para-drag"></i><div class="lr-para-num">' + (i+1) + '</div><div class="lr-para-label">الفقرة ' + (i+1) + '</div><button type="button" class="lr-para-del" onclick="deleteParagraph(' + i + ')"><i class="fas fa-times"></i></button></div><div class="lr-para-body"><div class="lr-para-formatting"><button type="button" class="lr-format-btn" onclick="applyBold()" title="تغميد النص"><i class="fas fa-bold"></i></button><button type="button" class="lr-format-btn lr-format-green" onclick="applyHighlight(\'#4f8583\')" title="تمييز بالأخضر"><i class="fas fa-highlighter"></i></button><button type="button" class="lr-format-btn lr-format-orange" onclick="applyHighlight(\'#df815a\')" title="تمييز بالبرتقالي"><i class="fas fa-highlighter"></i></button><button type="button" class="lr-format-btn lr-format-blue" onclick="applyHighlight(\'#1e3a5f\')" title="تمييز بالأزرق"><i class="fas fa-highlighter"></i></button><button type="button" class="lr-format-btn lr-format-erase" onclick="removeHighlight()" title="إزالة التمييز"><i class="fas fa-eraser"></i></button></div><div class="lr-para-textarea" contenteditable="true" data-para-idx="' + i + '">' + text + '</div>' + imgSection + checkpointSection + '</div>';
+        
+        // التحقق من أن النص يُعرض بشكل صحيح في contenteditable
+        var textarea = block.querySelector('.lr-para-textarea');
+        console.log('[DEBUG] Paragraph', i, 'textarea.innerHTML after render:', textarea.innerHTML.substring(0, 100));
+        console.log('[DEBUG] Paragraph', i, 'textarea innerHTML contains HTML:', /<[^>]+>/.test(textarea.innerHTML));
+        
+        block.querySelector('.lr-para-textarea').addEventListener('input', function(){ paragraphs[parseInt(this.dataset.paraIdx)] = this.innerHTML; _refreshPreviewIfOpen(); });
         block.addEventListener('dragstart', function(e){ dragSrcIdx = i; block.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
         block.addEventListener('dragend',   function(){ block.classList.remove('dragging'); document.querySelectorAll('.lr-para-block').forEach(function(b){ b.classList.remove('drag-over'); }); });
         block.addEventListener('dragover',  function(e){ e.preventDefault(); block.classList.add('drag-over'); });
@@ -675,6 +729,116 @@ function addParagraph(){
     paragraphs.push('اكتب نص الفقرة الجديدة هنا...');renderParagraphs();
     var blocks=document.querySelectorAll('.lr-para-block');
     if(blocks.length)blocks[blocks.length-1].scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+// دالة تطبيق التغميد الغامق على النص المحدد
+function applyBold() {
+    var selection = window.getSelection();
+    if (selection.rangeCount === 0 || selection.isCollapsed) {
+        alert('يرجى تحديد النص المراد تغميده');
+        return;
+    }
+    
+    // البحث عن حقل النص الذي يحتوي على التحديد
+    var range = selection.getRangeAt(0);
+    var container = range.commonAncestorContainer;
+    var textarea = container.nodeType === 3 ? container.parentElement : container;
+    
+    // الصعود للبحث عن lr-para-textarea
+    while (textarea && !textarea.classList.contains('lr-para-textarea')) {
+        textarea = textarea.parentElement;
+    }
+    
+    if (!textarea) {
+        alert('يرجى تحديد النص في حقل الفقرة أولاً');
+        return;
+    }
+    
+    // استخدام execCommand لتطبيق التغميد
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('bold', false, null);
+    
+    // تحديث مصفوفة الفقرات
+    var paraIdx = parseInt(textarea.dataset.paraIdx);
+    if (!isNaN(paraIdx)) {
+        paragraphs[paraIdx] = textarea.innerHTML;
+    }
+    
+    // إعادة التركيز
+    textarea.focus();
+}
+
+// دالة تطبيق التمييز باللون على النص المحدد
+function applyHighlight(color) {
+    var selection = window.getSelection();
+    if (selection.rangeCount === 0 || selection.isCollapsed) {
+        alert('يرجى تحديد النص المراد تمييزه');
+        return;
+    }
+    
+    // البحث عن حقل النص الذي يحتوي على التحديد
+    var range = selection.getRangeAt(0);
+    var container = range.commonAncestorContainer;
+    var textarea = container.nodeType === 3 ? container.parentElement : container;
+    
+    // الصعود للبحث عن lr-para-textarea
+    while (textarea && !textarea.classList.contains('lr-para-textarea')) {
+        textarea = textarea.parentElement;
+    }
+    
+    if (!textarea) {
+        alert('يرجى تحديد النص في حقل الفقرة أولاً');
+        return;
+    }
+    
+    // استخدام execCommand لتطبيق لون الحروف
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('foreColor', false, color);
+    
+    // تحديث مصفوفة الفقرات
+    var paraIdx = parseInt(textarea.dataset.paraIdx);
+    if (!isNaN(paraIdx)) {
+        paragraphs[paraIdx] = textarea.innerHTML;
+    }
+    
+    // إعادة التركيز
+    textarea.focus();
+}
+
+// دالة إزالة التمييز من النص المحدد
+function removeHighlight() {
+    var selection = window.getSelection();
+    if (selection.rangeCount === 0 || selection.isCollapsed) {
+        alert('يرجى تحديد النص المراد إزالة تمييزه');
+        return;
+    }
+    
+    // البحث عن حقل النص الذي يحتوي على التحديد
+    var range = selection.getRangeAt(0);
+    var container = range.commonAncestorContainer;
+    var textarea = container.nodeType === 3 ? container.parentElement : container;
+    
+    // الصعود للبحث عن lr-para-textarea
+    while (textarea && !textarea.classList.contains('lr-para-textarea')) {
+        textarea = textarea.parentElement;
+    }
+    
+    if (!textarea) {
+        alert('يرجى تحديد النص في حقل الفقرة أولاً');
+        return;
+    }
+    
+    // إزالة التنسيق
+    document.execCommand('removeFormat', false, null);
+    
+    // تحديث مصفوفة الفقرات
+    var paraIdx = parseInt(textarea.dataset.paraIdx);
+    if (!isNaN(paraIdx)) {
+        paragraphs[paraIdx] = textarea.innerHTML;
+    }
+    
+    // إعادة التركيز
+    textarea.focus();
 }
 function swapParagraphs(a,b){var tmp=paragraphs[a];paragraphs[a]=paragraphs[b];paragraphs[b]=tmp;var ti=paraImages[a];paraImages[a]=paraImages[b];paraImages[b]=ti;renderParagraphs();}
 function removeParaImg(i){delete paraImages[i];renderParagraphs();}
@@ -937,7 +1101,7 @@ function toggleTeacherPreview(){
         var html=paragraphs.map(function(text,i){
             var img=paraImages[i]?'<img src="'+escHtml(paraImages[i])+'" class="lr-ed-img" alt="صورة">':'';
             return '<div class="lr-ed-card"><div class="lr-ed-head"><div class="lr-ed-num">'+(i+1)+'</div></div>'
-                +'<div class="lr-ed-text" contenteditable="true" data-ed-idx="'+i+'">'+escHtml(text).replace(/\n/g,'<br>')+'</div>'
+                +'<div class="lr-ed-text" contenteditable="true" data-ed-idx="'+i+'">'+text.replace(/\n/g,'<br>')+'</div>'
                 +img+'</div>';
         }).join('');
         document.getElementById('teacherPreviewContent').innerHTML=html;
@@ -945,7 +1109,7 @@ function toggleTeacherPreview(){
         document.querySelectorAll('#teacherPreviewContent .lr-ed-text').forEach(function(div){
             div.addEventListener('input',function(){
                 var idx=parseInt(div.dataset.edIdx);
-                if(!isNaN(idx))paragraphs[idx]=div.innerText;
+                if(!isNaN(idx))paragraphs[idx]=div.innerHTML;
             });
         });
         sec.classList.remove('d-none');
@@ -978,7 +1142,8 @@ function toggleStudentPreview(){
 function buildStudentPreview(){
     var html=paragraphs.map(function(text,i){
         var img=paraImages[i]?'<img src="'+escHtml(paraImages[i])+'" class="lr-pv-img" alt="صورة توضيحية">':'';
-        return '<div class="lr-pv-card"><div class="lr-pv-text">'+escHtml(text).replace(/\n/g,'<br>')+'</div>'+img+'</div>';
+        // عرض النص كما هو (مع HTML) لأنه contenteditable
+        return '<div class="lr-pv-card"><div class="lr-pv-text">'+text+'</div>'+img+'</div>';
     }).join('');
     document.getElementById('studentPreviewContent').innerHTML=html;
     _whInitialized=false;
@@ -997,7 +1162,7 @@ function setPvSpeed(s,btn){
     btn.parentElement.querySelectorAll('.lr-speed-btn').forEach(function(b){b.classList.remove('active');});btn.classList.add('active');
 }
 function syncTextareas(){
-    document.querySelectorAll('.lr-para-textarea').forEach(function(ta){var i=parseInt(ta.dataset.paraIdx);if(!isNaN(i))paragraphs[i]=ta.value;});
+    document.querySelectorAll('.lr-para-textarea').forEach(function(ta){var i=parseInt(ta.dataset.paraIdx);if(!isNaN(i))paragraphs[i]=ta.innerHTML;});
 }
 
 function submitPublish(){syncTextareas();document.getElementById('publishModal').classList.remove('d-none');}
@@ -1017,8 +1182,18 @@ function saveLesson(){
     /* ✅ بناء قائمة الصور المرتّبة حسب الفقرات لحفظها */
     var imagePathsOrdered=[];
     for(var _si=0;_si<paragraphs.length;_si++){imagePathsOrdered.push(paraImages[_si]||'');}
+    console.log('saveLesson: text length=', text.length, 'images count=', imagePathsOrdered.length);
     fetch("{% url 'learning:save_lesson' lesson.pk %}",{method:'POST',headers:{'X-CSRFToken':'{{ csrf_token }}','Content-Type':'application/json'},body:JSON.stringify({updated_text:text,image_paths:imagePathsOrdered})})
-    .then(function(r){return r.json();})
+    .then(function(r){
+        console.log('saveLesson: response status=', r.status);
+        if(!r.ok){
+            console.error('saveLesson: server returned error status');
+            return r.text().then(function(txt){
+                try{return JSON.parse(txt);}catch(e){return{error:'خطأ في الخادم: '+txt};}
+            });
+        }
+        return r.json();
+    })
     .then(function(d){
         btn.classList.remove('saving');
         if(d.ok){
@@ -1043,9 +1218,12 @@ function saveLesson(){
                 setTimeout(initStudentHighlight,300);
             }
             setTimeout(function(){btn.classList.remove('saved');btn.innerHTML='<i class="fas fa-save"></i> حفظ التعديلات';},2500);
-        }else{btn.innerHTML='<i class="fas fa-save"></i> حفظ التعديلات';showSaveToast(d.error||'حدث خطأ أثناء الحفظ','error');}
+        }else{btn.innerHTML='<i class="fas fa-save"></i> حفظ التعديلات';showSaveToast(d.error||'حدث خطأ أثناء الحفظ','error');console.error('saveLesson error:', d);}
     })
-    .catch(function(){btn.classList.remove('saving');btn.innerHTML='<i class="fas fa-save"></i> حفظ التعديلات';showSaveToast('تعذّر الاتصال بالخادم','error');});
+    .catch(function(e){
+        console.error('saveLesson fetch error:', e);
+        btn.classList.remove('saving');btn.innerHTML='<i class="fas fa-save"></i> حفظ التعديلات';showSaveToast('تعذّر الاتصال بالخادم','error');
+    });
 }
 
 function showSaveToast(msg,type){

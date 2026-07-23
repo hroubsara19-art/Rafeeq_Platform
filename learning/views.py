@@ -4,6 +4,8 @@ import traceback
 import os
 import time
 import json as _json
+from html import escape
+from html.parser import HTMLParser
 from datetime import date
 from functools import wraps
 
@@ -223,8 +225,101 @@ def _is_grade_progression_valid(current_grade: str, new_grade: str) -> tuple[boo
 def _sanitize_text(text: str) -> str:
     if not text:
         return ''
-    clean = re.sub(r'<[^>]+>', '', str(text))
-    clean = re.sub(r'[*#_\\]', '', clean)
+    # السماح بعلامات HTML المحددة للتنسيق فقط
+    allowed_tags = ['strong', 'b', 'span', 'font']
+    # إزالة جميع العلامات غير المسموح بها
+    clean = str(text)
+    # إزالة السكريبتات والأنماط الخطيرة
+    clean = re.sub(r'<script[^>]*>.*?</script>', '', clean, flags=re.IGNORECASE | re.DOTALL)
+    clean = re.sub(r'<style[^>]*>.*?</style>', '', clean, flags=re.IGNORECASE | re.DOTALL)
+    clean = re.sub(r'on\w+="[^"]*"', '', clean)  # إزالة event handlers
+    clean = re.sub(r'on\w+=[\'"][^\'"]*[\'"]', '', clean)  # إزالة event handlers مع علامات اقتباس مفردة
+    # إزالة علامات HTML غير المسموح مع الاحتفاظ بجميع attributes
+    for tag in allowed_tags:
+        # نحتفظ بالعلامات المسموحة مؤقتاً مع جميع attributes
+        clean = re.sub(rf'<{tag}([^>]*)>', f'__TEMP_OPEN_{tag}__$1__', clean, flags=re.IGNORECASE)
+        clean = clean.replace(f'</{tag}>', f'__TEMP_CLOSE_{tag}__')
+    # إزالة باقي العلامات
+    clean = re.sub(r'<[^>]+>', '', clean)
+    # إعادة العلامات المسموحة مع جميع attributes
+    for tag in allowed_tags:
+        clean = re.sub(rf'__TEMP_OPEN_{tag}__(.*?)__', rf'<{tag}\1>', clean,flags=re.IGNORECASE)
+        clean = clean.replace(f'__TEMP_CLOSE_{tag}__', f'</{tag}>')
+    # إزالة الرموز غير المرغوبة (ما عدا * لأنها قد تكون مستخدمة في bold)
+    clean = re.sub(r'[#_\\]', '', clean)
+    return clean.strip()
+
+
+def _sanitize_text(text: str) -> str:
+    if not text:
+        return ''
+
+    class LessonTextSanitizer(HTMLParser):
+        allowed_tags = {'strong', 'b', 'span', 'font', 'br'}
+        allowed_styles = {'color', 'background-color', 'font-weight'}
+        allowed_font_attrs = {'color'}
+
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.parts = []
+
+        def handle_starttag(self, tag, attrs):
+            tag = tag.lower()
+            if tag in {'p', 'div'}:
+                if self.parts and not self.parts[-1].endswith('\n'):
+                    self.parts.append('\n')
+                return
+            if tag not in self.allowed_tags:
+                return
+            if tag == 'br':
+                self.parts.append('<br>')
+                return
+
+            clean_attrs = []
+            for name, value in attrs:
+                name = (name or '').lower()
+                value = value or ''
+                if name == 'style':
+                    styles = []
+                    for item in value.split(';'):
+                        if ':' not in item:
+                            continue
+                        prop, val = item.split(':', 1)
+                        prop = prop.strip().lower()
+                        val = val.strip()
+                        if prop in self.allowed_styles and re.match(r'^[#(),.%\w\s-]+$', val):
+                            styles.append(f'{prop}: {escape(val, quote=True)}')
+                    if styles:
+                        clean_attrs.append(('style', '; '.join(styles)))
+                elif tag == 'font' and name in self.allowed_font_attrs:
+                    if re.match(r'^[#(),.%\w\s-]+$', value):
+                        clean_attrs.append((name, value))
+
+            attr_text = ''.join(f' {name}="{escape(value, quote=True)}"' for name, value in clean_attrs)
+            self.parts.append(f'<{tag}{attr_text}>')
+
+        def handle_endtag(self, tag):
+            tag = tag.lower()
+            if tag in {'p', 'div'}:
+                if self.parts and not self.parts[-1].endswith('\n'):
+                    self.parts.append('\n')
+            elif tag in self.allowed_tags and tag != 'br':
+                self.parts.append(f'</{tag}>')
+
+        def handle_data(self, data):
+            self.parts.append(escape(data, quote=False))
+
+        def handle_entityref(self, name):
+            self.parts.append(f'&{name};')
+
+        def handle_charref(self, name):
+            self.parts.append(f'&#{name};')
+
+    parser = LessonTextSanitizer()
+    parser.feed(str(text))
+    parser.close()
+    clean = ''.join(parser.parts).replace('\r\n', '\n').replace('\r', '\n')
+    clean = re.sub(r'\n{3,}', '\n\n', clean)
     return clean.strip()
 
 
@@ -1124,18 +1219,25 @@ def lesson_result(request, lesson_id):
 
     # تحضير النص للعرض
     raw_text = lesson.ai_generatedtext or lesson.originaltext or ''
+    logger.info(f'lesson_result: raw_text from DB length={len(raw_text)}, sample={raw_text[:200]}')
     # إذا كان النص فارغاً، استخدم نص افتراضي
     if not raw_text or not raw_text.strip():
         raw_text = ''
 
+    # تحويل النص إلى JSON في Python لضمان الحفاظ على التنسيقات
+    import json as _json
+    raw_text_json = _json.dumps(raw_text, ensure_ascii=False)
+    logger.info(f'lesson_result: raw_text_json length={len(raw_text_json)}, sample={raw_text_json[:200]}')
+    logger.info(f'lesson_result: sending raw_text to template, contains HTML: {bool(re.search(r"<[^>]+>", raw_text))}')
+    
     return render(request, 'learning/lesson_result.html', {
-        'lesson':     lesson,
-        'image_list': image_list,
-        'audio_url':  audio_url or '',
-        'timing_url': timing_url,
-        'MEDIA_URL':  settings.MEDIA_URL,
-        'checkpoints': checkpoint_data,
-        'raw_text':   raw_text,
+        'lesson':         lesson,
+        'image_list':     image_list,
+        'audio_url':      audio_url or '',
+        'timing_url':     timing_url,
+        'MEDIA_URL':      settings.MEDIA_URL,
+        'checkpoints':    checkpoint_data,
+        'raw_text_json':  raw_text_json,
     })
 
 @login_required
@@ -1274,7 +1376,11 @@ def save_lesson(request, lesson_id):
         body         = _json_mod.loads(request.body)
         updated_text = body.get('updated_text', '').strip()
         image_paths  = body.get('image_paths', None)   # قائمة مسارات الصور أو None
-    except Exception:
+        logger.info(f'save_lesson: received text length={len(updated_text)}, images={len(image_paths) if image_paths else 0}')
+        logger.info(f'save_lesson: request.body length={len(request.body)}')
+    except Exception as e:
+        logger.error(f'save_lesson: JSON parse error: {e}')
+        logger.error(f'save_lesson: request.body content: {request.body[:500]}')
         updated_text = request.POST.get('updated_text', '').strip()
         image_paths  = None
  
@@ -1282,6 +1388,9 @@ def save_lesson(request, lesson_id):
         return JsonResponse({'error': 'لا يمكن حفظ درس فارغ المحتوى.'}, status=400)
  
     clean_text    = _sanitize_text(updated_text)
+    logger.info(f'save_lesson: before sanitize length={len(updated_text)}, after sanitize length={len(clean_text)}')
+    logger.info(f'save_lesson: updated_text sample={updated_text[:200]}')
+    logger.info(f'save_lesson: clean_text sample={clean_text[:200]}')
     update_fields = ['ai_generatedtext']
     audio_regenerated = False
  
@@ -1290,6 +1399,8 @@ def save_lesson(request, lesson_id):
     text_changed = (clean_text != old_text)
  
     lesson.ai_generatedtext = clean_text
+    logger.info(f'save_lesson: assigned clean_text to lesson.ai_generatedtext')
+    logger.info(f'save_lesson: clean_text contains HTML: {bool(re.search(r"<(strong|b|span|font)[^>]*>", clean_text))}')
  
     # ✅ حفظ الصور إذا أُرسلت
     if image_paths is not None:
@@ -1346,7 +1457,9 @@ def save_lesson(request, lesson_id):
             logger.warning(f'save_lesson audio regen failed: {_ae}')
     # ─────────────────────────────────────────────────────────
  
+    logger.info(f'save_lesson: about to save lesson with update_fields={update_fields}')
     lesson.save(update_fields=list(set(update_fields)))
+    logger.info(f'save_lesson: lesson saved successfully')
 
     # ✅ إذا تغيّر النص → حدّث content_updated_at لإبطال جلسات المشاهدة القديمة
     # (نستخدم update() مباشرة على DB لتجنب مشاكل الحقول غير الموجودة)
@@ -1355,6 +1468,7 @@ def save_lesson(request, lesson_id):
             Lessoncontent.objects.filter(pk=lesson.pk).update(
                 content_updated_at=_tz.now()
             )
+            logger.info(f'save_lesson: updated content_updated_at to invalidate old sessions')
         except Exception as _te:
             logger.warning(f'content_updated_at update failed (column may not exist yet): {_te}')
 
@@ -3451,3 +3565,5 @@ def get_lessons_for_subject(request):
     except Exception as e:
         logger.exception(f"Error getting lessons for subject {subject_id}: {e}")
         return JsonResponse({'success': False, 'error': f'خطأ: {str(e)}'}, status=500)
+
+

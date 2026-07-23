@@ -176,11 +176,27 @@ def _calc_lesson_status(student, lesson, lesson_test):
     """
     from learning.models import LessonWatchRecord, Checkpoint, StudentCheckpointAnswer
 
+    # التحقق من مشاهدة الفيديو
+    video_watch_qs = LessonWatchRecord.objects.filter(student=student, lesson=lesson)
+    lesson_updated = getattr(lesson, 'content_updated_at', None)
+    video_watched = video_watch_qs.exists()
+
     sessions = (
         Learningsession.objects
         .filter(studentid=student, lessonid=lesson)
+        .exclude(sessionstatus='Video')
         .order_by('-starttime')
     )
+
+    latest_video_watch = video_watch_qs.order_by('-watched_at').first()
+    if latest_video_watch and latest_video_watch.watched_at:
+        from datetime import timedelta
+        video_time = latest_video_watch.watched_at
+        sessions = sessions.exclude(
+            sessionstatus='Watched',
+            starttime__gte=video_time - timedelta(seconds=30),
+            starttime__lte=video_time + timedelta(seconds=30),
+        )
 
     is_watched     = sessions.exists()
     is_stale_watch = False
@@ -189,13 +205,6 @@ def _calc_lesson_status(student, lesson, lesson_test):
         latest         = sessions.first()
         sess_starttime = getattr(latest, 'starttime', None)
         is_stale_watch = not _is_valid_watch_local(sess_starttime, lesson)
-
-    # التحقق من مشاهدة الفيديو
-    video_watch_qs = LessonWatchRecord.objects.filter(student=student, lesson=lesson)
-    lesson_updated = getattr(lesson, 'content_updated_at', None)
-    if lesson_updated:
-        video_watch_qs = video_watch_qs.filter(watched_at__gte=lesson_updated)
-    video_watched = video_watch_qs.exists()
 
     # التحقق من الإجابة على جميع نقاط التحقق الدورية
     checkpoints = Checkpoint.objects.filter(lessonid=lesson, checkpoint_type='mandatory')
@@ -216,7 +225,7 @@ def _calc_lesson_status(student, lesson, lesson_test):
         test_done = True
 
     # إذا هناك نقاط تحقق إجبارية، فإن إكمالها يكفي لإثبات متابعة الجلسة
-    session_completed = video_watched or checkpoints_done
+    session_completed = checkpoints_done
 
     is_completed = (
         is_watched and
@@ -446,15 +455,23 @@ def lesson_session(request, lesson_id):
                 return redirect('student:student_home')
 
     if student:
-        session_obj, created = Learningsession.objects.get_or_create(
-            studentid=student,
-            lessonid=lesson,
-            defaults={'sessionstatus': 'Active'},
+        session_obj = (
+            Learningsession.objects
+            .filter(studentid=student, lessonid=lesson)
+            .exclude(sessionstatus='Video')
+            .order_by('-starttime')
+            .first()
         )
-        if not created:
+        if session_obj:
             session_obj.starttime     = timezone.now()
             session_obj.sessionstatus = 'Active'
             session_obj.save(update_fields=['starttime', 'sessionstatus'])
+        else:
+            session_obj = Learningsession.objects.create(
+                studentid=student,
+                lessonid=lesson,
+                sessionstatus='Active',
+            )
     else:
         session_obj = None
 
@@ -496,6 +513,10 @@ def lesson_session(request, lesson_id):
             'checkpoint_type': cp.checkpoint_type,
             'correct_answer': cp.correct_answer,
         })
+
+    # التحقق من أن النص يحتوي على تنسيقات HTML
+    lesson_text = lesson.ai_generatedtext or lesson.originaltext or ''
+    logger.info(f'lesson_session: lesson_text length={len(lesson_text)}, contains HTML: {bool(re.search(r"<(strong|b|span|font)[^>]*>", lesson_text))}')
 
     return render(request, 'student_app/lesson_session.html', {
         'lesson':         lesson,
@@ -836,6 +857,7 @@ def view_lesson_student(request, lesson_id):
         status = {
             'is_watched':        False,
             'is_stale_watch':    False,
+            'video_watched':     False,
             'test_done':         True,
             'checkpoints_done':  False,
             'is_completed':      False,
@@ -962,21 +984,13 @@ def lesson_video(request, lesson_id):
 
         # إنشاء أو جلب Learningsession للفيديو
         try:
-            session, created = Learningsession.objects.get_or_create(
+            session = Learningsession.objects.create(
                 studentid=student,
                 lessonid=lesson,
-                defaults={
-                    'starttime': timezone.now(),
-                    'is_watched': False,
-                }
+                sessionstatus='Video',
+                is_watched=True,
             )
-            if created:
-                logger.info(f'[Lesson Video] Created new session {session.sessionid} for student {request.user.username} on lesson {lesson_id}')
-            else:
-                session.starttime = timezone.now()
-                session.sessionstatus = 'Watched'
-                session.save(update_fields=['starttime', 'sessionstatus'])
-                logger.info(f'[Lesson Video] Using existing session {session.sessionid} for student {request.user.username} on lesson {lesson_id}')
+            logger.info(f'[Lesson Video] Created video session {session.sessionid} for student {request.user.username} on lesson {lesson_id}')
             session_id = session.sessionid
         except Exception as e:
             logger.error(f'[Lesson Video] Failed to create/get session: {str(e)}', exc_info=True)
@@ -1131,18 +1145,23 @@ def mark_lesson_watched(request, lesson_id):
         if not lesson:
             return JsonResponse({'ok': False, 'error': 'lesson_not_found'}, status=404)
 
-        session_obj, created = Learningsession.objects.get_or_create(
-            studentid=student,
-            lessonid=lesson,
-            defaults={
-                'sessionstatus': 'Watched',
-                'starttime':     timezone.now(),
-            },
+        session_obj = (
+            Learningsession.objects
+            .filter(studentid=student, lessonid=lesson)
+            .exclude(sessionstatus='Video')
+            .order_by('-starttime')
+            .first()
         )
-        if not created:
+        if session_obj:
             session_obj.starttime     = timezone.now()
             session_obj.sessionstatus = 'Watched'
             session_obj.save(update_fields=['starttime', 'sessionstatus'])
+        else:
+            Learningsession.objects.create(
+                studentid=student,
+                lessonid=lesson,
+                sessionstatus='Watched',
+            )
 
         return JsonResponse({'ok': True})
 
@@ -1530,7 +1549,7 @@ def unfinished_lessons_in_subject(request, subject_id):
         
         if not status['is_completed']:
             reasons = []
-            if not status['is_watched']:
+            if not status['is_watched'] or status.get('is_stale_watch'):
                 reasons.append('الجلسة التعليمية النصية')
             if not status['video_watched']:
                 reasons.append('جلسة الفيديو')

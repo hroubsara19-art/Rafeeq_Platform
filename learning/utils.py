@@ -655,6 +655,20 @@ def _build_adhd_instruction(
         '【5】ممنوع: * # _ ~ ` | "في هذا الدرس" | "وخلاصة القول"',
         '【6】لغة مناسبة للـ TTS: فواصل ونقاط طبيعية.',
         '',
+        '═══ الأسلوب القصصي والتنقيط — مُلزِم ═══',
+        '【1】استخدم أسلوب قصصي مبسط يناسب عمر الطالب ومادة الدراسة.',
+        '【2】استخدم النقاط (•) لعرض الأفكار الرئيسية داخل الفقرات.',
+        '【3】ميّز الكلمات المهمة والمفاهيم الأساسية بـ **bold** (مثال: **الضوء**، **الطاقة**).',
+        '【4】اجعل القصة مشوّقة ومترابطة مع حياة الطالب.',
+        '【5】استخدم لغة بسيطة ومباشرة مناسبة للصف المستهدف.',
+        '',
+        '═══ الحركات المهمة للنطق الصحيح — مُلزِم ═══',
+        '【1】ضع الحركات المهمة على الكلمات التي قد يخطئ في نطقها نظام TTS.',
+        '【2】استخدم الحركات العربية: اً (ألف مقصورة)، اً (تنوين)، اً (همزة)، اً (شدة).',
+        '【3】أضف الحركات على الكلمات المهمة والمفاهيم الأساسية.',
+        '【4】مثال: "الضوءُ" بدلاً من "الضوء"، "الطاقةُ" بدلاً من "الطاقة".',
+        '【5】لا تُكثر من الحركات، فقط الكلمات المهمة التي قد يخطئ في نطقها.',
+        '',
         f'═══ بنية الدرس: hook + {para_count} فقرات + summary ═══',
         f'❶ hook: {hook_ex}',
         *[f'❷ content {i+1}: {para_roles[i]}' for i in range(para_count)],
@@ -746,9 +760,15 @@ def process_lesson_with_ai(
                 summaries = [x for x in parsed if x.get('type') == 'summary']
                 ordered   = hooks + contents + summaries if (hooks or summaries) else parsed
                 paragraphs_list = [
-                    re.sub(r'[*#_~`]', '', item.get('paragraph', '')).strip()
+                    # تحويل **bold** إلى <strong> أولاً
+                    re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', item.get('paragraph', '')).strip()
                     for item in ordered
                     if item.get('paragraph', '').strip()
+                ]
+                # إزالة الرموز غير المرغوبة بعد التحويل
+                paragraphs_list = [
+                    re.sub(r'[#_~`]', '', p).strip()
+                    for p in paragraphs_list
                 ]
         except Exception:
             paragraphs_list = []
@@ -765,9 +785,15 @@ def process_lesson_with_ai(
                 try:
                     parsed = _json.loads(_sanitize_json_str(json_match.group()))
                     paragraphs_list = [
-                        re.sub(r'[*#_~`]', '', item.get('paragraph', '')).strip()
+                        # تحويل **bold** إلى <strong> أولاً
+                        re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', item.get('paragraph', '')).strip()
                         for item in parsed
                         if item.get('paragraph', '').strip()
+                    ]
+                    # إزالة الرموز غير المرغوبة بعد التحويل
+                    paragraphs_list = [
+                        re.sub(r'[#_~`]', '', p).strip()
+                        for p in paragraphs_list
                     ]
                     if paragraphs_list:
                         simplified_text = '\n\n'.join(paragraphs_list)

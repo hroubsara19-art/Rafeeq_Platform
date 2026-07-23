@@ -2788,7 +2788,10 @@ window.addEventListener('beforeunload', function(){
         var numEl     = document.createElement('div'); numEl.className = 'std-para-num'; numEl.textContent = String(i+1);
         var contentEl = document.createElement('div'); contentEl.className = 'std-para-content';
         var textEl    = document.createElement('div'); textEl.className   = 'std-para-text';
-        textEl.innerHTML = escHtml(text).replace(/\n/g,'<br>');
+        
+        // عرض النص كما هو (بما أن _sanitize_text سمح بتنسيق HTML المحدد)
+        // بما في ذلك span مع background-color للتمييز بالألوان
+        textEl.innerHTML = text.replace(/\n/g,'<br>');
 
         contentEl.appendChild(textEl);
         block.appendChild(numEl);

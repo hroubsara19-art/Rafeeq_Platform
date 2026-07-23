@@ -410,7 +410,11 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
       <!-- ✅ تلميح إعادة المشاهدة -->
       <div class="sm-rewatched-note">
         <i class="fas fa-check-circle" style="font-size:1rem;flex-shrink:0;"></i>
+        {% if is_stale_watch %}
+        تم تحديث محتوى هذا الدرس — يُنصح بإعادة المشاهدة لرؤية التعديلات الجديدة!
+        {% else %}
         لقد شاهدت هذا الدرس مسبقاً — إعادة المشاهدة تُرسّخ الفهم!
+        {% endif %}
       </div>
       {% endif %}
 
