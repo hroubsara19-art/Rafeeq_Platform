@@ -297,7 +297,6 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
   right: 0;
   left: 0;
   height: 4px;
-  background: var(--blue);
   opacity: 0;
   transition: opacity 0.25s;
 }
@@ -305,7 +304,6 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
 .advanced-tool-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-  border-color: var(--blue-bd);
 }
 
 .advanced-tool-card:hover::before {
@@ -332,8 +330,6 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
   width: 64px;
   height: 64px;
   border-radius: 16px;
-  background: var(--blue-lt);
-  color: var(--blue);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -378,8 +374,6 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
   border-radius: 10px;
   font-size: 0.92rem;
   font-weight: 700;
-  background: var(--blue);
-  color: #fff;
   border: none;
   cursor: pointer;
   transition: all 0.2s;
@@ -387,22 +381,58 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
   align-self: flex-start;
 }
 
-.atc-cta:hover {
-  background: var(--blue-dk);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.3);
-}
-
 .advanced-tool-card.disabled .atc-cta {
-  background: var(--muted);
+  background: var(--muted) !important;
+  color: #fff !important;
   cursor: not-allowed;
   pointer-events: none;
 }
 
 .advanced-tool-card.disabled .atc-cta:hover {
-  background: var(--muted);
+  background: var(--muted) !important;
   transform: none;
   box-shadow: none;
+}
+
+/* ══ تخصيص ألوان البطاقات المتقدمة ═════════════════════════════ */
+/* 1. كارد الفيديو (أزرق) */
+.advanced-tool-card.card-video .atc-icon {
+  background: #eff6ff;
+  color: #2563eb;
+}
+.advanced-tool-card.card-video .atc-cta {
+  background: #2563eb;
+  color: #ffffff;
+}
+.advanced-tool-card.card-video .atc-cta:hover {
+  background: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+.advanced-tool-card.card-video::before {
+  background: #2563eb;
+}
+.advanced-tool-card.card-video:hover {
+  border-color: #93c5fd;
+}
+
+/* 2. كارد الواقع الافتراضي (بنفسجي) */
+.advanced-tool-card.card-vr .atc-icon {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+.advanced-tool-card.card-vr .atc-cta {
+  background: #7c3aed;
+  color: #ffffff;
+}
+.advanced-tool-card.card-vr .atc-cta:hover {
+  background: #6d28d9;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+.advanced-tool-card.card-vr::before {
+  background: #7c3aed;
+}
+.advanced-tool-card.card-vr:hover {
+  border-color: #c084fc;
 }
 
 /* ══ Panel ═══════════════════════════════════════════════════ */
@@ -809,8 +839,8 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
       </button>
     </div>
     <div class="advanced-tools-grid">
-      <!-- AI Video Generation Card -->
-      <div class="advanced-tool-card">
+      <!-- AI Video Generation Card (Blue) -->
+      <div class="advanced-tool-card card-video">
         <div class="atc-icon">
           <i class="fas fa-video"></i>
         </div>
@@ -824,8 +854,8 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
         </a>
       </div>
 
-      <!-- VR Environment Card -->
-      <div class="advanced-tool-card">
+      <!-- VR Environment Card (Purple) -->
+      <div class="advanced-tool-card card-vr">
         <div class="atc-icon">
           <i class="fas fa-vr-cardboard"></i>
         </div>
@@ -842,7 +872,6 @@ body { background: var(--bg); font-family: 'Cairo', 'Tajawal', sans-serif; color
   </div>
 </div>
 {% endblock %}
-
 {% block extra_js %}
 <script>
 var _filterTimer = null;
