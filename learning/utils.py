@@ -24,6 +24,7 @@ import re
 import time
 
 import edge_tts
+import azure.cognitiveservices.speech as speechsdk
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -105,36 +106,46 @@ def _normalize_model(version: str) -> str:
 # ══════════════════════════════════════════════════════════════
 def _sanitize_json_str(s: str) -> str:
     """
-    يُصلح JSON الذي يحتوي أسطراً خام (\\n حقيقية) داخل قيم string.
+    يُصلح JSON الذي يحتوي أسطراً خام (\n حقيقية) ورجوع السطر (\r) أو \t داخل قيم string.
 
-    المشكلة: Gemini أحياناً يُرجع:
-        {"paragraph": "سطر أول
-        سطر ثانٍ"}
-    وهذا يُسبب: json.JSONDecodeError: Invalid control character
-
-    الحل: يمشي على النص حرفاً بحرف، وعندما يكون داخل string JSON
-    يستبدل \\n الخام بمسافة بدلاً من تركها تكسر الـ parser.
+    الحل: معالجة صحيحة للهروب (escaped characters) واستبدال الأحرف التحكمية الخام (Control Characters)
+    بمسافات داخل النصوص لمنع خطأ Invalid control character في json.loads.
     """
     result = []
     in_string = False
     i = 0
-    while i < len(s):
+    length = len(s)
+
+    while i < length:
         c = s[i]
-        # تعامل مع escape sequences داخل string — لا نغيرها
-        if c == '\\' and i + 1 < len(s):
+
+        # التعامل مع الـ Escape sequences القائمة بالفعل
+        if c == '\\' and i + 1 < length:
             result.append(c)
             result.append(s[i + 1])
             i += 2
             continue
-        # تتبع هل نحن داخل string JSON أم لا
+
+        # تبديل حالة التواجد داخل نص string أو خارجه
         if c == '"':
             in_string = not in_string
-        # ✅ الإصلاح الجوهري: \n خام داخل string → مسافة
-        if c == '\n' and in_string:
-            result.append(' ')
+            result.append(c)
+            i += 1
+            continue
+
+        # استبدال رموز التحكم والأسطر الخام داخل النصوص بمسافات
+        if in_string:
+            if c in ('\n', '\r', '\t'):
+                result.append(' ')
+            elif ord(c) < 32:  # التعامل مع باقي Control characters غير المطبوعة
+                result.append(' ')
+            else:
+                result.append(c)
         else:
             result.append(c)
+
         i += 1
+
     return ''.join(result)
 
 
@@ -349,13 +360,22 @@ def _call_gemini(api_key: str, model: str, instruction: str, content: str) -> st
 async def generate_audio_async(text: str, file_path: str) -> str | None:
     """
     يولّد MP3 + JSON timing للتظليل كلمة بكلمة.
+    يستخدم Azure Speech أولاً إذا كان متاحاً، ثم edge_tts كـ fallback.
 
     Returns:
         مسار ملف timing النسبي (file_path + '.json') أو None.
 
     بنية timing JSON:
-        [{"word": "كلمة", "start": 0.500, "end": 0.850}, ...]
+        [{"word": "كلمة", "start": 0.500, "end": 0.850, "char_offset": 0, "char_length": 4}, ...]
     """
+    # ✅ محاولة Azure Speech أولاً
+    azure_timing = generate_audio_azure(text, file_path)
+    if azure_timing:
+        logger.info('[utils] Using Azure Speech for audio generation')
+        return azure_timing
+
+    # ✅ Fallback إلى edge_tts
+    logger.info('[utils] Falling back to edge_tts')
     full_path = os.path.join(settings.MEDIA_ROOT, file_path)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
@@ -375,16 +395,26 @@ async def generate_audio_async(text: str, file_path: str) -> str | None:
         communicate = edge_tts.Communicate(clean, voice)
     except Exception as e:
         # محاولة صوت بديل
-        voice = 'ar-EG-SalmaNeural'
+        voice = 'ar-EG-AminaNeural'
         try:
             communicate = edge_tts.Communicate(clean, voice)
         except Exception as e2:
             # محاولة صوت آخر
             voice = 'ar-SA-HamadNeural'
             communicate = edge_tts.Communicate(clean, voice)
+
+    # ✅ تفعيل WordBoundary events
+    # بعض الأصوات تحتاج إلى تفعيل صريح لهذه الميزة
+    try:
+        communicate = edge_tts.Communicate(clean, voice, rate='+0%')
+    except:
+        pass
     
     audio_bytes: bytearray  = bytearray()
     word_timings: list[dict] = []
+
+    # ✅ تتبع إزاحة الأحرف في النص المنظف
+    current_char_offset = 0
 
     # ✅ stream() يُعطي كلا audio و WordBoundary
     try:
@@ -397,10 +427,20 @@ async def generate_audio_async(text: str, file_path: str) -> str | None:
                 offset = chunk.get('offset',   0)   # 100-nanoseconds
                 dur    = chunk.get('duration', 0)   # 100-nanoseconds
                 if word:
+                    # حساب إزاحة الأحرف في النص المنظف
+                    char_offset = clean.find(word, current_char_offset)
+                    if char_offset == -1:
+                        # إذا لم يُعثر على الكلمة، استخدم الإزاحة الحالية
+                        char_offset = current_char_offset
+                    else:
+                        current_char_offset = char_offset + len(word)
+
                     word_timings.append({
                         'word':  word,
                         'start': round(offset          / 10_000_000, 3),
                         'end':   round((offset + dur)  / 10_000_000, 3),
+                        'char_offset': char_offset,
+                        'char_length': len(word),
                     })
     except Exception as e:
         logger.warning(f'[utils] stream() failed: {e}, trying save() fallback')
@@ -440,6 +480,110 @@ async def generate_audio_async(text: str, file_path: str) -> str | None:
         logger.warning('[utils] No WordBoundary events — word highlighting unavailable')
 
     return timing_rel
+
+
+# ══════════════════════════════════════════════════════════════
+# Azure Speech Service - توليد الصوت مع WordBoundary
+# ══════════════════════════════════════════════════════════════
+def generate_audio_azure(text: str, file_path: str) -> str | None:
+    """
+    توليد الصوت باستخدام Azure Speech Service مع استخراج توقيتات الكلمات
+
+    Args:
+        text: النص المراد تحويله إلى صوت
+        file_path: مسار ملف الصوت النسبي (داخل MEDIA_ROOT)
+
+    Returns:
+        مسار ملف التوقيت JSON النسبي، أو None إذا فشل
+    """
+    azure_key = getattr(settings, 'AZURE_SPEECH_KEY', '')
+    azure_region = getattr(settings, 'AZURE_SPEECH_REGION', 'eastus')
+
+    if not azure_key:
+        logger.warning('[utils] Azure Speech Key not configured, falling back to edge_tts')
+        return None
+
+    try:
+        # تنظيف النص
+        clean = re.sub(r'<[^>]+>', ' ', text)
+        clean = re.sub(r'[*#_~`\\]', '', clean)
+        clean = re.sub(r'-{2,}', ' ', clean)
+        clean = re.sub(r'\s{3,}', '\n\n', clean)
+        clean = clean.strip()
+
+        if not clean:
+            raise ValueError('النص فارغ بعد التنظيف')
+
+        full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+        # إعداد Azure Speech
+        speech_config = speechsdk.SpeechConfig(
+            subscription=azure_key,
+            region=azure_region
+        )
+        speech_config.speech_synthesis_voice_name = "ar-SA-HamedNeural"
+        speech_config.set_speech_synthesis_output_format(
+            speechsdk.SpeechSynthesisOutputFormat.Audio16Khz128KBitRateMonoMp3
+        )
+
+        audio_config = speechsdk.audio.AudioOutputConfig(filename=full_path)
+        synthesizer = speechsdk.SpeechSynthesizer(
+            speech_config=speech_config,
+            audio_config=audio_config
+        )
+
+        words_timestamps = []
+        current_char_offset = 0
+
+        # معالج WordBoundary
+        def word_boundary_handler(evt):
+            nonlocal current_char_offset
+            start_time = evt.audio_offset / 10000000.0  # تحويل من 100-nanosecond إلى ثوانٍ
+            duration = evt.duration.total_seconds()
+
+            # حساب إزاحة الأحرف في النص المنظف
+            word = evt.text.strip()
+            if word:
+                char_offset = clean.find(word, current_char_offset)
+                if char_offset == -1:
+                    char_offset = current_char_offset
+                else:
+                    current_char_offset = char_offset + len(word)
+
+                words_timestamps.append({
+                    "word": word,
+                    "start": round(start_time, 3),
+                    "end": round(start_time + duration, 3),
+                    "char_offset": char_offset,
+                    "char_length": len(word)
+                })
+
+        synthesizer.synthesis_word_boundary.connect(word_boundary_handler)
+
+        # توليد الصوت
+        result = synthesizer.speak_text_async(clean).get()
+
+        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+            # حفظ ملف التوقيتات JSON
+            if words_timestamps:
+                timing_rel = file_path + '.json'
+                timing_full = full_path + '.json'
+                with open(timing_full, 'w', encoding='utf-8') as f:
+                    _json.dump(words_timestamps, f, ensure_ascii=False, indent=None)
+                logger.info(f'[utils] Azure Speech: Audio saved: {file_path} ({len(words_timestamps)} words)')
+                logger.info(f'[utils] Azure Speech: Timing saved: {timing_rel}')
+                return timing_rel
+            else:
+                logger.warning('[utils] Azure Speech: No word boundaries captured')
+                return None
+        else:
+            logger.error(f'[utils] Azure Speech Failed: {result.reason}')
+            return None
+
+    except Exception as e:
+        logger.error(f'[utils] Azure Speech Error: {str(e)}')
+        return None
 
 
 # ══════════════════════════════════════════════════════════════
@@ -707,7 +851,7 @@ def process_lesson_with_ai(
     print('\n--- 🏁 بدء المعالجة الشاملة للدرس ---')
     timestamp = int(time.time())
 
-    # ── مفتاح API ────────────────────────────────────────────
+# ── مفتاح API ────────────────────────────────────────────
     teacher_obj = teacher or getattr(agent_data, '_teacher_hint', None)
     api_key, model = _resolve_api_key(agent_data, teacher_obj)
     print(f'[utils] API key={api_key[:8]}..., model={model!r}')
@@ -747,75 +891,42 @@ def process_lesson_with_ai(
             raise ValueError('Gemini لم يُعِد نصاً')
 
         paragraphs_list = []
-        try:
-            # ✅ استخدام greedy match لاستخراج JSON الكامل
-            json_match = re.search(r'\[\s*\{.*\}\s*\]', full_res, re.DOTALL)
-            if json_match:
-                # ✅ [JSON-FIX] تنظيف \n الخام داخل strings قبل json.loads
-                # Gemini أحياناً يُرجع أسطراً خام داخل "paragraph": "..."
-                # مما يُسبب "Invalid control character" في json.loads وفشل التوليد
-                parsed = _json.loads(_sanitize_json_str(json_match.group()))
-                hooks     = [x for x in parsed if x.get('type') == 'hook']
-                contents  = [x for x in parsed if x.get('type') == 'content']
-                summaries = [x for x in parsed if x.get('type') == 'summary']
-                ordered   = hooks + contents + summaries if (hooks or summaries) else parsed
-                paragraphs_list = [
-                    # تحويل **bold** إلى <strong> أولاً
-                    re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', item.get('paragraph', '')).strip()
-                    for item in ordered
-                    if item.get('paragraph', '').strip()
-                ]
-                # إزالة الرموز غير المرغوبة بعد التحويل
-                paragraphs_list = [
-                    re.sub(r'[#_~`]', '', p).strip()
-                    for p in paragraphs_list
-                ]
-        except Exception:
-            paragraphs_list = []
+        
+        # ✅ استخراج مصفوفة الـ JSON مباشرة بشكل منظم
+        json_match = re.search(r'\[\s*\{.*\}\s*\]', full_res, re.DOTALL)
+        if json_match:
+            try:
+                # التنظيف المسبق واستخراج الـ JSON
+                sanitized_str = _sanitize_json_str(json_match.group())
+                parsed = _json.loads(sanitized_str)
+                
+                # فرز وتجميع الأقسام حسب النوع (hook -> content -> summary)
+                hooks     = [x for x in parsed if isinstance(x, dict) and x.get('type') == 'hook']
+                contents  = [x for x in parsed if isinstance(x, dict) and x.get('type') == 'content']
+                summaries = [x for x in parsed if isinstance(x, dict) and x.get('type') == 'summary']
+                
+                ordered = hooks + contents + summaries if (hooks or summaries) else parsed
+
+                for item in ordered:
+                    if isinstance(item, dict):
+                        p_text = item.get('paragraph', '').strip()
+                        if p_text:
+                            # تحويل **bold** إلى <strong> وإزالة الرموز غير المرغوبة
+                            p_text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', p_text)
+                            p_text = re.sub(r'[#_~`]', '', p_text).strip()
+                            paragraphs_list.append(p_text)
+            except Exception as parse_err:
+                logger.warning(f'[utils] Failed to parse JSON array: {parse_err}')
 
         if paragraphs_list:
             simplified_text = '\n\n'.join(paragraphs_list)
         else:
-            # محاولة إزالة JSON إذا كان موجوداً
-            raw = full_res
-            # إزالة JSON array إذا كان موجوداً
-            json_match = re.search(r'\[\s*\{.*\}\s*\]', raw, re.DOTALL)
-            if json_match:
-                # محاولة استخراج الفقرات من JSON مرة أخرى
-                try:
-                    parsed = _json.loads(_sanitize_json_str(json_match.group()))
-                    paragraphs_list = [
-                        # تحويل **bold** إلى <strong> أولاً
-                        re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', item.get('paragraph', '')).strip()
-                        for item in parsed
-                        if item.get('paragraph', '').strip()
-                    ]
-                    # إزالة الرموز غير المرغوبة بعد التحويل
-                    paragraphs_list = [
-                        re.sub(r'[#_~`]', '', p).strip()
-                        for p in paragraphs_list
-                    ]
-                    if paragraphs_list:
-                        simplified_text = '\n\n'.join(paragraphs_list)
-                    else:
-                        # إذا فشل، استخدم النص الأصلي بدون JSON
-                        raw = re.sub(r'\[\s*\{.*\}\s*\]', '', raw, flags=re.DOTALL)
-                        raw = re.sub(r'[*#_~`]', '', raw)
-                        raw = re.sub(r'^\s*[-–—]\s+', '', raw, flags=re.MULTILINE)
-                        raw = re.sub(r'^\s*\d+\.\s+', '', raw, flags=re.MULTILINE)
-                        simplified_text = re.sub(r'\n{3,}', '\n\n', raw).strip()
-                except Exception:
-                    # إذا فشل، استخدم النص الأصلي بدون JSON
-                    raw = re.sub(r'\[\s*\{.*\}\s*\]', '', raw, flags=re.DOTALL)
-                    raw = re.sub(r'[*#_~`]', '', raw)
-                    raw = re.sub(r'^\s*[-–—]\s+', '', raw, flags=re.MULTILINE)
-                    raw = re.sub(r'^\s*\d+\.\s+', '', raw, flags=re.MULTILINE)
-                    simplified_text = re.sub(r'\n{3,}', '\n\n', raw).strip()
-            else:
-                raw = re.sub(r'[*#_~`]', '', raw)
-                raw = re.sub(r'^\s*[-–—]\s+', '', raw, flags=re.MULTILINE)
-                raw = re.sub(r'^\s*\d+\.\s+', '', raw, flags=re.MULTILINE)
-                simplified_text = re.sub(r'\n{3,}', '\n\n', raw).strip()
+            # ✅ Fallback: في حال فشل استخراج الـ JSON، يتم تنظيف النص العادي القادم من Gemini
+            raw = re.sub(r'\[\s*\{.*\}\s*\]', '', full_res, flags=re.DOTALL)
+            raw = re.sub(r'[*#_~`]', '', raw)
+            raw = re.sub(r'^\s*[-–—]\s+', '', raw, flags=re.MULTILINE)
+            raw = re.sub(r'^\s*\d+\.\s+', '', raw, flags=re.MULTILINE)
+            simplified_text = re.sub(r'\n{3,}', '\n\n', raw).strip()
 
         print('✅ تم تجهيز النص بنجاح.')
 

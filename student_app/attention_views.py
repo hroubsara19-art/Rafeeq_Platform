@@ -297,7 +297,7 @@ def notify_attention_alert(request):
 @require_POST
 def tts_alert(request):
     """
-    توليد ملف صوتي قصير للتنبيه باستخدام نفس صوت الدرس (edge_tts ar-EG-SalmaNeural).
+    توليد ملف صوتي قصير للتنبيه باستخدام نفس صوت الدرس (edge_tts ar-EG-AminaNeural).
     Body JSON: {"text": "نص التنبيه القصير"}
     Returns: {"ok": True, "audio_url": "/media/.."}
     """

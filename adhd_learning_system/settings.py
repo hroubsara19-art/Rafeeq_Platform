@@ -208,6 +208,10 @@ class _IgnoreSessionInterrupted(_logging.Filter):
 
 _logging.getLogger('django.request').addFilter(_IgnoreSessionInterrupted())
 
+# ── Azure Speech Service ───────────────────────────────────────
+AZURE_SPEECH_KEY = os.environ.get('AZURE_SPEECH_KEY', '')
+AZURE_SPEECH_REGION = os.environ.get('AZURE_SPEECH_REGION', 'eastus')
+
 # ── Logging ──────────────────────────────────────────────────
 LOGGING = {
     'version': 1,
