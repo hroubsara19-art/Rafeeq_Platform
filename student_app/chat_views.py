@@ -30,15 +30,30 @@ _GEMINI_REST = (
     "/v1beta/models/{model}:generateContent?key={key}"
 )
 
-# ✅ موديلات مدعومة فعلياً
+# ✅ [MODEL-FIX] موديلات محدّثة — نفس القائمة المستخدمة في learning/utils.py
+# بعد التحقق الفعلي عبر ListModels أن gemini-2.5-flash متقاعد (404) لهذا
+# الحساب بينما aliases مثل gemini-flash-latest ما زالت متاحة وتُحدَّث تلقائياً.
 _VALID_MODELS = {
+    'gemini-flash-latest',
+    'gemini-pro-latest',
     'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
     'gemini-2.5-flash-preview-05-20',
     'gemini-2.0-flash',
     'gemini-2.0-flash-001',
     'gemini-2.0-flash-lite',
 }
-_DEFAULT_MODEL = 'gemini-2.5-flash'  # ✅ النموذج الافتراضي الموصى به
+_DEFAULT_MODEL = 'gemini-flash-latest'  # ✅ [MODEL-FIX] alias مستقر بدل اسم مُثبَّت قد يتقاعد
+
+# ✅ [MODEL-FIX] سلسلة fallback حقيقية متعددة الخطوات بدل الاعتماد على
+# "أعد المحاولة بـ _DEFAULT_MODEL" فقط (وهو عديم الفائدة إذا كان الموديل
+# الأصلي أصلاً يساوي _DEFAULT_MODEL — عندها ما كانت تصير أي إعادة محاولة).
+_FALLBACK_CHAIN = [
+    'gemini-flash-latest',
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash-001',
+    'gemini-2.0-flash-lite',
+]
 
 _OFF_TOPIC_REPLIES = [
     "أهلاً بك 😊 سؤالك جميل! لكنه خارج موضوع درس **{title}**. "
@@ -53,6 +68,110 @@ _OFF_TOPIC_REPLIES = [
 
 def _off_topic_reply(title: str) -> str:
     return random.choice(_OFF_TOPIC_REPLIES).format(title=title)
+
+
+# ══════════════════════════════════════════════════════════════
+# ✅ [AGE-FIX] خريطة الصف → العمر وملفات تعريف مبسّطة لأسلوب الشات
+# ══════════════════════════════════════════════════════════════
+# نفس _GRADE_AGE_MAP المستخدمة في learning/utils.py لضمان اتساق التصنيف
+# بين توليد الدرس والمحادثة معه.
+_GRADE_AGE_MAP: dict = {
+    'الثاني': 7, 'الثالث': 8, 'الرابع': 9, 'الخامس': 10,
+    'السادس': 11, 'السابع': 12, 'الثامن': 13, 'التاسع': 14,
+    'العاشر': 15,
+    'الحادي عشر العلمي': 16, 'الحادي عشر الأدبي': 16,
+    'الحادي عشر الصناعي': 16, 'الحادي عشر التجاري': 16,
+    'الحادي عشر الزراعي': 16,
+}
+
+# ملفات تعريف مخصّصة لأسلوب رد الشات بوت (مبسّطة عن ملفات utils.py لأن
+# الشات لا يحتاج بنية فقرات/hook، فقط ضبط اللغة وطول الرد والمفردات).
+_CHAT_GRADE_PROFILES = [
+    (range(7,  10), {
+        'stage':     'ابتدائية دنيا',
+        'language':  'جمل قصيرة جداً (5-7 كلمات)، مفردات بسيطة من المنزل والمدرسة، بدون مصطلحات معقدة',
+        'avoid':     'المصطلحات الأكاديمية، الجمل الطويلة المركبة، الشرح المجرد',
+        'tone':      'دافئ ومشجّع جداً، كأنك تشرح لطفل صغير فضولي',
+        'max_words': 60,
+    }),
+    (range(10, 13), {
+        'stage':     'ابتدائية عليا',
+        'language':  'جمل بسيطة وواضحة (7-10 كلمات)، مصطلح واحد جديد مع شرح فوري له إذا لزم',
+        'avoid':     'الشرح النظري المجرد، التفاصيل الزائدة عن الحاجة',
+        'tone':      'حماسي ومشجّع، بأسلوب صديق يشرح شيئاً ممتعاً',
+        'max_words': 90,
+    }),
+    (range(12, 16), {
+        'stage':     'إعدادية',
+        'language':  'جمل طبيعية، مصطلحين إلى ثلاثة مصطلحات مشروحة عند الحاجة',
+        'avoid':     'التبسيط المُهين أو الأمثلة الطفولية جداً',
+        'tone':      'ودود ومباشر، يحترم قدرة الطالب على الفهم',
+        'max_words': 120,
+    }),
+    (range(15, 19), {
+        'stage':     'ثانوية',
+        'language':  'جمل كاملة، مصطلحات أكاديمية مشروحة بإيجاز عند الحاجة',
+        'avoid':     'التبسيط المفرط الذي يقلل من جدية الموضوع',
+        'tone':      'محترم وواضح، يشجع التفكير النقدي',
+        'max_words': 150,
+    }),
+]
+
+
+def _get_chat_grade_profile(age: int) -> dict:
+    for rng, profile in _CHAT_GRADE_PROFILES:
+        if age in rng:
+            return profile
+    return _CHAT_GRADE_PROFILES[2][1]  # افتراضي: إعدادية
+
+
+def _resolve_student_grade(lesson: Lessoncontent, student: Student) -> tuple[str, int]:
+    """
+    يحاول تحديد اسم الصف وعمر الطالب من عدة مصادر محتملة (اسم الصف المرتبط
+    بالطالب، عنوان الدرس، اسم المادة) بنفس منطق التصنيف في utils.py.
+
+    يُجرَّب أكثر من اسم حقل محتمل لكل علاقة (classid, subjectid) لأن أسماء
+    الحقول الدقيقة في الموديلات قد تختلف؛ إن لم يُعثر على تطابق يُعاد
+    (grade_name فارغ, عمر افتراضي 12 = إعدادية) بدون أي استثناء.
+    """
+    class_name = ''
+    try:
+        classid = getattr(student, 'classid', None)
+        if classid:
+            for attr in ('classname', 'class_name', 'name', 'title'):
+                val = getattr(classid, attr, None)
+                if val:
+                    class_name = str(val)
+                    break
+    except Exception:
+        pass
+
+    lesson_title = str(getattr(lesson, 'lessontitle', '') or '')
+
+    subject_name = ''
+    try:
+        subjectid = getattr(lesson, 'subjectid', None)
+        if subjectid:
+            for attr in ('subjectname', 'subject_name', 'name', 'title'):
+                val = getattr(subjectid, attr, None)
+                if val:
+                    subject_name = str(val)
+                    break
+    except Exception:
+        pass
+
+    grade_name  = ''
+    student_age = 12  # افتراضي: إعدادية، في حال تعذّر التحديد
+    for text in (class_name, lesson_title, subject_name):
+        for grade, age in _GRADE_AGE_MAP.items():
+            if grade in text:
+                grade_name  = grade
+                student_age = age
+                break
+        if grade_name:
+            break
+
+    return grade_name, student_age
 
 
 # ══════════════════════════════════════════════════════════════
@@ -183,18 +302,35 @@ def _get_api_key(lesson: Lessoncontent, student: Student = None) -> tuple[str | 
 # ══════════════════════════════════════════════════════════════
 # System Prompt
 # ══════════════════════════════════════════════════════════════
-def _build_system_prompt(lesson_title: str, lesson_context: str) -> str:
+def _build_system_prompt(
+    lesson_title: str,
+    lesson_context: str,
+    grade_name: str = '',
+    student_age: int = 12,
+    profile: dict | None = None,
+) -> str:
+    profile = profile or _get_chat_grade_profile(student_age)
+    grade_label = f'الصف {grade_name}' if grade_name else profile.get('stage', '')
+    max_words   = profile.get('max_words', 150)
+
     return f"""أنت مساعد تعليمي ذكي اسمك "معلم إيدوبال" متخصص حصراً في درس "{lesson_title}".
 
 ══ محتوى الدرس (استند إليه في إجاباتك) ══
 {lesson_context}
 ══════════════════════════════════════════
 
+══ الطالب الذي تتحدث معه ══
+العمر: {student_age} سنة | المرحلة: {grade_label}
+أسلوب اللغة المطلوب: {profile.get('language', '')}
+تجنّب: {profile.get('avoid', '')}
+النبرة: {profile.get('tone', '')}
+══════════════════════════════════════════
+
 قواعد صارمة:
 1. أجب فقط على الأسئلة المتعلقة بمحتوى درس "{lesson_title}".
 2. إذا كان السؤال خارج نطاق الدرس تماماً، اكتب فقط: OUT_OF_SCOPE
 3. إذا كان السؤال عاماً لكنه مرتبط بمفاهيم الدرس، أجب باختصار.
-4. اجعل إجاباتك: بسيطة، لا تتجاوز 150 كلمة، بالعربية، مشجعة.
+4. اجعل إجاباتك: بسيطة، لا تتجاوز {max_words} كلمة، بالعربية، مشجعة، وبما يناسب عمر الطالب ومرحلته المذكورة أعلاه بالضبط — لا أبسط ولا أعقد من اللازم.
 5. استخدم emoji بشكل محدود: ✅ 💡 🎯 📌 👍 🌟
 6. ابدأ الإجابة مباشرة بدون تكرار السؤال.
 7. إذا طُلبت معلومة غير موجودة في الدرس، اعترف بذلك."""
@@ -257,8 +393,12 @@ def _call_gemini_sdk(api_key: str, model: str, system: str,
 # ══════════════════════════════════════════════════════════════
 def _call_gemini_rest(api_key: str, model: str, system: str,
                       history: list[dict], user_msg: str,
-                      _retried: bool = False) -> str | None:
+                      _tried: set | None = None) -> str | None:
     import urllib.request, urllib.error
+
+    if _tried is None:
+        _tried = set()
+    _tried.add(model)
 
     url      = _GEMINI_REST.format(model=model, key=api_key)
     contents = []
@@ -307,12 +447,16 @@ def _call_gemini_rest(api_key: str, model: str, system: str,
     except urllib.error.HTTPError as exc:
         body = exc.read().decode('utf-8', errors='ignore')[:300]
         logger.error(f'[chat] REST HTTP {exc.code} model={model}: {body}')
-        # 404/400 → إعادة المحاولة مع النماذج الافتراضية
-        if exc.code in (400, 404) and not _retried and model != _DEFAULT_MODEL:
-            logger.info(f'[chat] Retry with {_DEFAULT_MODEL}')
-            return _call_gemini_rest(
-                api_key, _DEFAULT_MODEL, system, history, user_msg, _retried=True
-            )
+        # ✅ [MODEL-FIX] 400/404/429 → جرّب كل موديل تالٍ في _FALLBACK_CHAIN
+        # لم يُجرَّب بعد، بدل الاعتماد فقط على _DEFAULT_MODEL (الذي قد يكون
+        # هو نفسه الموديل الفاشل أصلاً، فما كانت تصير أي إعادة محاولة فعلية).
+        if exc.code in (400, 404, 429):
+            for next_model in _FALLBACK_CHAIN:
+                if next_model not in _tried:
+                    logger.info(f'[chat] Fallback {exc.code} → {next_model!r}')
+                    return _call_gemini_rest(
+                        api_key, next_model, system, history, user_msg, _tried
+                    )
         return None
     except Exception as exc:
         logger.error(f'[chat] REST error: {exc}')
@@ -335,14 +479,6 @@ def _call_gemini(api_key: str, model: str, system: str,
     result = _call_gemini_rest(api_key, model, system, history, user_msg)
     if result:
         return result
-
-    if model != _DEFAULT_MODEL:
-        logger.info(f'[chat] Final fallback → {_DEFAULT_MODEL}')
-        result = _call_gemini_rest(
-            api_key, _DEFAULT_MODEL, system, history, user_msg, _retried=True
-        )
-        if result:
-            return result
 
     logger.error('[chat] ✗ All attempts failed')
     return None
@@ -439,8 +575,11 @@ def lesson_chat(request, lesson_id: int):
             gemini_history.append({'role': role, 'parts': [{'text': text}]})
 
     # ── استدعاء Gemini ────────────────────────────────────────
-    system_prompt = _build_system_prompt(lesson_title, lesson_ctx)
-    raw_reply     = _call_gemini(api_key, model, system_prompt, gemini_history, message)
+    grade_name, student_age = _resolve_student_grade(lesson, student)
+    system_prompt = _build_system_prompt(
+        lesson_title, lesson_ctx, grade_name, student_age
+    )
+    raw_reply = _call_gemini(api_key, model, system_prompt, gemini_history, message)
 
     if raw_reply is None:
         return JsonResponse({
