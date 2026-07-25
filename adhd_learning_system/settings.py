@@ -4,6 +4,11 @@ settings.py — منصة رفيق ADHD Learning System (Production Ready)
 ملف .env المطلوب في جذر المشروع للتطوير المحلي فقط:
   SECRET_KEY, DEBUG, ALLOWED_HOSTS, DATABASE_URL,
   EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, HF_API_TOKEN, API_ENCRYPTION_KEY
+
+[DB-FIX] تم فصل قاعدة البيانات: محلية بالتطوير (سريعة)، Render فقط بالإنتاج الفعلي.
+السبب: DATABASE_URL كان يُستخدم دائماً حتى محلياً، فكل request (بما فيه
+الـ session والـ cache المخزّنين بقاعدة البيانات) كان يذهب لسيرفر Render
+بأوريغون عبر الإنترنت، وهذا يسبب بطء ملحوظ بكل صفحة.
 """
 
 from pathlib import Path
@@ -13,9 +18,12 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # تحميل ملف .env للتطوير المحلي فقط (بيئة Render تقرأ من الإعدادات مباشرة)
+# [ENV-FIX] override=True: يضمن أن قيم .env تطغى دائماً على أي متغير بيئة
+# قديم محفوظ على مستوى نظام التشغيل (مثال: GEMINI_API_KEY قديم بويندوز)،
+# لأن python-dotenv افتراضياً لا يستبدل متغيرات موجودة أصلاً بالـ OS.
 try:
     from dotenv import load_dotenv
-    load_dotenv(BASE_DIR / '.env')
+    load_dotenv(BASE_DIR / '.env', override=True)
 except ImportError:
     pass
 
@@ -87,15 +95,36 @@ TEMPLATES = [{
 WSGI_APPLICATION = 'adhd_learning_system.wsgi.application'
 
 # ── قاعدة البيانات (PostgreSQL) ───────────────────────────────
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL', 'postgresql://postgres:@localhost:5432/ADHD_Learning_System'),
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-}
+# [DB-FIX] Render يضع متغير البيئة RENDER تلقائياً بسيرفراته فقط.
+# لذلك: بالإنتاج الفعلي (على Render) → نستخدم DATABASE_URL البعيد.
+#        بالتطوير المحلي (جهازك) → نستخدم قاعدة postgres المحلية دائماً،
+#        حتى لو DATABASE_URL موجودة بالـ .env، لتفادي بطء الشبكة على كل request.
+IS_ON_RENDER = bool(os.environ.get('RENDER'))
+
+if IS_ON_RENDER:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ.get('DATABASE_URL'),
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE':   'django.db.backends.postgresql',
+            'NAME':     os.environ.get('DB_NAME', 'ADHD_Learning_System'),
+            'USER':     os.environ.get('DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST':     os.environ.get('DB_HOST', 'localhost'),
+            'PORT':     os.environ.get('DB_PORT', '5432'),
+            'CONN_MAX_AGE': 600,
+        }
+    }
+
 # التعديل: رفع مهلة الاتصال إلى 30 ثانية لتفادي الـ 502 الناتجة عن ضغط السيرفر
-DATABASES['default']['OPTIONS'] = {'connect_timeout': 30}
+DATABASES['default'].setdefault('OPTIONS', {})
+DATABASES['default']['OPTIONS']['connect_timeout'] = 30
 
 # ── كلمات المرور ─────────────────────────────────────────────
 AUTH_PASSWORD_VALIDATORS = [
@@ -131,6 +160,9 @@ MEDIA_ROOT       = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # ── Cache — لـ Rate Limiting و Sessions ──────────────────────
+# [DB-FIX] ملاحظة: بما إنه الـ cache backend هون db-backed، أي بطء بقاعدة
+# البيانات (خصوصاً لو بعيدة) بينعكس مباشرة على كل rate-limit/session check.
+# بعد تفعيل قاعدة البيانات المحلية بالتطوير أعلاه، هاد البند بيصير سريع تلقائياً.
 CACHES = {
     'default': {
         'BACKEND':  'django.core.cache.backends.db.DatabaseCache',

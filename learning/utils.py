@@ -12,6 +12,14 @@ learning/utils.py
   ✅ [JSON-FIX] _sanitize_json_str: يُصلح \\n الخام داخل قيم paragraph
      السبب: Gemini أحياناً يُرجع أسطراً خام داخل "paragraph": "..."
      مما يُسبب "Invalid control character" في json.loads وفشل التوليد
+  ✅ [PROMPT-FIX] إزالة التناقض بين "ممنوع الرموز" و"استخدم **bold**"
+  ✅ [PROMPT-FIX] تخفيف طلب التشكيل ليصير اختيارياً ومحدوداً بدل إلزامي وشامل
+  ✅ [PROMPT-FIX] ترتيب أولويات القواعد بحيث المحتوى التربوي هو الأهم
+  ✅ [MODEL-FIX] سلسلة fallback مُحدَّثة بأسماء/aliases حديثة + جلب ديناميكي
+     عبر ListModels كحل أخير عند فشل كل الأسماء الثابتة (404)
+  ✅ [MODEL-FIX] فصل معالجة 429 (كوتا) عن 404 (موديل غير موجود):
+     429 → إعادة محاولة بتأخير بسيط على نفس الموديل مرة واحدة قبل القفز
+     404 → قفز فوري للموديل التالي في السلسلة
 """
 
 from __future__ import annotations
@@ -32,20 +40,27 @@ logger = logging.getLogger(__name__)
 # ══════════════════════════════════════════════════════════════
 # خريطة تصحيح أسماء الموديلات
 # ══════════════════════════════════════════════════════════════
+# [MODEL-FIX] أُضيفت أسماء "latest" aliases — Google تُحدّثها تلقائياً
+# فلا تتقاعد فجأة مثل الأسماء المُثبَّتة برقم إصدار (مثل -002 أو -001).
 _MODEL_FIX = {
     # الأسماء الناقصة → الأسماء الكاملة الصحيحة
     'gemini-1.5-flash':       'gemini-1.5-flash-002',
     'gemini-1.5-flash-001':   'gemini-1.5-flash-001',
     'gemini-1.5-pro':         'gemini-1.5-pro-002',
     'gemini-2.0-flash':       'gemini-2.0-flash-001',
-    'gemini-2.5-flash':       'gemini-2.5-flash',          # مدعوم مباشرة
+    'gemini-2.5-flash':       'gemini-2.5-flash',          # قد يكون متقاعداً لمشاريع جديدة — يُعالَج عبر fallback
     'gemini-2.5-pro':         'gemini-2.5-pro',
     'gemini-2.0-flash-lite':  'gemini-2.0-flash-lite',
+    # [MODEL-FIX] aliases حديثة إضافية
+    'gemini-flash-latest':    'gemini-flash-latest',
+    'gemini-pro-latest':      'gemini-pro-latest',
+    'gemini-2.5-flash-lite':  'gemini-2.5-flash-lite',
 }
 
 _VALID_MODELS = {
     'gemini-2.5-flash',
     'gemini-2.5-flash-preview-05-20',
+    'gemini-2.5-flash-lite',
     'gemini-2.5-pro',
     'gemini-2.0-flash-001',
     'gemini-2.0-flash-lite',
@@ -53,15 +68,31 @@ _VALID_MODELS = {
     'gemini-1.5-flash-001',
     'gemini-1.5-pro-002',
     'gemini-1.5-flash-8b',
+    # [MODEL-FIX] aliases حديثة
+    'gemini-flash-latest',
+    'gemini-pro-latest',
 }
 
-# ✅ الأولوية: 2.5-flash أولاً (مجاني) ثم 2.0 ثم 1.5
-_DEFAULT_MODEL  = 'gemini-2.5-flash'
-_FALLBACK_CHAIN = ['gemini-2.5-flash', 'gemini-1.5-flash-002', 'gemini-2.0-flash-001']
+# ✅ [MODEL-FIX] الأولوية: aliases "latest" أولاً لأنها الأقل عرضة للتقاعد المفاجئ،
+# بعدها أسماء ثابتة معروفة، وأخيراً الأسماء القديمة كطبقة أمان إضافية.
+# ملاحظة: لو أي اسم هنا يرجع 404 لمشروعك، الكود سينتقل تلقائياً للتالي،
+# وإذا فشلت كلها سيُستخدم _fetch_available_models() كحل أخير ديناميكي.
+_DEFAULT_MODEL  = 'gemini-flash-latest'
+_FALLBACK_CHAIN = [
+    'gemini-flash-latest',
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash-001',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash-002',
+]
 
 _GEMINI_REST = (
     'https://generativelanguage.googleapis.com'
     '/v1beta/models/{model}:generateContent?key={key}'
+)
+_GEMINI_LIST_MODELS = (
+    'https://generativelanguage.googleapis.com'
+    '/v1beta/models?key={key}'
 )
 
 
@@ -99,6 +130,54 @@ def _normalize_model(version: str) -> str:
 
     logger.warning(f'[utils] Unknown model {version!r} → {_DEFAULT_MODEL}')
     return _DEFAULT_MODEL
+
+
+# ══════════════════════════════════════════════════════════════
+# [MODEL-FIX] جلب قائمة الموديلات المتاحة فعلياً لهذا المفتاح/المشروع
+# ══════════════════════════════════════════════════════════════
+def _fetch_available_models(api_key: str) -> list[str]:
+    """
+    يستدعي ListModels عبر REST ويُعيد أسماء الموديلات التي تدعم
+    generateContent فعلياً لهذا المفتاح. يُستخدم كحل أخير عندما تفشل
+    كل الأسماء الثابتة في _FALLBACK_CHAIN بخطأ 404 (موديل غير موجود).
+
+    نُرتّب النتائج بحيث تُفضَّل موديلات "flash" (أرخص/أسرع) على "pro"،
+    و"latest" aliases على الأسماء المُثبَّتة برقم إصدار.
+    """
+    import urllib.request
+    import urllib.error
+
+    url = _GEMINI_LIST_MODELS.format(key=api_key)
+    try:
+        with urllib.request.urlopen(url, timeout=20) as resp:
+            data = _json.loads(resp.read().decode('utf-8'))
+    except Exception as e:
+        logger.error(f'[utils] ListModels failed: {e}')
+        return []
+
+    names = []
+    for m in data.get('models', []):
+        methods = m.get('supportedGenerationMethods', [])
+        if 'generateContent' not in methods:
+            continue
+        name = m.get('name', '')
+        for pfx in ('models/', 'model/'):
+            if name.startswith(pfx):
+                name = name[len(pfx):]
+                break
+        if name:
+            names.append(name)
+
+    def _rank(n: str) -> tuple:
+        return (
+            0 if 'flash' in n else (1 if 'pro' in n else 2),
+            0 if 'latest' in n else 1,
+            n,
+        )
+
+    names.sort(key=_rank)
+    logger.info(f'[utils] ListModels → {len(names)} models available: {names[:8]}')
+    return names
 
 
 # ══════════════════════════════════════════════════════════════
@@ -170,7 +249,7 @@ def _resolve_api_key(agent_data=None, teacher=None) -> tuple[str, str]:
     if not env_key:
         env_key = os.environ.get('GEMINI_API_KEY', '')
 
-    if env_key and str(env_key).strip().startswith('AIza'):
+    if env_key and str(env_key).strip() and len(str(env_key).strip()) >= 20:
         key = str(env_key).strip()
         model = _DEFAULT_MODEL
         try:
@@ -178,7 +257,7 @@ def _resolve_api_key(agent_data=None, teacher=None) -> tuple[str, str]:
                 model = _normalize_model(getattr(agent_data, 'version', '') or '')
         except Exception:
             pass
-        logger.info(f'[utils] ✓ GEMINI_API_KEY from env, model={model!r}')
+        logger.info(f'[utils] ✓ GEMINI_API_KEY from env, key={key[:12]}..., model={model!r}')
         return key, model
 
     # ── 2. agent_data المُمرَّر ──────────────────────────────
@@ -187,17 +266,17 @@ def _resolve_api_key(agent_data=None, teacher=None) -> tuple[str, str]:
         if fn and callable(fn):
             try:
                 k = fn()
-                if k and str(k).strip().startswith('AIza'):
+                if k and str(k).strip() and len(str(k).strip()) >= 20:
                     model = _normalize_model(getattr(agent_data, 'version', '') or '')
-                    logger.info(f'[utils] ✓ agent.get_api_key(), model={model!r}')
+                    logger.info(f'[utils] ✓ agent.get_api_key(), key={str(k).strip()[:12]}..., model={model!r}')
                     return str(k).strip(), model
             except Exception as e:
                 logger.debug(f'[utils] get_api_key() failed: {e}')
 
         raw = str(getattr(agent_data, 'api_key', '') or '').strip()
-        if raw.startswith('AIza'):
+        if raw and len(raw) >= 20:
             model = _normalize_model(getattr(agent_data, 'version', '') or '')
-            logger.info(f'[utils] ✓ agent.api_key raw, model={model!r}')
+            logger.info(f'[utils] ✓ agent.api_key raw, key={raw[:12]}..., model={model!r}')
             return raw, model
 
     # ── 3. DB AiAgent ─────────────────────────────────────────
@@ -209,19 +288,18 @@ def _resolve_api_key(agent_data=None, teacher=None) -> tuple[str, str]:
             if fn and callable(fn):
                 try:
                     k = fn()
-                    if k and str(k).strip():
+                    if k and str(k).strip() and len(str(k).strip()) >= 20:
                         key = str(k).strip()
-                        if key.startswith('AIza') or key.startswith('AQ.') or len(key) >= 20:
-                            model = _normalize_model(getattr(agent, 'version', '') or '')
-                            logger.info(f'[utils] ✓ DB AiAgent.get_api_key(), model={model!r}')
-                            return key, model
+                        model = _normalize_model(getattr(agent, 'version', '') or '')
+                        logger.info(f'[utils] ✓ DB AiAgent.get_api_key(), key={key[:12]}..., model={model!r}')
+                        return key, model
                 except Exception:
                     pass
 
             raw = str(getattr(agent, 'api_key', '') or '').strip()
-            if raw.startswith('AIza') or raw.startswith('AQ.') or len(raw) >= 20:
+            if raw and len(raw) >= 20:
                 model = _normalize_model(getattr(agent, 'version', '') or '')
-                logger.info(f'[utils] ✓ DB AiAgent raw, model={model!r}')
+                logger.info(f'[utils] ✓ DB AiAgent raw, key={raw[:12]}..., model={model!r}')
                 return raw, model
     except Exception as e:
         logger.warning(f'[utils] DB AiAgent lookup failed: {e}')
@@ -232,16 +310,15 @@ def _resolve_api_key(agent_data=None, teacher=None) -> tuple[str, str]:
         if fn and callable(fn):
             try:
                 k = fn()
-                if k and str(k).strip():
+                if k and str(k).strip() and len(str(k).strip()) >= 20:
                     key = str(k).strip()
-                    if key.startswith('AIza') or key.startswith('AQ.') or len(key) >= 20:
-                        logger.info('[utils] ✓ Teacher personal key')
-                        return key, _DEFAULT_MODEL
+                    logger.info(f'[utils] ✓ Teacher personal key, key={key[:12]}...')
+                    return key, _DEFAULT_MODEL
             except Exception:
                 pass
         raw = str(getattr(teacher, 'gemini_api_key', '') or '').strip()
-        if raw.startswith('AIza') or raw.startswith('AQ.') or len(raw) >= 20:
-            logger.info('[utils] ✓ Teacher raw key')
+        if raw and len(raw) >= 20:
+            logger.info(f'[utils] ✓ Teacher raw key, key={raw[:12]}...')
             return raw, _DEFAULT_MODEL
 
     logger.error('[utils] ✗ No valid Gemini API key found')
@@ -263,8 +340,8 @@ def _call_gemini_sdk(api_key: str, model: str, instruction: str, content: str) -
         client = genai.Client(api_key=api_key)
         config = types.GenerateContentConfig(
             system_instruction=instruction,
-            max_output_tokens=4096,
-            temperature=0.7,
+            max_output_tokens=8192,
+            temperature=0.55,
             top_p=0.9,
         )
         response = client.models.generate_content(
@@ -289,19 +366,22 @@ def _call_gemini_sdk(api_key: str, model: str, instruction: str, content: str) -
 # استدعاء Gemini عبر REST مع fallback chain
 # ══════════════════════════════════════════════════════════════
 def _call_gemini_rest(api_key: str, model: str, instruction: str,
-                      content: str, _tried: set | None = None) -> str | None:
+                      content: str, _tried: set | None = None,
+                      _retried_429: set | None = None) -> str | None:
     import urllib.request
     import urllib.error
 
     if _tried is None:
         _tried = set()
+    if _retried_429 is None:
+        _retried_429 = set()
     _tried.add(model)
 
     url = _GEMINI_REST.format(model=model, key=api_key)
     payload = {
         'system_instruction': {'parts': [{'text': instruction}]},
         'contents':           [{'role': 'user', 'parts': [{'text': content}]}],
-        'generationConfig':   {'maxOutputTokens': 4096, 'temperature': 0.7, 'topP': 0.9},
+        'generationConfig':   {'maxOutputTokens': 8192, 'temperature': 0.55, 'topP': 0.9},
     }
     data = _json.dumps(payload, ensure_ascii=False).encode('utf-8')
     req  = urllib.request.Request(
@@ -329,12 +409,30 @@ def _call_gemini_rest(api_key: str, model: str, instruction: str,
         body = exc.read().decode('utf-8', errors='ignore')[:300]
         logger.error(f'[utils] REST HTTP {exc.code} model={model}: {body}')
 
-        # ✅ عند 404 أو 429 → جرّب الموديل التالي في الـ chain
+        # ✅ [MODEL-FIX] 429 = تجاوز الكوتا (الموديل موجود وصالح، بس الحصة انتهت).
+        # نُعطي فرصة إعادة محاولة واحدة بتأخير قصير على نفس الموديل قبل القفز،
+        # لأن القفز الفوري لموديل تالٍ قد "يُهدر" موديلاً صالحاً لمجرد ضغط لحظي.
+        if exc.code == 429 and model not in _retried_429:
+            _retried_429.add(model)
+            logger.info(f'[utils] 429 على {model!r} → إعادة محاولة بعد 3 ثوانٍ')
+            time.sleep(3)
+            return _call_gemini_rest(api_key, model, instruction, content, _tried, _retried_429)
+
+        # ✅ عند 400 أو 404 أو 429 (بعد فشل إعادة المحاولة) → جرّب الموديل التالي
         if exc.code in (400, 404, 429):
             for next_model in _FALLBACK_CHAIN:
                 if next_model not in _tried:
                     logger.info(f'[utils] Fallback {exc.code} → {next_model!r}')
-                    return _call_gemini_rest(api_key, next_model, instruction, content, _tried)
+                    return _call_gemini_rest(api_key, next_model, instruction, content, _tried, _retried_429)
+
+            # ✅ [MODEL-FIX] استُنفدت كل السلسلة الثابتة → حاول جلب موديلات
+            # فعلية متاحة لهذا المفتاح عبر ListModels كحل أخير ديناميكي.
+            logger.warning('[utils] استُنفدت _FALLBACK_CHAIN → محاولة ListModels ديناميكياً')
+            for dyn_model in _fetch_available_models(api_key):
+                if dyn_model not in _tried:
+                    logger.info(f'[utils] Dynamic fallback → {dyn_model!r}')
+                    return _call_gemini_rest(api_key, dyn_model, instruction, content, _tried, _retried_429)
+
         return None
 
     except Exception as exc:
@@ -343,7 +441,7 @@ def _call_gemini_rest(api_key: str, model: str, instruction: str,
 
 
 def _call_gemini(api_key: str, model: str, instruction: str, content: str) -> str | None:
-    """SDK أولاً ثم REST مع fallback chain كامل."""
+    """SDK أولاً ثم REST مع fallback chain كامل (+ ListModels ديناميكياً كحل أخير)."""
     logger.info(f'[utils] → model={model!r} key={api_key[:8]}...')
 
     result = _call_gemini_sdk(api_key, model, instruction, content)
@@ -409,7 +507,7 @@ async def generate_audio_async(text: str, file_path: str) -> str | None:
         communicate = edge_tts.Communicate(clean, voice, rate='+0%')
     except:
         pass
-    
+
     audio_bytes: bytearray  = bytearray()
     word_timings: list[dict] = []
 
@@ -728,7 +826,7 @@ def _get_subject_cfg(subject_name: str) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════
-# System Prompt ADHD
+# System Prompt ADHD  —  [PROMPT-FIX] نسخة مُحسّنة
 # ══════════════════════════════════════════════════════════════
 def _build_adhd_instruction(
     subject_name: str, lesson_title: str, class_name: str,
@@ -786,40 +884,68 @@ def _build_adhd_instruction(
     json_example = '[\n' + ',\n'.join(json_parts) + '\n]'
 
     lines = [
-        'SYSTEM: أنت ADHD-Specialist Educational Narrator.',
+        'SYSTEM: أنت خبير تربوي متخصص في صعوبات التعلم واستراتيجيات تدريس طلاب ADHD.',
         f'السياق: {subject_label} | {grade_label} | {age_display} | {lesson_title or "غير محدد"}\n',
         *adhd_lines,
         *method_lines,
         '',
-        '═══ قواعد الفقرات — مُلزِمة ═══',
-        '【1】كل فقرة content: 60-90 كلمة.',
-        '【2】الجملة الأولى: 7 كلمات أو أقل.',
-        '【3】كل فقرة تبدأ بـ: سؤال / مفاجأة / "أنت" / تشجيع.',
-        '【4】بعد كل فكرة: جملة تشجيع قصيرة.',
-        '【5】ممنوع: * # _ ~ ` | "في هذا الدرس" | "وخلاصة القول"',
-        '【6】لغة مناسبة للـ TTS: فواصل ونقاط طبيعية.',
+        # ── الأولوية 1: هيكلية الدرس (الأهم) ──────────────────
+        '═══ الأولوية 1 — هيكلية الدرس (Micro-Learning) ═══',
+        '【1】قسّم الدرس إلى "جرعات صغيرة" (Chunking)، كل فقرة 3-4 سطور كحد أقصى '
+        '(35-45 كلمة تقريباً) — استغل هذا الحيّز بالكامل بمعلومة غنية بدل جملة سطحية.',
+        '【2】ابدأ كل فقرة بجملة قصيرة (7 كلمات أو أقل) تكون: سؤال / مفاجأة / كلمة "أنت" / تشجيع.',
+        '【3】كل فقرة تحمل فكرة واحدة فقط — لكن اشرح هذه الفكرة الواحدة بعمق: أضف لها '
+        'تفصيلاً ملموساً واحداً، أو رقماً، أو مثالاً واقعياً يخدمها مباشرة، بدل الاكتفاء '
+        'بجملة عامة سطحية. غِنى المحتوى يأتي من عمق الفكرة الواحدة لا من حشر عدة أفكار '
+        'في نفس الفقرة، وتنتهي الفقرة بجملة تشجيع قصيرة.',
+        '【4】استخدم لغة مباشرة وجملاً قصيرة وأسلوباً حماسياً شبيهاً بالسرد القصصي.',
+        '【5】تجنّب الكتل النصية الطويلة، الحشو، والعبارات الجاهزة مثل "في هذا الدرس" أو '
+        '"وخلاصة القول" — كل كلمة يجب أن تضيف معلومة أو تشويقاً فعلياً، لا حشواً فارغاً.',
+        '【6】وزّع أفكار الدرس عبر الفقرات بترابط تصاعدي (فكرة ← تفصيلها ← ربطها بحياة '
+        'الطالب) بحيث تبني كل فقرة على سابقتها، بدل تكديس معلومات متفرقة داخل فقرة '
+        'واحدة — هذا يحافظ على غنى المحتوى دون زيادة الحمل المعرفي على الطالب.',
         '',
-        '═══ الأسلوب القصصي والتنقيط — مُلزِم ═══',
-        '【1】استخدم أسلوب قصصي مبسط يناسب عمر الطالب ومادة الدراسة.',
-        '【2】استخدم النقاط (•) لعرض الأفكار الرئيسية داخل الفقرات.',
-        '【3】ميّز الكلمات المهمة والمفاهيم الأساسية بـ **bold** (مثال: **الضوء**، **الطاقة**).',
-        '【4】اجعل القصة مشوّقة ومترابطة مع حياة الطالب.',
-        '【5】استخدم لغة بسيطة ومباشرة مناسبة للصف المستهدف.',
+        # ── الأولوية 2: التنسيق (قاعدة واحدة لا تناقض فيها) ───
+        '═══ الأولوية 2 — التنسيق (قاعدة واحدة صارمة) ═══',
+        'الرمز الوحيد المسموح به في كل النص هو **نجمتان حول كلمة** لتمييز أهم '
+        '2-3 كلمات مفتاحية في كل فقرة (مثال: **الطاقة**). كل نجمتين فتح لازم '
+        'يقابلهما نجمتان إغلاق حول نفس الكلمة أو الكلمتين مباشرة — ممنوع نجمة '
+        'مفردة أو نجمتان بدون إغلاق. ما عدا ذلك ممنوع تماماً: لا #، لا _، لا ~، '
+        'لا `، لا قوائم مرقّمة أو نقطية داخل الفقرة. النص يجب أن يُقرأ كجملة '
+        'طبيعية متصلة مناسبة لتحويلها صوتاً (TTS) — بفواصل ونقاط طبيعية فقط.',
         '',
-        '═══ الحركات المهمة للنطق الصحيح — مُلزِم ═══',
-        '【1】ضع الحركات المهمة على الكلمات التي قد يخطئ في نطقها نظام TTS.',
-        '【2】استخدم الحركات العربية: اً (ألف مقصورة)، اً (تنوين)، اً (همزة)، اً (شدة).',
-        '【3】أضف الحركات على الكلمات المهمة والمفاهيم الأساسية.',
-        '【4】مثال: "الضوءُ" بدلاً من "الضوء"، "الطاقةُ" بدلاً من "الطاقة".',
-        '【5】لا تُكثر من الحركات، فقط الكلمات المهمة التي قد يخطئ في نطقها.',
+        # ── الأولوية 3: تشبيهات وأسئلة بلاغية (بدون تفاعل) ────
+        '═══ الأولوية 3 — تشبيهات وأسئلة بلاغية ═══',
+        '【1】استخدم تشبيهاً واقعياً واحداً على الأقل لكل فكرة معقّدة.',
+        '【2】يمكن تضمين سؤال بلاغي (Rhetorical Question) داخل جملة الشرح نفسها '
+        'لجذب الانتباه، على أن يُتبَع مباشرة بإجابته ضمن نفس الفقرة — هذا سؤال '
+        'مكتوب ضمن السرد فقط، وليس سؤالاً تفاعلياً ينتظر إجابة من الطالب. '
+        'ممنوع منعاً باتاً: أسئلة اختيار من متعدد، خيارات إجابة، أو أي صيغة '
+        'تطلب من الطالب أن يتوقف ويجيب. الطالب يقرأ/يستمع فقط دون أي تفاعل مطلوب.',
+        '【3】النبرة مشجعة وإيجابية دائماً، بلا تعقيد أكاديمي.',
         '',
-        f'═══ بنية الدرس: hook + {para_count} فقرات + summary ═══',
+        # ── الأولوية 4: تشكيل حسب الحاجة (قاعدة صارمة) ─────────
+        '═══ الأولوية 4 — تشكيل حسب الحاجة فقط (ممنوع تشكيل كل الكلمات) ═══',
+        'القاعدة الافتراضية: **بدون أي تشكيل**. النص يُكتب بدون حركات إطلاقاً، '
+        'إلا في استثناء واحد محدّد: كلمة قد يُخطئ TTS في نطقها فعلاً لأن لها '
+        'أكثر من قراءة تُغيّر المعنى (مثال حقيقي: "عَلَم" الدولة مقابل "عِلم" '
+        'المعرفة). هذا الاستثناء نادر — أغلب فقرات الدرس لن تحتاج ولا كلمة '
+        'واحدة مُشكَّلة، وهذا طبيعي ومطلوب.',
+        'ممنوع منعاً باتاً: تشكيل كل كلمات الفقرة أو حتى نصفها، تشكيل الكلمات '
+        'الواضحة النطق أصلاً (مثل الأفعال والأسماء الشائعة)، أو وضع حركة على '
+        'كل حرف من كلمة واحدة. حتى الكلمة النادرة التي تستحق الاستثناء، ضع '
+        'حركة واحدة فقط على الحرف الحاسم فيها الذي يُغيّر معناها، لا على بقية '
+        'حروفها. قبل إضافة أي حركة، اسأل نفسك: "هل هذه الكلمة تحديداً ستُقرأ '
+        'خطأ بدون هذه الحركة؟" — إذا لم يكن الجواب نعم بوضوح، لا تضعها.',
+        '',
+        f'═══ بنية الدرس المطلوبة: hook + {para_count} فقرات + summary ═══',
         f'❶ hook: {hook_ex}',
         *[f'❷ content {i+1}: {para_roles[i]}' for i in range(para_count)],
         '❸ summary: ملخص مُلهِم.',
         '',
-        '═══ صيغة الإخراج الوحيدة ═══',
-        'JSON array فقط، لا نص قبله أو بعده:',
+        '═══ صيغة الإخراج الوحيدة (إلزامي) ═══',
+        'أعد فقط JSON array صالح تماماً — بدون أي نص أو شرح أو Markdown fences قبله أو بعده. '
+        'التزم بعدد الفقرات المطلوب بالضبط، ولا تقطع الرد قبل إغلاق آخر قوس ]:',
         json_example,
         '',
         '═══ التوجيه النهائي ═══',
@@ -891,7 +1017,7 @@ def process_lesson_with_ai(
             raise ValueError('Gemini لم يُعِد نصاً')
 
         paragraphs_list = []
-        
+
         # ✅ استخراج مصفوفة الـ JSON مباشرة بشكل منظم
         json_match = re.search(r'\[\s*\{.*\}\s*\]', full_res, re.DOTALL)
         if json_match:
@@ -899,12 +1025,12 @@ def process_lesson_with_ai(
                 # التنظيف المسبق واستخراج الـ JSON
                 sanitized_str = _sanitize_json_str(json_match.group())
                 parsed = _json.loads(sanitized_str)
-                
+
                 # فرز وتجميع الأقسام حسب النوع (hook -> content -> summary)
                 hooks     = [x for x in parsed if isinstance(x, dict) and x.get('type') == 'hook']
                 contents  = [x for x in parsed if isinstance(x, dict) and x.get('type') == 'content']
                 summaries = [x for x in parsed if isinstance(x, dict) and x.get('type') == 'summary']
-                
+
                 ordered = hooks + contents + summaries if (hooks or summaries) else parsed
 
                 for item in ordered:
@@ -913,7 +1039,10 @@ def process_lesson_with_ai(
                         if p_text:
                             # تحويل **bold** إلى <strong> وإزالة الرموز غير المرغوبة
                             p_text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', p_text)
-                            p_text = re.sub(r'[#_~`]', '', p_text).strip()
+                            p_text = re.sub(r'[#_~`]', '', p_text)
+                            # ✅ [BOLD-FIX] أي نجمة شاردة (غير مزدوجة/غير مغلقة) لا يجب
+                            # أن تظهر أبداً للمعلم — نُزيلها بعد تحويل الأزواج الصحيحة
+                            p_text = re.sub(r'\*+', '', p_text).strip()
                             paragraphs_list.append(p_text)
             except Exception as parse_err:
                 logger.warning(f'[utils] Failed to parse JSON array: {parse_err}')
