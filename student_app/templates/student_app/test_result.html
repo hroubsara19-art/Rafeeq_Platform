@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}نتيجة الاختبار — {{ test.testtitle }}{% endblock %}
+{% block title %}تقدمك في التحدي — {{ test.testtitle }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -110,6 +110,52 @@ body { background: var(--bg); color: var(--ink); direction: rtl; font-family: 'T
 .tr-btn-ghost { background: var(--border); color: var(--ink); }
 .tr-btn-ghost:hover { background: #d1d5db; }
 
+/* النجوم */
+.star {
+  font-size: 1.8rem;
+  opacity: 0.3;
+  transition: all 0.3s ease;
+}
+.star.active {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* زر المحاولة الفورية */
+.retry-banner {
+  background: linear-gradient(120deg, var(--mint-lt), #d1fae5);
+  border: 2px solid var(--mint);
+  border-radius: 1rem;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+.retry-title {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #065f46;
+  margin-bottom: 0.5rem;
+}
+.retry-sub {
+  font-size: 0.9rem;
+  color: #047857;
+  margin-bottom: 1rem;
+}
+.tr-btn-retry {
+  background: linear-gradient(120deg, var(--mint), #34d399);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(16,185,129,.3);
+}
+.tr-btn-retry:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(16,185,129,.4);
+}
+
 /* Responsive Design */
 @media(max-width:768px){
   .tr-wrap{padding:1.25rem 1rem 4rem;}
@@ -167,19 +213,40 @@ body { background: var(--bg); color: var(--ink); direction: rtl; font-family: 'T
 {% block content %}
 <div class="tr-wrap" dir="rtl">
 
+  <!-- === واجهة الطالب: عالم الألعاب والتقدم === -->
   <div class="score-card">
-    <div class="score-circle" id="score-circle" data-pct="{{ percentage }}">
-      <div class="score-num">{{ attempt.score }}</div>
-      <div class="score-denom">من {{ max_score }}</div>
+    <div class="score-circle" id="progress-circle" data-pct="{{ attempt.progress_percentage|default:percentage }}">
+      <div class="score-num">{{ attempt.progress_percentage|default:percentage }}%</div>
+      <div class="score-denom">التقدم 🌟</div>
     </div>
-    <div class="score-title" id="score-title"></div>
+    <div class="score-title" id="progress-title"></div>
     <div class="score-sub">
-      حصلت على {{ attempt.score }} من {{ max_score }} ({{ percentage }}%)
+      أكملت {{ attempt.progress_percentage|default:percentage }}% من التحدي!
     </div>
     <div class="score-pct-bar">
-      <div class="score-pct-fill" id="score-pct-fill" style="width:0%;"></div>
+      <div class="score-pct-fill" id="progress-fill" style="width:0%;"></div>
+    </div>
+    
+    <!-- النجوم المكتسبة -->
+    <div style="margin-top: 1.5rem; display: flex; justify-content: center; gap: 0.5rem;">
+      {% for i in "12345" %}
+        <span class="star {% if forloop.counter <= attempt.stars_earned %}active{% endif %}">⭐</span>
+      {% endfor %}
     </div>
   </div>
+
+  <!-- شريط المحاولة الفورية (للأسئلة التي تعثر بها) -->
+  {% if wrong_questions_count > 0 %}
+  <div class="retry-banner">
+    <div class="retry-title">🎯 هل تريد تحسين تقدمك؟</div>
+    <div class="retry-sub">
+      لديك {{ wrong_questions_count }} أسئلة يمكن إعادة المحاولة بها لرفع نقاطك للـ 100%!
+    </div>
+    <button class="tr-btn tr-btn-retry" onclick="retryWrongQuestions()">
+      <i class="fas fa-redo"></i> إعادة الأسئلة التي تعثرت بها
+    </button>
+  </div>
+  {% endif %}
 
   <div class="info-row">
     <div class="info-chip"><i class="fas fa-file-alt"></i> {{ test.testtitle }}</div>
@@ -222,6 +289,9 @@ body { background: var(--bg); color: var(--ink); direction: rtl; font-family: 'T
   {% endfor %}
 
   <div class="tr-actions">
+    <a href="{% url 'student:take_test' test.testid %}" class="tr-btn tr-btn-retry">
+      <i class="fas fa-redo"></i> إعادة المحاولة
+    </a>
     <a href="{% url 'student:student_home' %}" class="tr-btn tr-btn-primary">
       <i class="fas fa-home"></i> العودة للرئيسية
     </a>
@@ -237,9 +307,10 @@ body { background: var(--bg); color: var(--ink); direction: rtl; font-family: 'T
 
 <script>
 (function() {
-  var circle  = document.getElementById('score-circle');
-  var titleEl = document.getElementById('score-title');
-  var fillEl  = document.getElementById('score-pct-fill');
+  // === واجهة الطالب: التقدم والألعاب ===
+  var circle  = document.getElementById('progress-circle');
+  var titleEl = document.getElementById('progress-title');
+  var fillEl  = document.getElementById('progress-fill');
   var pct     = parseFloat(circle ? circle.dataset.pct : 0) || 0;
 
   if (circle) {
@@ -247,7 +318,7 @@ body { background: var(--bg); color: var(--ink); direction: rtl; font-family: 'T
     else if (pct >= 50) circle.classList.add('ok');
     else                circle.classList.add('fail');
   }
-  if (titleEl) titleEl.textContent = pct >= 75 ? '🎉 ممتاز!' : pct >= 50 ? '👍 جيد' : '🍀 لا بأس، حظاً أوفر!';
+  if (titleEl) titleEl.textContent = pct >= 75 ? '🎉 رائع! تقدم ممتاز!' : pct >= 50 ? '👍 تقدم جيد!' : '🍀 تقدم جيد، استمر!';
   if (fillEl)  fillEl.style.width  = pct + '%';
 
   /* ── وقت الإنجاز الفعلي ── */
@@ -287,10 +358,17 @@ body { background: var(--bg); color: var(--ink); direction: rtl; font-family: 'T
       if (ansEl) { ansEl.textContent = sa.selected; ansEl.className = 'ans-val c'; }
     } else {
       card.classList.add('wrong');
-      if (badge) { badge.textContent = '✗ خطأ'; badge.className = 'q-badge b-wrong'; }
+      if (badge) { badge.textContent = '✗ يحتاج مراجعة'; badge.className = 'q-badge b-wrong'; }
       if (ansEl) { ansEl.textContent = sa.selected || '—'; ansEl.className = 'ans-val w'; }
     }
   });
+
+  // === دالة إعادة المحاولة للأسئلة التي تعثر بها ===
+  window.retryWrongQuestions = function() {
+    // سيتم تنفيذ هذه الدالة من خلال views.py
+    var attemptId = "{{ attempt.attemptid }}";
+    window.location.href = '/student/retry-wrong-questions/' + attemptId + '/';
+  };
 })();
 </script>
 {% endblock %}

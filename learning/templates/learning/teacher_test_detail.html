@@ -244,11 +244,11 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Cairo','Ta
       <!-- Attempts -->
       <div class="td-card">
         <div class="td-card-head">
-          <i class="fas fa-users"></i> الطلاب المتقدمون
+          <i class="fas fa-users"></i> جميع المحاولات
           {% if attempts %}
           <span style="margin-right:auto;background:var(--blue-lt);border:1px solid var(--blue-bd);
                 border-radius:2rem;padding:.15rem .7rem;font-size:.78rem;color:var(--blue-dk);">
-            {{ attempts|length }}
+            {{ attempts|length }} محاولة
           </span>
           {% endif %}
         </div>
@@ -258,7 +258,9 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Cairo','Ta
             <thead>
               <tr>
                 <th>الطالب</th>
-                <th>الدرجة</th>
+                <th>المحاولة الأولى</th>
+                <th>الدرجة الحالية</th>
+                <th>عدد المحاولات</th>
                 <th>التاريخ</th>
               </tr>
             </thead>
@@ -267,19 +269,30 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Cairo','Ta
               <tr>
                 <td><strong>{{ a.studentid.userid.fullname|default:"—" }}</strong></td>
                 <td>
-                  {% if max_score %}
-                    {% with pct=a.score %}
+                  {% if a.first_attempt_score is not None %}
                     <span class="score-badge
-                      {% if a.score >= max_score|add:0 %}score-high
-                      {% elif a.score >= max_score|divisibleby:2 %}score-mid
+                      {% if a.first_attempt_score >= max_score|add:0 %}score-high
+                      {% elif a.first_attempt_score >= max_score|divisibleby:2 %}score-mid
                       {% else %}score-low{% endif %}">
-                      {{ a.score }} / {{ max_score }}
+                      {{ a.first_attempt_score }} / {{ max_score }}
                     </span>
-                    {% endwith %}
                   {% else %}
-                    <span class="score-badge score-mid">{{ a.score }}</span>
+                    <span class="score-badge score-mid">—</span>
                   {% endif %}
                 </td>
+                <td>
+                  {% if a.current_score is not None %}
+                    <span class="score-badge
+                      {% if a.current_score >= max_score|add:0 %}score-high
+                      {% elif a.current_score >= max_score|divisibleby:2 %}score-mid
+                      {% else %}score-low{% endif %}">
+                      {{ a.current_score }} / {{ max_score }}
+                    </span>
+                  {% else %}
+                    <span class="score-badge score-mid">—</span>
+                  {% endif %}
+                </td>
+                <td style="color:var(--muted);">{{ a.total_attempts|default:1 }}</td>
                 <td style="color:var(--muted);">{{ a.attemptdate|date:"d M Y" }}</td>
               </tr>
               {% endfor %}

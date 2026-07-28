@@ -355,6 +355,9 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
     <h3 class="result-title" id="result-title">—</h3>
     <p class="result-msg" id="result-msg">—</p>
     <div class="result-actions">
+      <button class="btn-home" onclick="retryTest()" style="background:var(--sky);border:none;cursor:pointer;">
+        <i class="fas fa-redo"></i> إعادة المحاولة
+      </button>
       <a href="{% url 'student:student_home' %}" class="btn-home">
         <i class="fas fa-home"></i> العودة للرئيسية
       </a>
@@ -386,7 +389,7 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
       </div>
     </div>
     <div class="start-foot">
-      <a href="{% url 'student:student_home' %}" class="start-btn start-btn-back"><i class="fas fa-arrow-right"></i> رجوع</a>
+      <a href="#" onclick="goBackFromModal(event)" class="start-btn start-btn-back"><i class="fas fa-arrow-right"></i> رجوع</a>
       <button class="start-btn start-btn-go" onclick="confirmStart()"><i class="fas fa-play"></i> ابدأ الآن</button>
     </div>
   </div>
@@ -395,12 +398,31 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 {{ test.testid|json_script:"dj-test-id" }}
 {{ questions|length|json_script:"dj-total-q" }}
 {{ test.durationtaken|default:0|json_script:"dj-duration" }}
-{{ prev_attempt.attemptid|default:"null"|json_script:"dj-prev-attempt" }}
-{{ prev_attempt.score|json_script:"dj-prev-score" }}
+{% if lesson_id %}
+{{ lesson_id|json_script:"dj-lesson-id" }}
+{% else %}
+{{ None|json_script:"dj-lesson-id" }}
+{% endif %}
+{% if subject_id %}
+{{ subject_id|json_script:"dj-subject-id" }}
+{% else %}
+{{ None|json_script:"dj-subject-id" }}
+{% endif %}
+{% if prev_attempt %}
+{{ prev_attempt.attemptid|json_script:"dj-prev-attempt" }}
+{{ prev_score|json_script:"dj-prev-score" }}
 {{ prev_attempt.durationtaken|default:"null"|json_script:"dj-prev-duration" }}
-{{ max_score|default:"null"|json_script:"dj-max-score" }}
-{{ percentage|default:"null"|json_script:"dj-percentage" }}
-{{ prev_answers|default:"null"|json_script:"dj-prev-answers" }}
+{{ max_score|json_script:"dj-max-score" }}
+{{ percentage|json_script:"dj-percentage" }}
+{{ prev_answers|json_script:"dj-prev-answers" }}
+{% else %}
+{{ None|json_script:"dj-prev-attempt" }}
+{{ None|json_script:"dj-prev-score" }}
+{{ None|json_script:"dj-prev-duration" }}
+{{ None|json_script:"dj-max-score" }}
+{{ None|json_script:"dj-percentage" }}
+{{ None|json_script:"dj-prev-answers" }}
+{% endif %}
 
 <script>
 (function() {
@@ -415,6 +437,8 @@ body{background:var(--bg);color:var(--ink);direction:rtl;font-family:'Tajawal',s
 var TEST_ID    = JSON.parse(document.getElementById('dj-test-id').textContent);
 var TOTAL_Q    = JSON.parse(document.getElementById('dj-total-q').textContent);
 var DURATION   = JSON.parse(document.getElementById('dj-duration').textContent);
+var LESSON_ID  = JSON.parse(document.getElementById('dj-lesson-id').textContent);
+var SUBJECT_ID = JSON.parse(document.getElementById('dj-subject-id').textContent);
 var SUBMIT_URL = "{% url 'student:submit_test' test.testid %}";
 var CSRF       = "{{ csrf_token }}";
 
@@ -481,7 +505,7 @@ document.addEventListener('DOMContentLoaded', function() {
   try { alreadyStarted = !!localStorage.getItem(KEY_TIMER); } catch(e) {}
 
   if (locked) {
-    /* وجود محاولة سابقة → عرض النتيجة مباشرة */
+    /* وجود محاولة سابقة → عرض النتيجة مباشرة مع خيار إعادة المحاولة */
     _showPrevResult();
   } else if (!alreadyStarted) {
     /* لم يبدأ بعد → عرض modal التأكيد */
@@ -524,6 +548,22 @@ function _showPrevResult() {
       if (btn.dataset.val === sel) btn.classList.add('selected');
     });
   });
+
+  // === حساب التقدم من الإجابات للبيانات القديمة ===
+  var correctCount = 0;
+  var totalQuestions = Object.keys(corrections).length;
+  Object.keys(prevAns).forEach(function(qid) {
+    var corr = corrections[qid];
+    var sel = prevAns[qid] && prevAns[qid].selected;
+    if (corr && sel && sel === corr.correct) {
+      correctCount++;
+    }
+  });
+  
+  // إذا كانت البيانات القديمة لا تحتوي على score، احسبها من الإجابات
+  if (score === 0 && totalQuestions > 0) {
+    score = Math.round((correctCount / totalQuestions) * maxS);
+  }
 
   _renderResult({
     ok: true, score: score, max_score: maxS,
@@ -594,7 +634,13 @@ window.confirmStart = function() {
   if (modal) { modal.classList.remove('open'); modal.style.display = 'none'; }
   _showQuizUI();
   _bindDots();
-  _applyRestoredAnswers();
+  
+  // في حالة إعادة المحاولة، لا نطبق الإجابات المحفوظة
+  // لأن answers تم مسحها في retryTest
+  if (Object.keys(answers).length > 0) {
+    _applyRestoredAnswers();
+  }
+  
   showQuestion(0);
 
   if (DURATION > 0 && !locked) {
@@ -812,33 +858,90 @@ window.submitQuiz = function(forceSubmit) {
 };
 
 /* ══════════════════════════════════════════════════════════
-   عرض النتيجة
+   عرض النتيجة - واجهة الطالب (التقدم والألعاب)
 ══════════════════════════════════════════════════════════ */
 function _renderResult(data) {
   _hideQuizUI();
   document.getElementById('quiz-result').style.display = 'block';
+  
+  // تأكد من إخفاء quiz-nav في صفحة النتيجة
+  var quizNav = document.getElementById('quiz-nav');
+  if (quizNav) quizNav.style.display = 'none';
 
-  var pct    = data.max_score > 0 ? (data.score / data.max_score * 100) : 0;
+  // === حساب التقدم والنجوم ===
+  var score = data.score || 0;
+  var maxScore = data.max_score || 1;
+  
+  // إذا كانت النتيجة 0 ولكن هناك إجابات صحيحة، احسبها من الإجابات
+  if (score === 0 && data.corrections && data.prev_answers) {
+    var correctCount = 0;
+    var totalQuestions = Object.keys(data.corrections).length;
+    Object.keys(data.prev_answers).forEach(function(qid) {
+      var corr = data.corrections[qid];
+      var sel = data.prev_answers[qid] && data.prev_answers[qid].selected;
+      if (corr && sel && sel === corr.correct) {
+        correctCount++;
+      }
+    });
+    if (totalQuestions > 0) {
+      score = Math.round((correctCount / totalQuestions) * maxScore);
+    }
+  }
+  
+  var pct    = maxScore > 0 ? (score / maxScore * 100) : 0;
+  var progressPct = Math.round(pct);
+  
+  // حساب النجوم
+  var stars = 0;
+  if (progressPct >= 90) stars = 5;
+  else if (progressPct >= 75) stars = 4;
+  else if (progressPct >= 60) stars = 3;
+  else if (progressPct >= 45) stars = 2;
+  else if (progressPct >= 30) stars = 1;
+  
   var circle = document.getElementById('result-circle');
   if (circle) circle.className = 'result-score-circle '
-    + (pct >= 75 ? '' : pct >= 50 ? 'ok' : 'fail');
+    + (progressPct >= 75 ? '' : progressPct >= 50 ? 'ok' : 'fail');
 
-  document.getElementById('result-num').textContent   = data.score;
-  document.getElementById('result-total').textContent = 'من ' + data.max_score;
-  document.getElementById('result-title').textContent =
-    pct >= 75 ? '🎉 ممتاز!' : pct >= 50 ? '👍 جيد' : '🍀 لا بأس، حظاً أوفر!';
+  // عرض التقدم والنجوم بدلاً من الدرجة
+  document.getElementById('result-num').textContent   = progressPct + '%';
+  document.getElementById('result-total').textContent = 'التقدم 🌟';
+  
+  // تخزين النسبة المئوية لاستخدامها في معاينة الإجابات
+  window.currentProgressPct = progressPct;
+  
+  // إخفاء زر إعادة المحاولة إذا كانت النتيجة كاملة (100%)
+  var retryBtn = document.querySelector('.result-actions button[onclick="retryTest()"]');
+  if (retryBtn && progressPct === 100) {
+    retryBtn.style.display = 'none';
+  }
+  
+  // رسالة إيجابية بناءً على التقدم
+  var title = '';
+  if (progressPct >= 90) title = '🌟 ممتاز! 5 نجوم';
+  else if (progressPct >= 75) title = '⭐ رائع! 4 نجوم';
+  else if (progressPct >= 60) title = '👍 جيد! 3 نجوم';
+  else if (progressPct >= 45) title = '💪 جيد! 2 نجوم';
+  else if (progressPct >= 30) title = '🌱 بداية جيدة! نجمة واحدة';
+  else title = '🎯 تحدٍ جديد! استمر في المحاولة';
+  
+  document.getElementById('result-title').textContent = title;
 
-  var msg = 'حصلت على ' + data.score + ' من ' + data.max_score
-    + ' (' + pct.toFixed(0) + '%). ';
+  // رسالة تحفيزية
+  var msg = 'أكملت ' + progressPct + '% من التقييم. ';
+  if (stars > 0) msg += 'حصلت على ' + stars + ' نجوم! 🌟 ';
+  
   if (data.timeout_msg) {
     msg = data.timeout_msg + '\n' + msg;
   } else {
-    msg += 'سيتم إظهار النتيجة التفصيلية بعد اعتماد المعلم.';
+    msg += 'يمكنك إعادة المحاولة لتحسين تقدمك!';
   }
   document.getElementById('result-msg').textContent = msg;
 
   /* تصحيح الإجابات بصرياً */
   if (data.corrections) {
+    var isFullScore = (progressPct === 100);
+    
     document.querySelectorAll('.question-card').forEach(function(card) {
       var qid  = card.dataset.qid;
       var corr = data.corrections[qid];
@@ -849,13 +952,58 @@ function _renderResult(data) {
       card.querySelectorAll('.option-btn').forEach(function(btn) {
         btn.classList.remove('selected', 'correct', 'wrong');
         var v = btn.dataset.val;
-        if (v === corr.correct) btn.classList.add('correct');
-        if (sa && v === sa && v !== corr.correct) btn.classList.add('wrong');
-        if (sa && v === sa) btn.classList.add('selected');
+        
+        if (isFullScore) {
+          // علامة كاملة: إظهار جميع الإجابات (لا توجد إجابات خاطئة)
+          if (v === corr.correct) btn.classList.add('correct');
+          if (sa && v === sa) btn.classList.add('selected');
+        } else {
+          // علامة غير كاملة: إظهار الإجابات الخاطئة فقط، دون إظهار الإجابة المختارة
+          if (sa && v === sa && v !== corr.correct) btn.classList.add('wrong');
+        }
       });
     });
   }
 }
+
+/* ══════════════════════════════════════════════════════════
+   إعادة المحاولة
+══════════════════════════════════════════════════════════ */
+window.retryTest = function() {
+  // مسح البيانات المحفوظة
+  try { localStorage.removeItem(KEY_TIMER); } catch(e) {}
+  try { localStorage.removeItem(KEY_ANS);   } catch(e) {}
+  
+  // مسح الإجابات الحالية
+  answers = {};
+  current = 0;
+  locked = false;
+  
+  // إعادة تعيين الواجهة
+  document.querySelectorAll('.question-card').forEach(function(card) {
+    card.classList.remove('active');
+    card.querySelectorAll('.option-btn').forEach(function(btn) {
+      btn.classList.remove('selected', 'correct', 'wrong');
+      btn.disabled = false;
+    });
+  });
+  
+  // إعادة تعيين نقاط التنقل
+  document.querySelectorAll('.dot').forEach(function(dot) {
+    dot.classList.remove('answered');
+  });
+  
+  // إعادة تعيين quiz-form للسماح بالنقر
+  var quizForm = document.getElementById('quiz-form');
+  if (quizForm) {
+    quizForm.style.pointerEvents = '';
+    quizForm.style.opacity = '';
+  }
+  
+  // إخفاء النتيجة وإظهار modal التأكيد
+  document.getElementById('quiz-result').style.display = 'none';
+  _showStartModal();
+};
 
 function _renderError(msg) {
   _hideQuizUI();
@@ -883,6 +1031,17 @@ window.reviewAnswers = function() {
   document.getElementById('quiz-form').style.pointerEvents = 'none';
   document.getElementById('quiz-form').style.opacity = '0.92';
 
+  // التحقق من العلامة: إذا لم تكن كاملة، إخفاء الإجابة المختارة وإظهار الخاطئة فقط
+  var isFullScore = (window.currentProgressPct === 100);
+  
+  if (!isFullScore) {
+    // علامة غير كاملة: إزالة class 'selected' لإخفاء الإجابة المختارة
+    // إبقاء class 'wrong' للإجابات الخاطئة فقط
+    document.querySelectorAll('.option-btn').forEach(function(b) {
+      b.classList.remove('selected');
+    });
+  }
+
   var form = document.getElementById('quiz-form');
   if (form && !document.getElementById('review-banner')) {
     var banner = document.createElement('div');
@@ -890,10 +1049,74 @@ window.reviewAnswers = function() {
     banner.style.cssText = 'background:#dbeafe;border:1.5px solid #93c5fd;'
       + 'border-radius:10px;padding:.75rem 1.25rem;margin-bottom:1rem;'
       + 'font-size:.88rem;font-weight:700;color:#1e3a8a;'
-      + 'display:flex;align-items:center;gap:.5rem;';
-    banner.innerHTML = '<i class="fas fa-lock"></i>'
-      + ' وضع المراجعة — لا يمكن تعديل الإجابات بعد الإرسال.';
+      + 'display:flex;align-items:center;gap:.5rem;justify-content:flex-end;'
+      + 'pointer-events:auto;position:relative;z-index:1000;';
+    
+    var backButton = document.createElement('button');
+    backButton.type = 'button';
+    backButton.className = 'btn-back-to-result';
+    backButton.style.cssText = 'background:#1e3a8a !important;color:#fff !important;border:none !important;padding:.5rem 1rem !important;border-radius:6px !important;cursor:pointer !important;font-weight:700 !important;font-size:.9rem !important;display:inline-block !important;min-width:auto !important;pointer-events:auto !important;';
+    backButton.innerHTML = '<i class="fas fa-arrow-right"></i> رجوع للنتيجة';
+    backButton.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Back button clicked');
+      window.backToResult();
+    });
+    
+    banner.appendChild(backButton);
     form.insertBefore(banner, form.firstChild);
+    
+    console.log('Review banner created with back button');
+  }
+};
+
+/* ══════════════════════════════════════════════════════════
+   الرجوع للنتيجة من وضع المراجعة
+══════════════════════════════════════════════════════════ */
+window.backToResult = function() {
+  console.log('backToResult called');
+  
+  // إخفاء وضع المراجعة
+  var quizForm = document.getElementById('quiz-form');
+  var dotsNav = document.getElementById('dots-nav');
+  var quizProgress = document.getElementById('quiz-progress');
+  var quizNav = document.getElementById('quiz-nav');
+  
+  if (quizForm) quizForm.style.display = 'none';
+  if (dotsNav) dotsNav.style.display = 'none';
+  if (quizProgress) quizProgress.style.display = 'none';
+  if (quizNav) quizNav.style.display = 'none';  // إخفاء أزرار التنقل
+  
+  // إظهار النتيجة
+  var quizResult = document.getElementById('quiz-result');
+  
+  if (quizResult) quizResult.style.display = 'block';
+  
+  // إزالة banner المراجعة
+  var banner = document.getElementById('review-banner');
+  if (banner) banner.remove();
+  
+  console.log('backToResult completed');
+};
+
+/* ══════════════════════════════════════════════════════════
+   الرجوع من modal إعادة المحاولة
+══════════════════════════════════════════════════════════ */
+window.goBackFromModal = function(event) {
+  event.preventDefault();
+  
+  // إذا كان الاختبار خاصاً بدرس، نعود للدرس
+  if (LESSON_ID) {
+    window.location.href = '/lesson/' + LESSON_ID + '/';
+  } 
+  // إذا كان الاختبار عاماً للمادة، نعود للمادة
+  else if (SUBJECT_ID) {
+    window.location.href = '/subject/' + SUBJECT_ID + '/';
+  } 
+  // الافتراضي: العودة للرئيسية
+  else {
+    window.location.href = '/student/home/';
   }
 };
 

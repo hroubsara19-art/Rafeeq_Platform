@@ -91,6 +91,7 @@ class Notification(models.Model):
         ('test_publish',      'اختبار جديد منشور'),
         ('schedule_update',   'تحديث جدول المهام'),
         ('grade_update',      'تحديث درجة'),
+        ('test_modified',     'تعديل في الاختبار'),
         # ── إشعارات الأهل الجديدة ────────────────────────────
         ('parent_grade',      'رصد درجة الطالب'),
         ('parent_note',       'ملاحظة من المعلم'),

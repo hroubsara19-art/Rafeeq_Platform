@@ -13,7 +13,8 @@ urlpatterns = [
     path('subject/<int:subject_id>/',      views.subject_detail,      name='subject_detail'),
 
     # ── STEP 3: Lesson Page (Gateway) ─────────────────────────
-    path('lesson/view/<int:lesson_id>/',   views.view_lesson_student, name='view_lesson_student'),
+    path('lesson/<int:lesson_id>/',        views.view_lesson_student, name='view_lesson_student'),
+    path('lesson/view/<int:lesson_id>/',   views.view_lesson_student, name='view_lesson_student_alt'),
 
     # ── STEP 4: Learning Session ──────────────────────────────
     path('lesson/session/<int:lesson_id>/', views.lesson_session,     name='lesson_session'),
@@ -27,6 +28,7 @@ urlpatterns = [
     path('test/<int:test_id>/take/',       views.take_test,           name='take_test'),
     path('test/<int:test_id>/submit/',     views.submit_test,         name='submit_test'),
     path('test/result/<int:attempt_id>/',  views.test_result,         name='test_result'),
+    path('retry-wrong-questions/<int:attempt_id>/', views.retry_wrong_questions, name='retry_wrong_questions'),
 
     # ── Profile ───────────────────────────────────────────────
     path('student/profile/',               views.student_profile,     name='profile'),

@@ -534,7 +534,7 @@ def lesson_session(request, lesson_id):
 
 @_student_required
 def take_test(request, test_id):
-    """بدء أو استئناف اختبار."""
+    """بدء أو استئناف اختبار - عرض النتيجة السابقة مع خيار إعادة المحاولة."""
     student = request.student
     test    = get_object_or_404(Test, pk=test_id)
     
@@ -549,6 +549,8 @@ def take_test(request, test_id):
         'questions': questions,
         'student':   student,
         'duration':  test.durationtaken or 30,
+        'lesson_id': test.lessonid.lessonid if test.lessonid else None,
+        'subject_id': test.subjectid.subjectid if test.subjectid else None,
     }
 
     if existing:
@@ -563,7 +565,12 @@ def take_test(request, test_id):
         }, ensure_ascii=False)
         max_score             = sum(q.points for q in questions)
         context['max_score']  = max_score
-        context['percentage'] = round((existing.score / max_score * 100), 1) if max_score else 0
+        # استخدام current_score إذا وجد، وإلا استخدام score القديم للبيانات القديمة
+        # استخدام getattr للوصول الآمن إلى score إذا لم يكن موجوداً
+        score_to_use = existing.current_score if existing.current_score is not None else getattr(existing, 'score', 0)
+        context['percentage'] = round((score_to_use / max_score * 100), 1) if score_to_use and max_score else 0
+        # تمرير score للقالب للبيانات القديمة
+        context['prev_score'] = score_to_use
 
     return render(request, 'student_app/student_test.html', context)
 
@@ -577,8 +584,8 @@ def submit_test(request, test_id):
     student = request.student
     test    = get_object_or_404(Test, pk=test_id)
 
-    if Testattempt.objects.filter(studentid=student, testid=test).exists():
-        return JsonResponse({'error': 'لقد أجبت على هذا الاختبار مسبقاً.'}, status=400)
+    # === السماح بإعادة المحاولة - كل محاولة تُحفظ بشكل منفصل ===
+    # لم نعد نمنع إعادة المحاولة، بل نسمح بها ونحفظ كل محاولة
 
     try:
         body         = json.loads(request.body)
@@ -591,11 +598,16 @@ def submit_test(request, test_id):
     total_score       = 0
     corrections       = {}
     answers_to_create = []
+    
+    # === التحقق من عدد المحاولات السابقة ===
+    previous_attempts = Testattempt.objects.filter(studentid=student, testid=test).count()
+    is_first_attempt = (previous_attempts == 0)
 
     with transaction.atomic():
         attempt = Testattempt.objects.create(
-            studentid=student, testid=test, score=0,
-            durationtaken=max(0, min(time_spent, (test.durationtaken or 999) * 60))
+            studentid=student, testid=test,
+            durationtaken=max(0, min(time_spent, (test.durationtaken or 999) * 60)),
+            total_attempts=previous_attempts + 1
         )
         for q in questions:
             selected   = (answers_data.get(str(q.questionid)) or '').strip()
@@ -612,8 +624,24 @@ def submit_test(request, test_id):
             }
 
         Studentanswer.objects.bulk_create(answers_to_create)
-        attempt.score = total_score
-        attempt.save(update_fields=['score'])
+        
+        # === حفظ النتائج بناءً على نوع المحاولة ===
+        if is_first_attempt:
+            attempt.first_attempt_score = total_score
+            attempt.current_score = total_score
+        else:
+            # للمحاولات اللاحقة، نحتفظ بالمحاولة الأولى ونحدث الحالية
+            attempt.current_score = total_score
+            # نحصل على المحاولة الأولى من السجلات السابقة
+            first_attempt = Testattempt.objects.filter(
+                studentid=student, testid=test
+            ).order_by('attemptdate').first()
+            if first_attempt and first_attempt.first_attempt_score:
+                attempt.first_attempt_score = first_attempt.first_attempt_score
+            else:
+                attempt.first_attempt_score = total_score  # fallback
+        
+        attempt.save(update_fields=['first_attempt_score', 'current_score'])
 
     try:
         Performancereport.objects.create(
@@ -639,6 +667,7 @@ def submit_test(request, test_id):
         'score':       total_score,
         'max_score':   sum(q.points for q in questions),
         'corrections': corrections,
+        'attempt_id':  attempt.attemptid,
     })
 
 
@@ -813,7 +842,34 @@ def test_result(request, attempt_id):
     questions  = attempt.testid.question_set.all()
     answers    = {a.questionid_id: a for a in attempt.studentanswer_set.all()}
     max_score  = sum(q.points for q in questions)
-    percentage = round((attempt.score / max_score * 100), 1) if max_score else 0
+    # === حساب التقدم والنجوم للطالب ===
+    if attempt.progress_percentage is not None:
+        progress_percentage = attempt.progress_percentage
+    else:
+        percentage = round((attempt.current_score / max_score * 100), 1) if attempt.current_score and max_score else 0
+        progress_percentage = int(percentage)
+        attempt.progress_percentage = progress_percentage
+        attempt.save()
+    
+    # حساب عدد النجوم
+    if progress_percentage >= 90:
+        stars_earned = 5
+    elif progress_percentage >= 75:
+        stars_earned = 4
+    elif progress_percentage >= 60:
+        stars_earned = 3
+    elif progress_percentage >= 45:
+        stars_earned = 2
+    elif progress_percentage >= 30:
+        stars_earned = 1
+    else:
+        stars_earned = 0
+    
+    if attempt.stars_earned != stars_earned:
+        attempt.stars_earned = stars_earned
+        attempt.save()
+    
+    wrong_questions_count = sum(1 for ans in answers.values() if not ans.is_correct)
 
     # تحويل الإجابات إلى JSON لاستخدامها في JavaScript
     answers_json = {}
@@ -828,8 +884,41 @@ def test_result(request, attempt_id):
         'questions':  questions,
         'answers':    answers,
         'answers_json': answers_json,
-        'percentage': percentage,
+        'percentage': progress_percentage,
+        'max_score':  max_score,
+        'wrong_questions_count': wrong_questions_count,
     })
+
+
+@login_required
+def retry_wrong_questions(request, attempt_id):
+    """إعادة المحاولة للأسئلة التي تعثر بها الطالب."""
+    attempt = get_object_or_404(Testattempt, pk=attempt_id)
+    if not request.user.is_staff and attempt.studentid.userid != request.user:
+        return redirect('student:student_home')
+    
+    # جلب الأسئلة الخاطئة
+    wrong_answers = attempt.studentanswer_set.filter(iscorrect=False)
+    
+    if not wrong_answers.exists():
+        messages.info(request, 'لا توجد أسئلة خاطئة لإعادة المحاولة.')
+        return redirect('student:test_result', attempt_id=attempt_id)
+    
+    # تحديث عدد المحاولات
+    attempt.total_attempts += 1
+    attempt.last_retry_date = timezone.now()
+    attempt.save()
+    
+    # تحديث حالة الأسئلة الخاطئة
+    for ans in wrong_answers:
+        ans.needs_retry = True
+        ans.attempt_number += 1
+        ans.save()
+    
+    messages.success(request, f'تم تحضير {wrong_answers.count()} أسئلة لإعادة المحاولة.')
+    
+    # إعادة التوجيه إلى صفحة الاختبار
+    return redirect('student:student_test', test_id=attempt.testid.testid)
 
 
 @login_required

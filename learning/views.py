@@ -2954,7 +2954,7 @@ def teacher_test_detail(request, test_id):
     # حساب متوسط الدرجات
     avg_score = None
     if attempts:
-        total = sum(a.score for a in attempts)
+        total = sum(a.current_score if a.current_score is not None else getattr(a, 'score', 0) for a in attempts)
         avg_score = round(total / len(attempts), 1)
 
     return render(request, 'learning/teacher_test_detail.html', {
@@ -3036,12 +3036,77 @@ def update_question(request):
         return JsonResponse({'error': 'حدد الإجابة الصحيحة'}, status=400)
 
     q.save()
-    # تحديث totalquestions في الاختبار
-    q.testid.totalquestions = q.testid.question_set.count()
-    q.testid.save(update_fields=['totalquestions'])
+    
+    # زيادة نسخة الاختبار وإعادة تصحيح المحاولات القديمة
+    test = q.testid
+    test.test_version += 1
+    test.save(update_fields=['test_version'])
+    
+    # إعادة تصحيح جميع المحاولات القديمة
+    _recalculate_attempts_for_test(test)
+    
+    # إرسال إشعارات للطلاب الذين حلوا الاختبار
+    _notify_students_about_test_modification(test, request.user)
 
-    logger.info(f'Question {qid} updated by {request.user.username}')
-    return JsonResponse({'ok': True})
+    # تحديث totalquestions في الاختبار
+    test.totalquestions = test.question_set.count()
+    test.save(update_fields=['totalquestions'])
+
+    logger.info(f'Question {qid} updated by {request.user.username}, test version increased to {test.test_version}')
+    return JsonResponse({'ok': True, 'test_version': test.test_version})
+
+
+def _recalculate_attempts_for_test(test):
+    """إعادة تصحيح جميع محاولات الاختبار بناءً على الأسئلة المعدلة."""
+    from learning.models import Testattempt, Studentanswer
+    
+    attempts = Testattempt.objects.filter(testid=test)
+    
+    for attempt in attempts:
+        # إعادة تصحيح جميع إجابات هذه المحاولة
+        answers = Studentanswer.objects.filter(attemptid=attempt)
+        total_score = 0
+        
+        for answer in answers:
+            question = answer.questionid
+            selected = answer.selectedoption
+            correct = question.correctanswer
+            
+            # تحديث IsCorrect بناءً على الإجابة الصحيحة الجديدة
+            answer.iscorrect = (selected == correct)
+            answer.save(update_fields=['iscorrect'])
+            
+            # حساب النقاط
+            if answer.iscorrect:
+                total_score += question.points
+        
+        # تحديث العلامة الحالية
+        attempt.current_score = total_score
+        attempt.save(update_fields=['current_score'])
+
+
+def _notify_students_about_test_modification(test, teacher):
+    """إرسال إشعارات للطلاب الذين حلوا الاختبار عند تعديله."""
+    from accounts.models import Notification
+    from learning.models import Testattempt, Student
+    
+    # جلب جميع الطلاب الذين حلوا هذا الاختبار
+    attempts = Testattempt.objects.filter(testid=test).select_related('studentid__userid')
+    
+    notifs = []
+    for attempt in attempts:
+        student_user = attempt.studentid.userid
+        notifs.append(Notification(
+            recipient=student_user,
+            notif_type='test_modified',
+            title=f'📝 تم تعديل اختبار: {test.testtitle}',
+            body=f'قام المعلم بتعديل أحد أسئلة الاختبار. يُرجى إعادة حل الاختبار لتحديث علامتك.',
+            test=test,
+        ))
+    
+    if notifs:
+        Notification.objects.bulk_create(notifs)
+        logger.info(f'Sent {len(notifs)} notifications for test modification: {test.testtitle}')
 
 
 @teacher_required

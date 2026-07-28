@@ -55,6 +55,9 @@ def _serialize_attempt(ta, override_map, max_score_map):
     max_score = max_score_map.get(test.pk, 0)
     override  = override_map.get(ta.attemptid)
 
+    # استخدام current_score إذا وجد، وإلا score القديم للبيانات القديمة
+    auto_score = ta.current_score if ta.current_score is not None else getattr(ta, 'score', 0)
+    
     return {
         'attempt_id':      ta.attemptid,
         'student_id':      student.studentid,
@@ -66,9 +69,9 @@ def _serialize_attempt(ta, override_map, max_score_map):
         'test_id':         test.testid,
         'test_title':      test.testtitle,
         'max_score':       max_score,
-        'auto_score':      ta.score,
+        'auto_score':      auto_score,
         'adjusted_score':  float(override.adjusted_score) if override else None,
-        'final_score':     float(override.adjusted_score) if override else ta.score,
+        'final_score':     float(override.adjusted_score) if override else auto_score,
         'override_reason': override.reason       if override else '',
         'override_note':   override.teacher_note if override else '',
         'visible_to':      override.visible_to   if override else 'student_parent',
@@ -218,9 +221,21 @@ def grades_api_attempts(request):
 
     attempts_list = list(qs)
 
+    # ── تجميع المحاولات الفريدة لكل طالب واختبار ─────────────
+    # نستخدم dict لتجنب التكرار: (student_id, test_id) -> attempt
+    unique_attempts = {}
+    for ta in attempts_list:
+        key = (ta.studentid_id, ta.testid_id)
+        # نحتفظ بأحدث محاولة فقط
+        if key not in unique_attempts or ta.attemptdate > unique_attempts[key].attemptdate:
+            unique_attempts[key] = ta
+    
+    # تحويل القائمة إلى المحاولات الفريدة فقط
+    unique_attempts_list = list(unique_attempts.values())
+
     # ── FIX: حساب max_score لكل اختبار مرة واحدة بدلاً من N queries ──
     # جمع IDs الاختبارات الفريدة
-    test_ids = {ta.testid_id for ta in attempts_list}
+    test_ids = {ta.testid_id for ta in unique_attempts_list}
     # جلب مجموع نقاط كل اختبار في query واحد
     max_score_map = {}
     if test_ids:
@@ -231,13 +246,13 @@ def grades_api_attempts(request):
             max_score_map[row['testid']] = row['total'] or 0
 
     # ── جلب التعديلات دفعةً واحدة ──────────────────────────────
-    attempt_ids  = [ta.attemptid for ta in attempts_list]
+    attempt_ids  = [ta.attemptid for ta in unique_attempts_list]
     override_map = {
         go.attempt_id: go
         for go in GradeOverride.objects.filter(attempt_id__in=attempt_ids)
     }
 
-    data = [_serialize_attempt(ta, override_map, max_score_map) for ta in attempts_list]
+    data = [_serialize_attempt(ta, override_map, max_score_map) for ta in unique_attempts_list]
     return JsonResponse({'attempts': data, 'count': len(data)})
 
 

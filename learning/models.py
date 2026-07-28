@@ -484,6 +484,7 @@ class Test(models.Model):
     testtitle      = models.CharField(db_column='TestTitle', max_length=100)
     totalquestions = models.IntegerField(db_column='TotalQuestions')
     durationtaken  = models.IntegerField(db_column='DurationTaken', blank=True, null=True)
+    test_version   = models.IntegerField(db_column='TestVersion', default=1, help_text='نسخة الاختبار الحالية')
  
     class Meta:
         managed  = True
@@ -509,27 +510,51 @@ class Testattempt(models.Model):
     attemptid       = models.AutoField(db_column='AttemptID', primary_key=True)
     studentid       = models.ForeignKey(Student, on_delete=models.CASCADE, db_column='StudentID')
     testid          = models.ForeignKey(Test,    on_delete=models.CASCADE, db_column='TestID')
-    score           = models.IntegerField(db_column='Score')
-    teacherfeedback = models.TextField(db_column='TeacherFeedback', blank=True, null=True)
-    attemptdate     = models.DateTimeField(db_column='AttemptDate', auto_now_add=True)
-    durationtaken   = models.IntegerField(db_column='DurationTaken', blank=True, null=True)
+    
+    # === للمعلم: البيانات التشخيصية الكاملة ===
+    first_attempt_score = models.IntegerField(db_column='FirstAttemptScore', null=True, blank=True, help_text='علامة المحاولة الأولى الحقيقية (للمعلم فقط)')
+    current_score       = models.IntegerField(db_column='CurrentScore', null=True, blank=True, help_text='العلامة الحالية بعد جميع المحاولات')
+    total_attempts      = models.IntegerField(db_column='TotalAttempts', default=1, help_text='عدد المحاولات الكلي')
+    teacherfeedback     = models.TextField(db_column='TeacherFeedback', blank=True, null=True)
+    attemptdate         = models.DateTimeField(db_column='AttemptDate', auto_now_add=True)
+    durationtaken       = models.IntegerField(db_column='DurationTaken', blank=True, null=True)
+    test_version        = models.IntegerField(db_column='TestVersion', default=1, help_text='نسخة الاختبار عند المحاولة')
+    
+    # === للطالب: التقدم والألعاب ===
+    progress_percentage = models.IntegerField(db_column='ProgressPercentage', default=0, help_text='نسبة التقدم للطالب (0-100)')
+    is_completed        = models.BooleanField(db_column='IsCompleted', default=False, help_text='هل أكمل الطالب التقييم؟')
+    stars_earned        = models.IntegerField(db_column='StarsEarned', default=0, help_text='عدد النجوم المكتسبة')
+    last_retry_date     = models.DateTimeField(db_column='LastRetryDate', blank=True, null=True, help_text='تاريخ آخر محاولة إعادة')
 
     class Meta:
         managed  = True
         db_table = 'TestAttempt'
+        indexes = [
+            models.Index(fields=['studentid', '-attemptdate'], name='idx_attempt_student_date'),
+        ]
 
 
 class Studentanswer(models.Model):
     answerid            = models.AutoField(db_column='AnswerID', primary_key=True)
     attemptid           = models.ForeignKey(Testattempt, on_delete=models.CASCADE, db_column='AttemptID')
     questionid          = models.ForeignKey(Question,    on_delete=models.CASCADE, db_column='QuestionID')
+    
+    # === للمعلم: البيانات التشخيصية ===
     selectedoption      = models.CharField(db_column='SelectedOption', max_length=50)
     iscorrect           = models.BooleanField(db_column='IsCorrect')
     responsetimeseconds = models.IntegerField(db_column='ResponseTimeSeconds', blank=True, null=True)
+    attempt_number      = models.IntegerField(db_column='AttemptNumber', default=1, help_text='رقم المحاولة لهذا السؤال')
+    
+    # === للطالب: التتبع ===
+    needs_retry         = models.BooleanField(db_column='NeedsRetry', default=False, help_text='هل يحتاج السؤال لإعادة المحاولة؟')
+    is_mastered         = models.BooleanField(db_column='IsMastered', default=False, help_text='هل أتقن الطالب هذا السؤال؟')
 
     class Meta:
         managed  = True
         db_table = 'StudentAnswer'
+        indexes = [
+            models.Index(fields=['attemptid', 'questionid'], name='idx_answer_attempt_question'),
+        ]
 
 
 # ════════════════════════════════════════════════════════════════
