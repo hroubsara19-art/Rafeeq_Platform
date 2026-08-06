@@ -42,12 +42,15 @@
         :root {
             --main-blue: #5a91e6;
             --dark-blue: #4a7bc7;
-            --soft-bg:   #f4f7fe;
+            --soft-bg:   #f8f3e9;
             --admin-dark:#1e293b;
         }
         body {
             font-family: 'Cairo', sans-serif;
-            background-color: var(--soft-bg);
+            background:
+                radial-gradient(circle at 88% 8%,rgba(242,189,91,.18),transparent 25rem),
+                radial-gradient(circle at 8% 74%,rgba(79,133,131,.13),transparent 28rem),
+                linear-gradient(135deg,#fbf7ef 0%,#f2f4ec 52%,#e8f0e9 100%);
             color: #334155;
             margin: 0;
             display: flex;
